@@ -16,6 +16,7 @@ import { getTeamPaymentInfo } from '@/lib/team-payments'
 import type { InstallmentRow } from '@/components/payments/installment-schedule'
 import { SubmitButton } from '@/components/ui/submit-button'
 import type { Metadata } from 'next'
+import { formatDollars } from '@/lib/money'
 
 export const metadata: Metadata = { title: 'Registrations' }
 
@@ -357,7 +358,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                           title={tp.teamName}
                         >
                           {paid
-                            ? `$${((tp.amount_cents ?? 0) / 100).toFixed(0)} ${(tp.currency ?? leagueAny?.currency ?? 'cad').toUpperCase()} · Team paid`
+                            ? `${formatDollars((tp.amount_cents ?? 0))} ${(tp.currency ?? leagueAny?.currency ?? 'cad').toUpperCase()} · Team paid`
                             : 'Team unpaid'}
                         </span>
                       )
@@ -366,7 +367,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                         <StatusChip
                           status={payment.status}
                           label={payment.status === 'paid' || payment.status === 'manual'
-                            ? `$${(payment.amount_cents / 100).toFixed(0)} ${payment.currency.toUpperCase()} · ${payment.payment_method}`
+                            ? `${formatDollars(payment.amount_cents)} ${payment.currency.toUpperCase()} · ${payment.payment_method}`
                             : undefined}
                         />
                       ) : (

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Overlay } from '@/components/ui/overlay'
 import { adminSetScore, adminClearScore, recordForfeit } from '@/actions/scores'
 import { toast } from 'sonner'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 const SET_SPORTS    = new Set(['volleyball', 'beach_volleyball'])
 const PERIOD_SPORTS = new Set(['hockey'])
@@ -163,8 +164,15 @@ function ScoreEntrySheet({
     })
   }
 
-  function submit() {
+  async function submit() {
     setError(null)
+    if (isPending) return
+    // Blank fields used to save as a CONFIRMED 0–0 (one stray tap on the big
+    // pinned Save on Courtside put a tie in the standings).
+    const entered = isSegmented
+      ? sets.some((st) => String(st.home).trim() !== '' || String(st.away).trim() !== '')
+      : String(homeScore).trim() !== '' || String(awayScore).trim() !== ''
+    if (!entered) { setError('Enter the score first.'); return }
     let finalHome: number
     let finalAway: number
     let finalSets: { home: number; away: number }[] | undefined
@@ -186,6 +194,12 @@ function ScoreEntrySheet({
       finalAway = parseScore(awayScore)
       finalSets = undefined
     }
+
+    if (finalHome === 0 && finalAway === 0 && !(await confirmAction({
+      title: 'Record a 0–0 result?',
+      message: `${homeTeamName} vs ${awayTeamName} will be saved as a final 0–0 and count in the standings.`,
+      confirmLabel: 'Record 0–0',
+    }))) return
 
     startTransition(async () => {
       const result = await adminSetScore({ gameId, leagueId, homeScore: finalHome, awayScore: finalAway, sets: finalSets })

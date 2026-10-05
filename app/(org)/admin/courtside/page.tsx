@@ -60,7 +60,9 @@ export default async function CourtsidePage({
       game_results(home_score, away_score, status, sets)
     `)
     .eq('organization_id', org.id)
-    .neq('status', 'cancelled')
+    // Postponed games aren't being played tonight — same rule as the
+    // dashboard's Today card, so the two counts agree.
+    .not('status', 'in', '(cancelled,postponed)')
     .gte('scheduled_at', dayStart)
     .lt('scheduled_at', dayEnd)
     .order('scheduled_at', { ascending: true })

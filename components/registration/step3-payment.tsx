@@ -80,7 +80,9 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
       quantity: sel.quantity,
       name: item?.name ?? 'Item',
       variantLabel: variant?.label ?? null,
-      unitPriceCents: item?.price_cents ?? 0,
+      // The event's price override, as on the add-ons step and at Stripe —
+      // the base price here showed a different total from the one charged.
+      unitPriceCents: item?.effective_price_cents ?? item?.price_cents ?? 0,
     }
   }).filter((li) => li.quantity > 0)
 

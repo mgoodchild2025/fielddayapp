@@ -24,6 +24,7 @@ import { redirectToLogin } from '@/lib/auth'
 import { getOrgBrandingCached } from '@/lib/org-cache'
 import { canAccess } from '@/lib/features'
 import type { Metadata } from 'next'
+import { formatDollars } from '@/lib/money'
 
 export const metadata: Metadata = { title: 'Home' }
 
@@ -733,7 +734,7 @@ export default async function DashboardPage() {
       : pmt.payment_method === 'cheque' ? 'cheque'
       : 'cash'
     const amountFormatted = pmt.amount_cents > 0
-      ? ` ($${(pmt.amount_cents / 100).toFixed(0)} ${(pmt.currency ?? 'cad').toUpperCase()})`
+      ? ` (${formatDollars(pmt.amount_cents)} ${(pmt.currency ?? 'cad').toUpperCase()})`
       : ''
     pendingActions.push({
       type: 'pending_payment',
@@ -763,7 +764,7 @@ export default async function DashboardPage() {
       : pmt.payment_method === 'cheque' ? 'cheque'
       : 'cash'
     const amountFormatted = pmt.amount_cents > 0
-      ? ` ($${(pmt.amount_cents / 100).toFixed(0)} ${(pmt.currency ?? 'cad').toUpperCase()})`
+      ? ` (${formatDollars(pmt.amount_cents)} ${(pmt.currency ?? 'cad').toUpperCase()})`
       : ''
     pendingActions.push({
       type: 'pending_payment',

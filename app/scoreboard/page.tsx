@@ -90,7 +90,7 @@ async function loadAttachedGame(gameId: string): Promise<AttachedGame | null> {
   if (user) {
     const [{ data: adminRow }, { data: captainRow }] = await Promise.all([
       db.from('org_members').select('role').eq('organization_id', orgId).eq('user_id', user.id)
-        .in('role', ['org_admin', 'league_admin']).maybeSingle(),
+        .in('role', ['org_admin', 'league_admin']).eq('status', 'active').maybeSingle(),
       db.from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain')
         .eq('status', 'active').in('team_id', [home.id, away.id]).limit(1).maybeSingle(),
     ])
@@ -162,6 +162,7 @@ async function loadAttachedBracketMatch(matchId: string): Promise<AttachedGame |
       .eq('organization_id', orgId)
       .eq('user_id', user.id)
       .in('role', ['org_admin', 'league_admin'])
+      .eq('status', 'active') // suspended admins keep nothing
       .maybeSingle()
     if (adminRow) canSave = 'admin'
   }

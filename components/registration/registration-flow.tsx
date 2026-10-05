@@ -15,6 +15,7 @@ import type { MerchItemForStep, MerchSelection } from './step-addons'
 import { activateRegistration } from '@/actions/registrations'
 import type { Database } from '@/types/database'
 import type { PaymentMethod } from '@/lib/payment-methods'
+import { formatDollars } from '@/lib/money'
 
 type League = Database['public']['Tables']['leagues']['Row']
 type Waiver = Database['public']['Tables']['waivers']['Row']
@@ -323,13 +324,13 @@ export function RegistrationFlow({
                 <p className="text-center text-sm text-gray-500 mt-2">
                   {seasonPassQuote.prorated ? (
                     <>
-                      <s>${(seasonPassQuote.fullPriceCents / 100).toFixed(0)}</s>{' '}
+                      <s>{formatDollars(seasonPassQuote.fullPriceCents)}</s>{' '}
                       <span className="font-semibold text-gray-900">${(seasonPassQuote.priceCents / 100).toFixed(seasonPassQuote.priceCents % 100 === 0 ? 0 : 2)}</span>
                       {' — covers the remaining '}{seasonPassQuote.remainingSessions} of {seasonPassQuote.totalSessions} sessions
                     </>
                   ) : (
                     <>
-                      <span className="font-semibold text-gray-900">${(seasonPassQuote.fullPriceCents / 100).toFixed(0)}</span>
+                      <span className="font-semibold text-gray-900">{formatDollars(seasonPassQuote.fullPriceCents)}</span>
                       {seasonPassQuote.totalSessions > 0 && <>{' — covers all '}{seasonPassQuote.totalSessions} sessions</>}
                     </>
                   )}

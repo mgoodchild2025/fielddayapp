@@ -6,6 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPendingReacceptance } from '@/actions/tenant-consent'
 import { ReacceptForm } from '@/components/legal/reaccept-form'
 import { redirectToLogin } from '@/lib/auth'
+import { safeRelativePath } from '@/lib/safe-redirect'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Updated terms' }
@@ -17,7 +18,8 @@ interface Props {
 }
 
 export default async function ReacceptPage({ searchParams }: Props) {
-  const { redirect: redirectTo } = await searchParams
+  // Same-site paths only (`?redirect=//evil.com` was followed as-is).
+  const redirectTo = safeRelativePath((await searchParams).redirect) ?? undefined
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 

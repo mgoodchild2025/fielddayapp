@@ -17,6 +17,7 @@ import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import { TeamPaymentPanel } from '@/components/teams/team-payment-panel'
 import { isPaidStatus } from '@/lib/team-payments'
+import { teamFeeCents } from '@/lib/registration-price'
 import { getPositionsForSport } from '@/actions/positions'
 import { resolveLeagueMethods } from '@/lib/payment-methods'
 import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
@@ -67,7 +68,7 @@ export default async function TeamDetailPage({
       .from('teams')
       .select(`
         id, name, color, logo_url, team_code, league_id, calendar_token,
-        league:leagues!teams_league_id_fkey(id, name, slug, sport, payment_mode, price_cents, currency, payment_methods, payment_instructions),
+        league:leagues!teams_league_id_fkey(id, name, slug, sport, payment_mode, price_cents, early_bird_price_cents, early_bird_deadline, currency, payment_methods, payment_instructions),
         team_members(
           id, role, status, user_id, position,
           profile:profiles!team_members_user_id_fkey(full_name, email, phone, avatar_url, show_contact_info)
@@ -128,7 +129,8 @@ export default async function TeamDetailPage({
   const leagueId = (league as { id?: string } | null)?.id ?? ''
   const leagueSport = (league as { sport?: string } | null)?.sport ?? ''
   const paymentMode = (league as { payment_mode?: string } | null)?.payment_mode ?? 'per_player'
-  const leaguePriceCents = (league as { price_cents?: number } | null)?.price_cents ?? 0
+  // Early bird applies to team fees too (same rule as the checkout charge).
+  const leaguePriceCents = league ? teamFeeCents(league as { price_cents: number | null; early_bird_price_cents?: number | null; early_bird_deadline?: string | null }) : 0
   const leagueCurrency = (league as { currency?: string } | null)?.currency ?? 'cad'
   const leagueSlug = (league as { slug?: string } | null)?.slug ?? ''
   const timezone = orgBranding?.timezone ?? 'America/Toronto'

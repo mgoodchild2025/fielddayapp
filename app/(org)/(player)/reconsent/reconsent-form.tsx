@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { acceptPlayerReconsent } from '@/actions/player-consents'
 import { clearOfflineCache } from '@/lib/push-client'
+import { safeRelativePath } from '@/lib/safe-redirect'
 
 export function ReconsentForm({
   versionId,
@@ -25,7 +26,7 @@ export function ReconsentForm({
     startTransition(async () => {
       const res = await acceptPlayerReconsent(versionId, versionLabel)
       if (res.error) setError(res.error)
-      else router.replace(redirectTo || '/dashboard')
+      else router.replace(safeRelativePath(redirectTo) ?? '/dashboard')
     })
   }
 
