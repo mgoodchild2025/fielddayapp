@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Link as LinkIcon, Check } from 'lucide-react'
+import { announce } from '@/lib/announce'
 
 interface Props {
   url: string
@@ -28,6 +29,7 @@ export function CopyLinkButton({ url, label = 'Copy link' }: Props) {
       ta.remove()
     }
     setCopied(true)
+    announce('Link copied')
     setTimeout(() => setCopied(false), 2000)
   }
 

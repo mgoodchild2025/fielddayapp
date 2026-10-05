@@ -37,6 +37,7 @@ export default async function CommunicationsPage() {
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
     <OrgNav org={org} logoUrl={(branding as { logo_url?: string | null } | null)?.logo_url ?? null} />
+    <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
       <BackLink fallbackHref="/profile" fallbackLabel="Profile" />
       <h1 className="text-2xl font-bold mt-2 mb-6">Communication Preferences</h1>
@@ -76,6 +77,7 @@ export default async function CommunicationsPage() {
         </p>
       </section>
     </div>
+    </main>
     <Footer org={org} />
     </div>
   )

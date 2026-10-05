@@ -37,6 +37,7 @@ export default async function SelfCheckInPage({ params }: { params: Promise<{ to
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="max-w-sm mx-auto px-4 py-16 text-center">
         {!reg ? (
           <div className="fd-step-in bg-white rounded-2xl border p-8 shadow-sm">
@@ -63,6 +64,7 @@ export default async function SelfCheckInPage({ params }: { params: Promise<{ to
           <TokenCheckinConfirm token={token} playerName={playerName} eventName={league?.name ?? null} timezone={timezone} />
         )}
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

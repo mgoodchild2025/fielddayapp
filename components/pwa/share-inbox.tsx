@@ -212,8 +212,8 @@ export function ShareInbox({
               {p?.state === 'done' && <div className="absolute inset-0 grid place-items-center bg-green-600/60 text-white text-2xl">✓</div>}
               {p?.state === 'error' && <div className="absolute inset-0 grid place-items-center bg-red-600/70 text-white text-[10px] p-1 text-center">{p.error}</div>}
               {!busy && (!p || p.state === 'error') && (
-                <button type="button" onClick={() => removeItem(it.id)} aria-label="Remove"
-                  className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/60 text-white text-xs">×</button>
+                <button type="button" onClick={() => removeItem(it.id)} aria-label={`Remove ${it.name}`}
+                  className="absolute top-0 right-0 w-10 h-10 inline-flex items-center justify-center"><span className="h-7 w-7 rounded-full bg-black/60 text-white text-sm inline-flex items-center justify-center">×</span></button>
               )}
             </li>
           )

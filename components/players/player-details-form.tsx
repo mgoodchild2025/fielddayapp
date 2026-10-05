@@ -2,6 +2,7 @@
 
 import { useTransition, useState } from 'react'
 import { updatePlayerDetails, updateOrgMemberRole } from '@/actions/players'
+import { announce } from '@/lib/announce'
 
 type OrgRole = 'org_admin' | 'league_admin' | 'captain' | 'player'
 
@@ -53,6 +54,7 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
         setError(detRes.error ?? roleRes.error ?? 'Unknown error')
       } else {
         setSaved(true)
+        announce('Saved')
         setTimeout(() => setSaved(false), 3000)
       }
     })
@@ -63,11 +65,11 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Full Name</label>
-          <input name="full_name" defaultValue={profile.full_name} required className={inputClass} />
+          <input aria-label="Full Name" name="full_name" defaultValue={profile.full_name} required className={inputClass} />
         </div>
         <div>
           <label className={labelClass}>Phone</label>
-          <input
+          <input aria-label="Phone"
             name="phone"
             type="tel"
             defaultValue={profile.phone ?? ''}
@@ -76,7 +78,7 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
         </div>
         <div>
           <label className={labelClass}>Skill Level</label>
-          <select name="skill_level" defaultValue={playerDetails?.skill_level ?? ''} className={inputClass}>
+          <select aria-label="Skill Level" name="skill_level" defaultValue={playerDetails?.skill_level ?? ''} className={inputClass}>
             <option value="">Not set</option>
             <option value="beginner">Beginner</option>
             <option value="intermediate">Intermediate</option>
@@ -85,7 +87,7 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
         </div>
         <div>
           <label className={labelClass}>T-Shirt Size</label>
-          <select name="t_shirt_size" defaultValue={playerDetails?.t_shirt_size ?? ''} className={inputClass}>
+          <select aria-label="T-Shirt Size" name="t_shirt_size" defaultValue={playerDetails?.t_shirt_size ?? ''} className={inputClass}>
             <option value="">Not set</option>
             {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -94,7 +96,7 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
         </div>
         <div>
           <label className={labelClass}>Org Role</label>
-          <select name="org_role" defaultValue={orgRole} className={inputClass}>
+          <select aria-label="Org Role" name="org_role" defaultValue={orgRole} className={inputClass}>
             <option value="player">Player</option>
             <option value="captain">Captain</option>
             <option value="league_admin">League Admin</option>
@@ -108,7 +110,7 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Name</label>
-            <input
+            <input aria-label="Name"
               name="emergency_contact_name"
               defaultValue={playerDetails?.emergency_contact_name ?? ''}
               className={inputClass}
@@ -116,7 +118,7 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
           </div>
           <div>
             <label className={labelClass}>Phone</label>
-            <input
+            <input aria-label="Phone"
               name="emergency_contact_phone"
               type="tel"
               defaultValue={playerDetails?.emergency_contact_phone ?? ''}
@@ -128,7 +130,7 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
 
       <div>
         <label className={labelClass}>How did they hear about us?</label>
-        <input
+        <input aria-label="How did they hear about us?"
           name="how_did_you_hear"
           defaultValue={playerDetails?.how_did_you_hear ?? ''}
           className={inputClass}

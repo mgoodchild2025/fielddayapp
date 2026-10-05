@@ -91,6 +91,7 @@ export default async function EventsPage() {
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12 flex-1">
         <h1
           className="text-2xl sm:text-3xl font-bold uppercase mb-6"
@@ -100,6 +101,7 @@ export default async function EventsPage() {
         </h1>
         <EventsFilter events={events} timezone={branding?.timezone ?? undefined} />
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

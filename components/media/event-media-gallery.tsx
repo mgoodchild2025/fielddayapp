@@ -54,7 +54,7 @@ export function EventMediaGallery({ items, showLeague = false }: { items: EventM
               src={cloudinaryThumb(m.thumbnailUrl ?? m.url, { width: 400, height: 400 })}
               alt={m.caption ?? 'Event media'}
               loading="lazy"
-              className="h-full w-full object-cover transition-transform group-hover:scale-105"
+              className="h-full w-full object-cover transition-transform motion-safe:group-hover:scale-105"
             />
             {m.mediaType === 'video' && (
               <span className="absolute inset-0 flex items-center justify-center">

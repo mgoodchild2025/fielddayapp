@@ -113,7 +113,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
               alt={item.name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              className="object-cover motion-safe:group-hover:scale-105 transition-transform duration-300"
               unoptimized={!canOptimizeImage(item.image_url)}
             />
           ) : (
@@ -141,7 +141,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
                 <p className="text-xs text-gray-500 mt-0.5 leading-relaxed break-words">{descPreview}</p>
               )}
             </button>
-            <p className="text-base font-bold mt-1.5" style={{ color: 'var(--brand-primary)' }}>
+            <p className="text-base font-bold mt-1.5" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
               ${(item.price_cents / 100).toFixed(2)}
               <span className="text-xs font-normal text-gray-500 ml-1">{(item.currency ?? 'cad').toUpperCase()}</span>
             </p>
@@ -298,7 +298,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
               {/* Name + price */}
               <div className="flex items-start justify-between gap-3">
                 <h2 className="font-bold text-gray-900 text-lg leading-snug">{item.name}</h2>
-                <p className="text-lg font-bold shrink-0" style={{ color: 'var(--brand-primary)' }}>
+                <p className="text-lg font-bold shrink-0" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                   ${(item.price_cents / 100).toFixed(2)}
                   <span className="text-xs font-normal text-gray-500 ml-1">{(item.currency ?? 'cad').toUpperCase()}</span>
                 </p>

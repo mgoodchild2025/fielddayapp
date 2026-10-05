@@ -79,7 +79,7 @@ function NavLinkForm({ initial, onSave, onCancel, pending, error }: NavLinkFormP
       {/* Label */}
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Label</label>
-        <input
+        <input aria-label="Label"
           type="text"
           value={state.label}
           onChange={e => set('label', e.target.value)}
@@ -119,7 +119,7 @@ function NavLinkForm({ initial, onSave, onCancel, pending, error }: NavLinkFormP
         <>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">URL</label>
-            <input
+            <input aria-label="URL"
               type="url"
               value={state.url}
               onChange={e => set('url', e.target.value)}
@@ -144,7 +144,7 @@ function NavLinkForm({ initial, onSave, onCancel, pending, error }: NavLinkFormP
       {state.linkType === 'document' && !isEditing && (
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">PDF file</label>
-          <input
+          <input aria-label="PDF file"
             ref={fileRef}
             type="file"
             accept="application/pdf"
@@ -276,7 +276,7 @@ export function NavLinkManager({ initialLinks }: Props) {
   return (
     <div className="space-y-4">
       {globalError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {globalError}
         </div>
       )}

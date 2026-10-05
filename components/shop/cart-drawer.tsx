@@ -167,7 +167,7 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
                     {item.variantLabel && (
                       <p className="text-xs text-gray-500">{item.variantLabel}</p>
                     )}
-                    <p className="text-sm font-bold mt-0.5" style={{ color: 'var(--brand-primary)' }}>
+                    <p className="text-sm font-bold mt-0.5" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                       ${((item.unitPriceCents * item.quantity) / 100).toFixed(2)}
                     </p>
 

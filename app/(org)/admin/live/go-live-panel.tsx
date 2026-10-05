@@ -79,7 +79,7 @@ export function GoLivePanel({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Show on</label>
-            <select value={scope} onChange={e => setScope(e.target.value)}
+            <select aria-label="Show on" value={scope} onChange={e => setScope(e.target.value)}
               className="w-full border rounded-md px-3 py-2 text-sm bg-white">
               <option value="">Whole organization</option>
               {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
@@ -87,7 +87,7 @@ export function GoLivePanel({
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Platform</label>
-            <select value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}
+            <select aria-label="Platform" value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}
               className="w-full border rounded-md px-3 py-2 text-sm bg-white">
               <option value="youtube">YouTube</option>
               <option value="instagram">Instagram</option>
@@ -98,14 +98,14 @@ export function GoLivePanel({
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Title <span className="text-gray-400 font-normal">(optional)</span></label>
-          <input value={title} onChange={e => setTitle(e.target.value)} maxLength={120}
+          <input aria-label="Title (optional)" value={title} onChange={e => setTitle(e.target.value)} maxLength={120}
             placeholder="e.g. Court 1 — Championship Final"
             className="w-full border rounded-md px-3 py-2 text-sm" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Live URL</label>
-          <input value={url} onChange={e => setUrl(e.target.value)}
+          <input aria-label="Live URL" value={url} onChange={e => setUrl(e.target.value)}
             placeholder={platform === 'youtube' ? 'https://youtube.com/live/…' : 'https://instagram.com/…'}
             className="w-full border rounded-md px-3 py-2 text-sm" />
           {platform === 'instagram' && (

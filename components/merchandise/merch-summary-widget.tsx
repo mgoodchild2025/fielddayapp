@@ -46,7 +46,7 @@ export function MerchSummaryWidget({ orders, leagueId }: Props) {
         <a
           href={`/admin/events/${leagueId}/merchandise`}
           className="text-xs font-medium hover:opacity-75 transition-opacity"
-          style={{ color: 'var(--brand-primary)' }}
+          style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
         >
           View orders →
         </a>

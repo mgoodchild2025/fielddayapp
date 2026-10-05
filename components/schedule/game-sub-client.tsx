@@ -68,7 +68,7 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
         <div className="flex items-center gap-3 mb-3">
           {invite.teamLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={invite.teamLogoUrl} alt={invite.teamName}
+            <img src={invite.teamLogoUrl} alt=""
               className="w-10 h-10 rounded-full object-cover border border-gray-100 shrink-0" />
           ) : (
             <div className="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold text-white shrink-0"
@@ -259,13 +259,13 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
         {/* Signature block */}
         <div className="bg-white rounded-xl border p-5 space-y-4">
           <h2 className="font-semibold">{isMinor ? 'Guardian Signature' : 'Sign Below'}</h2>
-          {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{errorMsg}</div>}
+          {errorMsg && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{errorMsg}</div>}
 
           {isMinor ? (
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Guardian&apos;s full legal name</label>
-                <input type="text" value={guardianName} onChange={e => setGuardianName(e.target.value)}
+                <input aria-label="Guardian's full legal name" type="text" value={guardianName} onChange={e => setGuardianName(e.target.value)}
                   disabled={!canSign}
                   placeholder={canSign ? 'e.g. Jane Smith' : 'Read the waiver to enable'}
                   autoComplete="name" autoCapitalize="words"
@@ -273,7 +273,7 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Relationship</label>
-                <select value={guardianRelationship} onChange={e => setGuardianRelationship(e.target.value as GuardianRelationship)}
+                <select aria-label="Relationship" value={guardianRelationship} onChange={e => setGuardianRelationship(e.target.value as GuardianRelationship)}
                   disabled={!canSign} className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50">
                   <option value="parent">Parent</option>
                   <option value="legal_guardian">Legal Guardian</option>
@@ -283,7 +283,7 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
           ) : (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Type your full legal name</label>
-              <input type="text" value={signatureName} onChange={e => setSignatureName(e.target.value)}
+              <input aria-label="Type your full legal name" type="text" value={signatureName} onChange={e => setSignatureName(e.target.value)}
                 disabled={!canSign}
                 placeholder={canSign ? 'Your full name' : 'Read the waiver to enable'}
                 autoComplete="name" autoCapitalize="words" enterKeyHint="done"
@@ -316,7 +316,7 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
   return (
     <div className="space-y-4">
       {gameCard}
-      {errorMsg && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{errorMsg}</div>}
+      {errorMsg && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{errorMsg}</div>}
       <div className="bg-white border rounded-xl p-5 space-y-3">
         <p className="text-sm text-gray-600">Are you available to sub for this game?</p>
         <button

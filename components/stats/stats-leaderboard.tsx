@@ -63,7 +63,7 @@ export function StatsLeaderboard({ statDefs, players, includeUncredited = false,
 
       {binderHref && (
         <div className="flex justify-end -mb-1">
-          <Link href={binderHref} className="text-xs font-semibold hover:underline" style={{ color: 'var(--brand-primary)' }}>
+          <Link href={binderHref} className="text-xs font-semibold hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
             🃏 Card Binder →
           </Link>
         </div>

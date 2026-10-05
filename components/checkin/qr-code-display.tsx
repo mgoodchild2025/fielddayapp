@@ -33,7 +33,7 @@ export function QRCodeDisplay({ checkinUrl, playerName, eventName, size = 200 }:
           </div>
           {/* Label */}
           <div>
-            <p className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>Check-in QR</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>Check-in QR</p>
             <p className="text-xs text-gray-500">Tap to expand</p>
           </div>
         </button>

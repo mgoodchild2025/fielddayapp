@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { captainAddPlayerByEmail, regenerateTeamCode } from '@/actions/teams'
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { toast } from 'sonner'
+import { announce } from '@/lib/announce'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -33,6 +34,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
     if (!inviteUrl) return
     navigator.clipboard.writeText(inviteUrl).then(() => {
       setCopied(true)
+      announce('Link copied')
       setTimeout(() => setCopied(false), 2000)
     })
   }
@@ -89,7 +91,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
             className="shrink-0 px-3 py-2 rounded-md text-xs font-semibold border transition-colors"
             style={copied
               ? { borderColor: '#10b981', color: '#059669', backgroundColor: '#f0fdf4' }
-              : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }
+              : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary-ink, var(--brand-primary))' }
             }
           >
             {copied ? <span key="copied" className="fd-fade-in">✓ Copied</span> : 'Copy link'}
@@ -120,8 +122,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
         <button
           type="button"
           onClick={() => { setShowForm(true) }}
-          className="text-xs font-medium transition-colors"
-          style={{ color: 'var(--brand-primary)' }}
+          className="press inline-flex items-center min-h-10 text-sm font-medium text-brand-ink"
         >
           + Email an invite
         </button>
@@ -129,6 +130,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
         <form onSubmit={handleSend} className="mt-1 space-y-2">
           <div className="flex flex-col sm:flex-row gap-2">
             <input
+              aria-label="Email address to invite"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -139,6 +141,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
               className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
             />
             <select
+              aria-label="Role"
               value={role}
               onChange={(e) => setRole(e.target.value as Role)}
               className="border rounded-md px-3 py-2 text-sm"

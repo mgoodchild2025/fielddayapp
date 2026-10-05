@@ -285,6 +285,7 @@ export default async function SchedulePage() {
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 flex-1">
 
         <h1 className="text-2xl font-bold uppercase mb-6" style={{ fontFamily: 'var(--brand-heading-font)' }}>
@@ -318,6 +319,7 @@ export default async function SchedulePage() {
         />
 
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

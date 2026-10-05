@@ -128,7 +128,7 @@ export function StandingsTable({
                       <RankCell rank={i + 1} />
                       <TeamCell team={team} rank={i + 1} />
                       <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
-                      <td className="px-1.5 sm:px-3 py-3 text-center font-semibold text-brand-primary tabular-nums">{team.setWins}</td>
+                      <td className="px-1.5 sm:px-3 py-3 text-center font-semibold text-brand-ink tabular-nums">{team.setWins}</td>
                       <td className="px-1.5 sm:px-3 py-3 text-center text-gray-500 tabular-nums">{team.setLosses}</td>
                       <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
                       <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
@@ -216,7 +216,7 @@ export function StandingsTable({
                     <RankCell rank={i + 1} />
                     <TeamCell team={team} rank={i + 1} streak={team.streak} />
                     <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
-                    <td className="px-1.5 sm:px-3 py-3 text-center font-semibold text-brand-primary tabular-nums">{team.wins}</td>
+                    <td className="px-1.5 sm:px-3 py-3 text-center font-semibold text-brand-ink tabular-nums">{team.wins}</td>
                     <td className="px-1.5 sm:px-3 py-3 text-center text-gray-500 tabular-nums">{team.losses}</td>
                     {isVolleyball && <>
                       <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.setWins}</td>
@@ -226,7 +226,7 @@ export function StandingsTable({
                     <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
                     <td className="px-1.5 sm:px-3 py-3 text-center tabular-nums text-gray-500">{pd > 0 ? '+' : ''}{pd}</td>
                     {isVolleyball && (
-                      <td className="px-1.5 sm:px-3 py-3 text-center font-bold text-brand-primary tabular-nums">
+                      <td className="px-1.5 sm:px-3 py-3 text-center font-bold text-brand-ink tabular-nums">
                         {pts}
                       </td>
                     )}

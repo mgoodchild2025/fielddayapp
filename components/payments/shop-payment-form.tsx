@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { saveShopPaymentSettings } from '@/actions/payment-settings'
+import { announce } from '@/lib/announce'
 
 interface Props {
   mode: 'stripe' | 'manual'
@@ -27,6 +28,7 @@ export function ShopPaymentForm({ mode, instructions }: Props) {
         setError(result.error)
       } else {
         setSaved(true)
+        announce('Saved')
         setTimeout(() => setSaved(false), 3000)
       }
     })
@@ -37,6 +39,7 @@ export function ShopPaymentForm({ mode, instructions }: Props) {
       {/* Mode selector */}
       <div className="grid grid-cols-2 gap-3">
         <button
+          aria-pressed={selectedMode === 'stripe'}
           type="button"
           onClick={() => setSelectedMode('stripe')}
           className={`flex flex-col gap-1 p-4 rounded-lg border-2 text-left transition-colors ${
@@ -59,6 +62,7 @@ export function ShopPaymentForm({ mode, instructions }: Props) {
         </button>
 
         <button
+          aria-pressed={selectedMode === 'manual'}
           type="button"
           onClick={() => setSelectedMode('manual')}
           className={`flex flex-col gap-1 p-4 rounded-lg border-2 text-left transition-colors ${
@@ -88,7 +92,7 @@ export function ShopPaymentForm({ mode, instructions }: Props) {
             Payment instructions
             <span className="text-red-600 ml-0.5">*</span>
           </label>
-          <textarea
+          <textarea aria-label="Payment instructions"
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={4}

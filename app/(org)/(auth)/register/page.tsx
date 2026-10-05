@@ -158,7 +158,7 @@ export default function RegisterPage() {
           </button>
           <p className="text-sm text-center text-gray-500 pt-2">
             Already have an account?{' '}
-            <Link href={loginHref} className="inline-flex items-center min-h-10 font-medium text-brand-primary hover:underline">Sign in</Link>
+            <Link href={loginHref} className="inline-flex items-center min-h-10 font-medium text-brand-ink hover:underline">Sign in</Link>
           </p>
         </form>
         </div>

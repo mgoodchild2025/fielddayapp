@@ -6,6 +6,7 @@ import { upsertMerchandiseItem, upsertMerchandiseVariants, uploadMerchandiseImag
 import type { MerchItem } from '@/actions/merchandise'
 import { UploadStatus } from '@/components/ui/upload-status'
 import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
+import { announce } from '@/lib/announce'
 
 type VariantDraft = {
   key: number
@@ -185,6 +186,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
       if (varResult.error) { setError(varResult.error); return }
 
       setSaved(true)
+      announce('Saved')
       setTimeout(() => {
         onSaved(result.id!)
       }, 600)
@@ -273,7 +275,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
         {/* Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Item name</label>
-          <input
+          <input aria-label="Item name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -288,7 +290,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Description <span className="text-gray-400 font-normal">(optional)</span>
           </label>
-          <textarea
+          <textarea aria-label="Description (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
@@ -355,7 +357,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Stock quantity <span className="text-gray-400 font-normal">(optional — leave blank for unlimited)</span>
             </label>
-            <input
+            <input aria-label="Stock quantity (optional — leave blank for unlimited)"
               type="number" inputMode="numeric"
               min="0"
               value={stockStr}
@@ -371,7 +373,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Low-stock alert threshold <span className="text-gray-400 font-normal">(notify when stock ≤ this number)</span>
           </label>
-          <input
+          <input aria-label="Low-stock alert threshold (notify when stock ≤ this number)"
             type="number" inputMode="numeric"
             min="0"
             value={lowStockThreshold}

@@ -223,7 +223,7 @@ function WaiverForm({ waiver, onSaved, onCancel }: FormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-        <input
+        <input aria-label="Title"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}

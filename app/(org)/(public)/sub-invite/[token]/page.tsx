@@ -38,6 +38,7 @@ export default async function SubInvitePage({
     return (
       <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
           <p className="text-4xl">🔍</p>
           <p className="text-2xl font-bold">Invite Not Found</p>
@@ -47,6 +48,7 @@ export default async function SubInvitePage({
             <Link href="/" className="press inline-flex items-center justify-center min-h-11 px-4 text-sm font-medium text-gray-600 hover:text-gray-900">Home</Link>
           </div>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -57,6 +59,7 @@ export default async function SubInvitePage({
     return (
       <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
           <p className="text-4xl">⏱</p>
           <p className="text-2xl font-bold">Invite Expired</p>
@@ -66,6 +69,7 @@ export default async function SubInvitePage({
             <Link href="/" className="press inline-flex items-center justify-center min-h-11 px-4 text-sm font-medium text-gray-600 hover:text-gray-900">Home</Link>
           </div>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -81,6 +85,7 @@ export default async function SubInvitePage({
     return (
       <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
           <p className="text-4xl">{cancelled ? '🚫' : '⏸'}</p>
           <p className="text-2xl font-bold">Game {cancelled ? 'Cancelled' : 'Postponed'}</p>
@@ -92,6 +97,7 @@ export default async function SubInvitePage({
             <Link href="/" className="press inline-flex items-center justify-center min-h-11 px-4 text-sm font-medium text-gray-600 hover:text-gray-900">Home</Link>
           </div>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -106,13 +112,14 @@ export default async function SubInvitePage({
     return (
       <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="max-w-md mx-auto px-4 py-12">
           <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
             <div className="h-1.5" style={{ backgroundColor: teamColor }} />
             <div className="px-6 py-8 text-center space-y-1">
               {invite.teamLogoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={invite.teamLogoUrl} alt={invite.teamName}
+                <img src={invite.teamLogoUrl} alt=""
                   className="mx-auto w-16 h-16 rounded-full object-cover border border-gray-100 mb-4" />
               ) : (
                 <div
@@ -155,6 +162,7 @@ export default async function SubInvitePage({
             </div>
           </div>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -187,6 +195,7 @@ export default async function SubInvitePage({
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="max-w-md mx-auto px-4 py-10">
         <GameSubClient
           token={token}
@@ -197,6 +206,7 @@ export default async function SubInvitePage({
           hasExistingWaiver={hasExistingWaiver}
         />
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

@@ -59,15 +59,17 @@ interface EventAvatarProps {
   sport?: string | null
   size?: Size
   className?: string
+  /** Announce the event name (decorative by default — it sits beside the name). */
+  labelled?: boolean
 }
 
-export function EventAvatar({ logoUrl, name, sport, size = 'sm', className = '' }: EventAvatarProps) {
+export function EventAvatar({ logoUrl, name, sport, size = 'sm', className = '', labelled = false }: EventAvatarProps) {
   const sizeClass = sizeClasses[size]
   const px = sizePx[size]
 
   if (logoUrl) {
     return (
-      <LogoImage src={logoUrl} alt={name} px={px} style={{ imageOrientation: 'from-image' }} frameClassName={`${sizeClass} rounded-lg overflow-hidden shrink-0 ${className}`} />
+      <LogoImage src={logoUrl} alt={labelled ? name : ''} px={px} style={{ imageOrientation: 'from-image' }} frameClassName={`${sizeClass} rounded-lg overflow-hidden shrink-0 ${className}`} />
     )
   }
 
@@ -76,7 +78,7 @@ export function EventAvatar({ logoUrl, name, sport, size = 'sm', className = '' 
   return (
     <div
       className={`${sizeClass} rounded-lg shrink-0 flex items-center justify-center bg-white/20 ${className}`}
-      aria-label={sport ?? 'event'}
+      aria-hidden="true"
     >
       <SportIcon
         size={iconSize[size]}

@@ -125,7 +125,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
               {/* Name */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Team Name</label>
-                <input
+                <input aria-label="Team Name"
                   type="text"
                   data-autofocus
                   value={name}
@@ -140,6 +140,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
                 <div className="flex items-center gap-2 flex-wrap">
                   {PRESET_COLORS.map((c) => (
                     <button
+                      aria-pressed={color === c}
                       key={c}
                       type="button"
                       onClick={() => setColor(c)}

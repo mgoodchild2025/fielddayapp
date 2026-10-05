@@ -107,13 +107,13 @@ export function AdminAddRegistrant({
 
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Full name <span className="text-red-400">*</span></label>
-            <input data-autofocus value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="off" autoCapitalize="words" className="w-full min-h-10 border rounded-md px-3 text-sm" placeholder="Jane Doe" />
+            <input aria-label="Full name" data-autofocus value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="off" autoCapitalize="words" className="w-full min-h-10 border rounded-md px-3 text-sm" placeholder="Jane Doe" />
           </div>
 
           {hasSessions && (
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Session</label>
-              <select value={sessionId} onChange={(e) => setSessionId(e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
+              <select aria-label="Session" value={sessionId} onChange={(e) => setSessionId(e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
                 <option value="">All sessions (full pass)</option>
                 {sessions.map((s) => (
                   <option key={s.id} value={s.id}>{s.label}</option>
@@ -130,11 +130,11 @@ export function AdminAddRegistrant({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Email <span className="text-gray-400">(optional)</span></label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" autoCapitalize="none" className="w-full min-h-10 border rounded-md px-3 text-sm" placeholder="—" />
+              <input aria-label="Email (optional)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" autoCapitalize="none" className="w-full min-h-10 border rounded-md px-3 text-sm" placeholder="—" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Phone <span className="text-gray-400">(optional)</span></label>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="off" className="w-full min-h-10 border rounded-md px-3 text-sm" placeholder="—" />
+              <input aria-label="Phone (optional)" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="off" className="w-full min-h-10 border rounded-md px-3 text-sm" placeholder="—" />
             </div>
           </div>
           <p className="text-[11px] text-gray-400 -mt-1">
@@ -152,7 +152,7 @@ export function AdminAddRegistrant({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1 mt-2">Method</label>
-              <select value={method} onChange={(e) => setMethod(e.target.value as Method)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
+              <select aria-label="Method" value={method} onChange={(e) => setMethod(e.target.value as Method)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
                 <option value="cash">Cash</option>
                 <option value="etransfer">e-Transfer</option>
                 <option value="cheque">Cheque</option>
@@ -164,7 +164,7 @@ export function AdminAddRegistrant({
 
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Notes <span className="text-gray-400">(optional)</span></label>
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" placeholder="e.g. paid cash at the desk" />
+            <input aria-label="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" placeholder="e.g. paid cash at the desk" />
           </div>
           </>)}
         </div>

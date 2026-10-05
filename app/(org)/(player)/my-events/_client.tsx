@@ -110,11 +110,11 @@ function EventCard({ item, timezone, faded }: { item: EventItem; timezone: strin
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold text-gray-900 truncate">{league.name}</p>
             {isDropIn && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 bg-purple-50 text-purple-700">
+              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full shrink-0 bg-purple-50 text-purple-700">
                 Drop-in
               </span>
             )}
-            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusInfo.className}`}>
+            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusInfo.className}`}>
               {statusInfo.label}
             </span>
           </div>
@@ -140,7 +140,7 @@ function EventCard({ item, timezone, faded }: { item: EventItem; timezone: strin
             <span className="text-gray-500">+{myUpcoming.length - 3} more booked</span>
           )}
           {myUpcoming.length === 0 && eventUpcoming.length > 0 && (
-            <Link href={`/events/${league.slug}`} className="font-medium" style={{ color: 'var(--brand-primary)' }}>
+            <Link href={`/events/${league.slug}`} className="font-medium" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
               Join a session — next {fmtSession(eventUpcoming[0])} →
             </Link>
           )}

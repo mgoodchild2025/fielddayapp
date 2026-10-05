@@ -283,7 +283,7 @@ export function CaptainScoreEntry({
 
               {canAddMore(scoringMode, sets.length) && (
                 <button type="button" onClick={addSet}
-                  className="press inline-flex items-center min-h-10 text-sm font-medium text-brand-primary hover:underline ml-10">
+                  className="press inline-flex items-center min-h-10 text-sm font-medium text-brand-ink hover:underline ml-10">
                   {addButtonLabel(scoringMode, sets.length)}
                 </button>
               )}
@@ -348,7 +348,7 @@ export function CaptainScoreEntry({
       <div className="mt-3 border-t pt-3">
         <button
           onClick={() => setOpen(true)}
-          className="press inline-flex items-center min-h-10 text-sm font-semibold text-brand-primary hover:underline"
+          className="press inline-flex items-center min-h-10 text-sm font-semibold text-brand-ink hover:underline"
         >
           + Submit score
         </button>

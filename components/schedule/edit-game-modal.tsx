@@ -164,7 +164,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
         <form onSubmit={handleSave} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Date & Time</label>
-            <input
+            <input aria-label="Date & Time"
               type="datetime-local"
               value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
@@ -175,7 +175,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Home Team</label>
-            <select
+            <select aria-label="Home Team"
               value={homeTeamId}
               onChange={(e) => { setHomeTeamId(e.target.value); if (e.target.value) setHomeTeamLabel('') }}
               className="w-full border rounded px-2 min-h-10 text-sm"
@@ -185,6 +185,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
             </select>
             {!homeTeamId && (
               <input
+                aria-label="Home placeholder label"
                 type="text"
                 value={homeTeamLabel}
                 onChange={(e) => setHomeTeamLabel(e.target.value)}
@@ -196,7 +197,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Away Team</label>
-            <select
+            <select aria-label="Away Team"
               value={awayTeamId}
               onChange={(e) => { setAwayTeamId(e.target.value); if (e.target.value) setAwayTeamLabel('') }}
               className="w-full border rounded px-2 min-h-10 text-sm"
@@ -206,6 +207,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
             </select>
             {!awayTeamId && (
               <input
+                aria-label="Away placeholder label"
                 type="text"
                 value={awayTeamLabel}
                 onChange={(e) => setAwayTeamLabel(e.target.value)}
@@ -219,6 +221,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">{venueLabel(sport)}</label>
               <input
+                aria-label={venueLabel(sport)}
                 type="text"
                 value={court}
                 onChange={(e) => setCourt(e.target.value)}
@@ -228,7 +231,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Week #</label>
-              <input
+              <input aria-label="Week #"
                 type="number" inputMode="numeric"
                 value={weekNumber}
                 onChange={(e) => setWeekNumber(e.target.value)}
@@ -241,7 +244,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
           {pools.length > 0 && (
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Pool</label>
-              <select
+              <select aria-label="Pool"
                 value={poolId}
                 onChange={(e) => setPoolId(e.target.value)}
                 className="w-full border rounded px-2 min-h-10 text-sm"
@@ -309,6 +312,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
                     {statusAction === 'cancel' ? 'Cancel this game?' : 'Mark as postponed?'}
                   </p>
                   <input
+                    aria-label="Reason (optional)"
                     type="text"
                     value={statusReason}
                     onChange={(e) => setStatusReason(e.target.value)}

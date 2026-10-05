@@ -270,7 +270,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
         <div className="bg-white rounded-lg border p-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Bracket Name</label>
-            <input
+            <input aria-label="Bracket Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full border rounded-md px-3 py-2 text-sm"
@@ -281,6 +281,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
             <label className="block text-sm font-medium text-gray-700 mb-2">Format</label>
             <div className="grid grid-cols-2 gap-2">
               <button
+                aria-pressed={bracketType === 'single_elimination'}
                 type="button"
                 onClick={() => setBracketType('single_elimination')}
                 className={`px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors ${
@@ -293,6 +294,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
                 <p className="text-xs text-gray-500 mt-0.5 font-normal">One loss = eliminated</p>
               </button>
               <button
+                aria-pressed={bracketType === 'double_elimination'}
                 type="button"
                 onClick={() => setBracketType('double_elimination')}
                 className={`px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors ${
@@ -309,7 +311,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Teams Advancing to Playoffs</label>
-            <select
+            <select aria-label="Teams Advancing to Playoffs"
               value={teamsAdvancing}
               onChange={(e) => {
                 const n = Number(e.target.value)
@@ -406,14 +408,14 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
                       <button
                         onClick={() => swapSeeds(i, i - 1)}
                         disabled={i === 0}
-                        className="w-6 h-6 text-xs border rounded hover:bg-gray-50 disabled:opacity-20"
-                        title="Move up"
+                        className="press w-10 h-10 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-20"
+                        aria-label={`Move ${teamById.get(teamId) ?? 'team'} up`}
                       >↑</button>
                       <button
                         onClick={() => swapSeeds(i, i + 1)}
                         disabled={i === seedOrder.length - 1}
-                        className="w-6 h-6 text-xs border rounded hover:bg-gray-50 disabled:opacity-20"
-                        title="Move down"
+                        className="press w-10 h-10 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-20"
+                        aria-label={`Move ${teamById.get(teamId) ?? 'team'} down`}
                       >↓</button>
                     </div>
                   </td>

@@ -116,7 +116,7 @@ export function TotpEnroll({ factorId, qrCode, secret, redirect, onComplete }: P
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Authentication code
           </label>
-          <input
+          <input aria-label="Authentication code"
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"

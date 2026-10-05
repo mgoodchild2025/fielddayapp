@@ -12,6 +12,7 @@ import type { LucideIcon } from 'lucide-react'
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { toast } from 'sonner'
 import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes'
+import { announce } from '@/lib/announce'
 
 // ── Layout definitions ────────────────────────────────────────────────────────
 
@@ -124,7 +125,7 @@ function ZoneEditor({
         <div className="space-y-2">
           <div>
             <label className="block text-xs text-gray-200 mb-1">Date filter</label>
-            <select
+            <select aria-label="Date filter"
               value={zone.date_filter}
               onChange={(e) => onChange({ ...zone, date_filter: e.target.value as 'today' | 'all' })}
               className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
@@ -136,7 +137,7 @@ function ZoneEditor({
           {pools.length > 0 && (
             <div>
               <label className="block text-xs text-gray-200 mb-1">Pool filter</label>
-              <select
+              <select aria-label="Pool filter"
                 value={zone.pool_id ?? ''}
                 onChange={(e) => onChange({ ...zone, pool_id: e.target.value || null })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
@@ -148,7 +149,7 @@ function ZoneEditor({
           )}
           <div>
             <label className="block text-xs text-gray-200 mb-1">Scroll speed</label>
-            <select
+            <select aria-label="Scroll speed"
               value={zone.scroll_speed ?? ''}
               onChange={(e) => onChange({ ...zone, scroll_speed: (e.target.value || null) as 'slow' | 'normal' | 'fast' | null })}
               className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
@@ -165,7 +166,7 @@ function ZoneEditor({
       {zone.type === 'standings' && pools.length > 0 && (
         <div>
           <label className="block text-xs text-gray-300 mb-1">Pool filter</label>
-          <select
+          <select aria-label="Pool filter"
             value={zone.pool_id ?? ''}
             onChange={(e) => onChange({ ...zone, pool_id: e.target.value || null })}
             className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
@@ -181,7 +182,7 @@ function ZoneEditor({
           {bracketTiers.length > 1 && (
             <div>
               <label className="block text-xs text-gray-200 mb-1">Tier to show</label>
-              <select
+              <select aria-label="Tier to show"
                 value={zone.tier_filter ?? ''}
                 onChange={(e) => onChange({ ...zone, tier_filter: e.target.value || null })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
@@ -195,7 +196,7 @@ function ZoneEditor({
           )}
           <div>
             <label className="block text-xs text-gray-200 mb-1">Rounds to show</label>
-            <select
+            <select aria-label="Rounds to show"
               value={zone.round_filter}
               onChange={(e) => onChange({ ...zone, round_filter: e.target.value as typeof zone.round_filter })}
               className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
@@ -220,7 +221,7 @@ function ZoneEditor({
         <div className="space-y-2">
           <div>
             <label className="block text-xs text-gray-200 mb-1">URL</label>
-            <input
+            <input aria-label="URL"
               type="url"
               value={zone.url}
               onChange={(e) => onChange({ ...zone, url: e.target.value })}
@@ -230,7 +231,7 @@ function ZoneEditor({
           </div>
           <div>
             <label className="block text-xs text-gray-200 mb-1">Label (shown below QR)</label>
-            <input
+            <input aria-label="Label (shown below QR)"
               type="text"
               value={zone.label}
               onChange={(e) => onChange({ ...zone, label: e.target.value })}
@@ -289,7 +290,7 @@ function ZoneEditor({
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="block text-xs text-gray-200 mb-1">Transition</label>
-              <select
+              <select aria-label="Transition"
                 value={zone.transition}
                 onChange={(e) => onChange({ ...zone, transition: e.target.value as 'fade' | 'slide' | 'kenburns' })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-md px-2 py-1.5 text-sm text-white"
@@ -301,7 +302,7 @@ function ZoneEditor({
             </div>
             <div>
               <label className="block text-xs text-gray-200 mb-1">Secs / slide</label>
-              <input
+              <input aria-label="Secs / slide"
                 type="number" inputMode="numeric" min={4} max={60}
                 value={zone.seconds}
                 onChange={(e) => onChange({ ...zone, seconds: Math.min(60, Math.max(4, parseInt(e.target.value) || 8)) })}
@@ -310,7 +311,7 @@ function ZoneEditor({
             </div>
             <div>
               <label className="block text-xs text-gray-200 mb-1">Order</label>
-              <select
+              <select aria-label="Order"
                 value={zone.order}
                 onChange={(e) => onChange({ ...zone, order: e.target.value as 'shuffle' | 'newest' })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-md px-2 py-1.5 text-sm text-white"
@@ -327,7 +328,7 @@ function ZoneEditor({
         <div className="space-y-2">
           <div>
             <label className="block text-xs text-gray-200 mb-1">Sub-heading (optional)</label>
-            <input
+            <input aria-label="Sub-heading (optional)"
               type="text"
               value={zone.title ?? ''}
               onChange={(e) => onChange({ ...zone, title: e.target.value })}
@@ -337,7 +338,7 @@ function ZoneEditor({
           </div>
           <div>
             <label className="block text-xs text-gray-200 mb-1">Message</label>
-            <textarea
+            <textarea aria-label="Message"
               value={zone.body}
               onChange={(e) => onChange({ ...zone, body: e.target.value })}
               rows={2}
@@ -346,7 +347,7 @@ function ZoneEditor({
           </div>
           <div>
             <label className="block text-xs text-gray-200 mb-1">Text size</label>
-            <select
+            <select aria-label="Text size"
               value={zone.font_size ?? 'lg'}
               onChange={(e) => onChange({ ...zone, font_size: e.target.value as 'sm'|'md'|'lg'|'xl' })}
               className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
@@ -427,6 +428,7 @@ function ScreenEditor({
                 onClick={() => {
                   navigator.clipboard.writeText(tvUrl).then(() => {
                     setCopied(true)
+                    announce('TV link copied')
                     setTimeout(() => setCopied(false), 1800)
                   }).catch(() => {})
                 }}
@@ -491,6 +493,7 @@ function ScreenEditor({
         <div className="grid grid-cols-4 gap-2">
           {LAYOUTS.map((l) => (
             <button
+              aria-pressed={config.layout === l.id}
               key={l.id}
               type="button"
               onClick={() => setLayout(l.id)}

@@ -40,7 +40,7 @@ export function AdminCurateSocial({ leagueId, posts }: { leagueId: string; posts
         <p className="text-xs text-gray-400">Paste an Instagram, TikTok, or YouTube post link to feature it on the event gallery.</p>
       </div>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
+      {error && <div role="alert" className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
 
       <div className="flex gap-2">
         <input

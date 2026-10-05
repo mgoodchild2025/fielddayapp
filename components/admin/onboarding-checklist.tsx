@@ -194,7 +194,7 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
                       ? 'bg-orange-50 text-orange-600 hover:bg-orange-100'
                       : 'text-gray-500 hover:text-gray-700',
                   ].join(' ')}
-                  style={isCurrent ? { color: 'var(--brand-primary, #f97316)', backgroundColor: 'color-mix(in srgb, var(--brand-primary, #f97316) 8%, white)' } : {}}
+                  style={isCurrent ? { color: 'var(--brand-primary-ink, var(--brand-primary))', backgroundColor: 'color-mix(in srgb, var(--brand-primary, #f97316) 8%, white)' } : {}}
                 >
                   Go →
                 </Link>

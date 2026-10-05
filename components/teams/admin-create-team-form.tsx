@@ -79,7 +79,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Team Name</label>
-          <input
+          <input aria-label="Team Name"
             {...register('name')}
             type="text"
             placeholder="e.g. The Spikers"
@@ -143,7 +143,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Map to schedule slot <span className="text-gray-400 font-normal">(optional)</span>
             </label>
-            <select
+            <select aria-label="Map to schedule slot (optional)"
               value={slotLabel}
               onChange={(e) => setSlotLabel(e.target.value)}
               className="w-full border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
@@ -164,7 +164,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Captain <span className="text-gray-400 font-normal">(optional)</span>
             </label>
-            <select
+            <select aria-label="Captain (optional)"
               value={captainUserId}
               onChange={(e) => setCaptainUserId(e.target.value)}
               className="w-full border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"

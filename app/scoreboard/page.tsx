@@ -31,8 +31,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Zoom stays allowed (WCAG 1.4.4): the scoring panels are touch-action:none,
+  // so a pinch there can't zoom the board — only the menu/sheet text zooms.
   themeColor: '#0B1210',
   // Fullscreen landscape board: keep it inside the safe area (no notch
   // under the score panels) rather than inheriting the app's "cover".

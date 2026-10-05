@@ -50,11 +50,11 @@ export function SendNotificationForm({ userId, phone, smsOptedIn, leagueName }: 
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">Title</label>
-        <input name="title" required placeholder="Notification title" className={inputClass} />
+        <input aria-label="Title" name="title" required placeholder="Notification title" className={inputClass} />
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">Message</label>
-        <textarea
+        <textarea aria-label="Message"
           name="body"
           rows={3}
           placeholder="Optional message body…"

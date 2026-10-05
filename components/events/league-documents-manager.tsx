@@ -53,7 +53,7 @@ export function LeagueDocumentsManager({ leagueId, initialDocuments }: Props) {
   return (
     <div className="space-y-3">
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+        <div role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
           {error}
         </div>
       )}
@@ -137,26 +137,26 @@ function DocumentRow({
   }
 
   return (
-    <div className="flex items-center gap-2 bg-white border rounded-md px-3 py-2.5 group">
+    <div className="flex items-center gap-1.5 bg-white border rounded-md px-2 py-1.5 group">
       {/* Reorder buttons */}
-      <div className="flex flex-col shrink-0">
+      <div className="flex shrink-0">
         <button
           type="button"
           onClick={() => onMove('up')}
           disabled={isFirst}
-          className="text-gray-300 hover:text-gray-600 disabled:opacity-0 transition-colors"
-          title="Move up"
+          className="press w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 disabled:opacity-25"
+          aria-label={`Move ${doc.title} up`}
         >
-          <ChevronUp className="w-3.5 h-3.5" />
+          <ChevronUp className="w-4 h-4" aria-hidden="true" />
         </button>
         <button
           type="button"
           onClick={() => onMove('down')}
           disabled={isLast}
-          className="text-gray-300 hover:text-gray-600 disabled:opacity-0 transition-colors"
-          title="Move down"
+          className="press w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 disabled:opacity-25"
+          aria-label={`Move ${doc.title} down`}
         >
-          <ChevronDown className="w-3.5 h-3.5" />
+          <ChevronDown className="w-4 h-4" aria-hidden="true" />
         </button>
       </div>
 
@@ -171,13 +171,14 @@ function DocumentRow({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setEditing(false) }}
-              className="flex-1 min-w-0 border rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400"
+              aria-label="Document title"
+              className="flex-1 min-w-0 min-h-10 border rounded px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
             />
-            <button type="button" onClick={saveTitle} disabled={saving} className="text-green-600 hover:text-green-700">
-              <Check className="w-3.5 h-3.5" />
+            <button type="button" onClick={saveTitle} disabled={saving} aria-label="Save title" className="press w-10 h-10 inline-flex items-center justify-center rounded-md text-green-700 hover:bg-green-50">
+              <Check className="w-4 h-4" aria-hidden="true" />
             </button>
-            <button type="button" onClick={() => { setDraft(doc.title); setEditing(false) }} className="text-gray-400 hover:text-gray-600">
-              <X className="w-3.5 h-3.5" />
+            <button type="button" onClick={() => { setDraft(doc.title); setEditing(false) }} aria-label="Cancel rename" className="press w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100">
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         ) : (
@@ -192,18 +193,18 @@ function DocumentRow({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="p-1 text-gray-400 hover:text-gray-700 transition-colors"
-            title="Rename"
+            className="press w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+            aria-label={`Rename ${doc.title}`}
           >
-            <Pencil className="w-3.5 h-3.5" />
+            <Pencil className="w-4 h-4" aria-hidden="true" />
           </button>
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-            title="Delete"
+            className="press w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50"
+            aria-label={`Delete ${doc.title}`}
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -289,7 +290,7 @@ function AddDocumentForm({
     <form onSubmit={handleSubmit} className="border rounded-md p-3 bg-gray-50 space-y-3">
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Document Title</label>
-        <input
+        <input aria-label="Document Title"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}

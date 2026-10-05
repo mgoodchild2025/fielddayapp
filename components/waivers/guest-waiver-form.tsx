@@ -136,7 +136,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Full Name <span className="text-red-600">*</span></label>
-          <input
+          <input aria-label="Full Name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -148,7 +148,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-600">*</span></label>
-          <input
+          <input aria-label="Email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -162,7 +162,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Team Name <span className="text-gray-400 font-normal">(optional)</span>
           </label>
-          <input
+          <input aria-label="Team Name (optional)"
             type="text"
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
@@ -176,7 +176,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Date of Birth <span className="text-gray-400 font-normal">(optional — required if under 18)</span>
           </label>
-          <input
+          <input aria-label="Date of Birth (optional — required if under 18)"
             type="date"
             value={dob}
             onChange={(e) => setDob(e.target.value)}
@@ -206,7 +206,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
             </p>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Guardian Full Name <span className="text-red-600">*</span></label>
-              <input
+              <input aria-label="Guardian Full Name"
                 type="text"
                 value={guardianName}
                 onChange={(e) => setGuardianName(e.target.value)}
@@ -216,7 +216,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Relationship</label>
-              <select
+              <select aria-label="Relationship"
                 value={guardianRel}
                 onChange={(e) => setGuardianRel(e.target.value as GuardianRelationship)}
                 className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -270,7 +270,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Type your full name to sign <span className="text-red-600">*</span>
             </label>
-            <input
+            <input aria-label="Type your full name to sign"
               type="text"
               value={signatureName}
               onChange={(e) => setSignatureName(e.target.value)}
@@ -296,7 +296,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
         </label>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-md px-4 py-3 text-sm">
+          <div role="alert" className="bg-red-50 border border-red-200 text-red-700 rounded-md px-4 py-3 text-sm">
             {error}
           </div>
         )}

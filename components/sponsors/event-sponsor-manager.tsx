@@ -67,7 +67,7 @@ export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSpons
 
   return (
     <div className="space-y-6">
-      {error && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-700">{error}</div>}
+      {error && <div role="alert" className="rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-700">{error}</div>}
 
       {/* Org sponsors toggle */}
       <label className="flex items-start gap-3 rounded-lg border bg-white p-4 cursor-pointer select-none">
@@ -183,21 +183,21 @@ export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSpons
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Name *</label>
-                <input name="name" required maxLength={100} className="w-full border rounded-md px-3 py-2 text-sm" placeholder="Acme Co." />
+                <input aria-label="Name" name="name" required maxLength={100} className="w-full border rounded-md px-3 py-2 text-sm" placeholder="Acme Co." />
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Website (optional)</label>
-                <input name="website_url" type="url" className="w-full border rounded-md px-3 py-2 text-sm" placeholder="https://" />
+                <input aria-label="Website (optional)" name="website_url" type="url" className="w-full border rounded-md px-3 py-2 text-sm" placeholder="https://" />
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Tier</label>
-                <select name="tier" defaultValue="standard" className="w-full border rounded-md px-3 py-2 text-sm capitalize">
+                <select aria-label="Tier" name="tier" defaultValue="standard" className="w-full border rounded-md px-3 py-2 text-sm capitalize">
                   {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Logo (PNG/SVG, ≤2 MB)</label>
-                <input name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="w-full text-sm" />
+                <input aria-label="Logo (PNG/SVG, ≤2 MB)" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="w-full text-sm" />
               </div>
             </div>
             <div className="flex gap-2">

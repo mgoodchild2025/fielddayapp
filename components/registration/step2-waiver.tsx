@@ -158,7 +158,7 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
         By signing below, you confirm you are the parent or legal guardian of{' '}
         <strong>{playerName || 'this player'}</strong> and that you have read and agree to the waiver above.
       </p>
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
@@ -204,7 +204,7 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
   ) : (
     <div className="bg-white rounded-lg border p-5 space-y-3">
       <h2 className="font-semibold">Sign Below</h2>
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
       <div>
         <label htmlFor="signature-name" className="block text-sm font-medium text-gray-700 mb-1">Type your full legal name</label>
         <input

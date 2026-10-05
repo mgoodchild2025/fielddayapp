@@ -82,7 +82,7 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
       </p>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-xs mb-3">
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-xs mb-3">
           {error}
         </div>
       )}

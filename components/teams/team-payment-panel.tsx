@@ -249,7 +249,7 @@ export function TeamPaymentPanel({
                   <p className="font-medium text-sm">Team registration fee</p>
                   <p className="text-xs text-gray-500 mt-0.5">{memberCount} player{memberCount !== 1 ? 's' : ''} currently on the roster</p>
                 </div>
-                <p className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-500' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary)' }}>
+                <p className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-500' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                   {formatDollars(priceCents)} {curr}
                   {taxSuffix && <span className="ml-1 text-xs font-normal text-gray-500">{taxSuffix}</span>}
                 </p>
@@ -273,7 +273,7 @@ export function TeamPaymentPanel({
               {appliedDiscount && (
                 <div className="flex justify-between items-center px-4 py-3">
                   <span className="text-sm text-gray-600">After discount</span>
-                  <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary)' }}>
+                  <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                     {formatDollars(discountedPriceCents)} {curr}
                     {taxSuffix && <span className="ml-1 text-xs font-normal text-gray-500">{taxSuffix}</span>}
                   </span>

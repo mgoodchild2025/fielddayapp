@@ -112,6 +112,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
           <div className="flex gap-1.5">
             {(['email', 'sms', 'both'] as const).map((ch) => (
               <button
+                aria-pressed={channel === ch}
                 key={ch}
                 type="button"
                 onClick={() => setChannel(ch)}

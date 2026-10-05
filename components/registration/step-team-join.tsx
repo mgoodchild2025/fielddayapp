@@ -134,7 +134,7 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
         <button
           type="button"
           onClick={() => onComplete()}
-          className="press inline-flex items-center min-h-10 text-sm font-medium underline text-brand-primary"
+          className="press inline-flex items-center min-h-10 text-sm font-medium underline text-brand-ink"
         >
           Skip — I&apos;ll join a team later →
         </button>

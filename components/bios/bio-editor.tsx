@@ -7,6 +7,7 @@ import { BioFlipCard } from './bio-flip-card'
 import type { PlayerCareer } from '@/lib/career'
 import { UploadStatus } from '@/components/ui/upload-status'
 import { safeAction } from '@/lib/action-errors'
+import { announce } from '@/lib/announce'
 
 /**
  * "My bio card" (S1): the player edits the exact card the TV will show —
@@ -100,6 +101,7 @@ export function BioEditor({
       }))
       if (r.error) { setErr(r.error); return }
       setSaved(true)
+      announce('Saved')
       setTimeout(() => setSaved(false), 2000)
     })
   }

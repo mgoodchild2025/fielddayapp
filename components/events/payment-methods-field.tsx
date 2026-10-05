@@ -67,7 +67,7 @@ export function PaymentMethodsField({ value, onChange, instructions, onInstructi
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Offline payment instructions
           </label>
-          <textarea
+          <textarea aria-label="Offline payment instructions"
             value={instructions}
             onChange={(e) => onInstructionsChange(e.target.value)}
             rows={3}

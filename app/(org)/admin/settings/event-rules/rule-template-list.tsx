@@ -138,7 +138,7 @@ function TemplateForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
-        <input
+        <input aria-label="Template Name"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required

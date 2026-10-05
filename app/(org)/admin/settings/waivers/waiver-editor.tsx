@@ -68,7 +68,7 @@ export function WaiverEditor({ existing }: Props) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Waiver Title</label>
-          <input
+          <input aria-label="Waiver Title"
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}

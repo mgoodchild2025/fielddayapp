@@ -529,9 +529,9 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                           <p className={`font-semibold text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-500' : ''}`}>
                             {game.homeTeamName} <span className="text-gray-500 font-normal">vs</span> {game.awayTeamName}
                           </p>
-                          {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
+                          {game.status === 'cancelled' && <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
                           <ExhibitionBadge isExhibition={game.isExhibition} />
-                          {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
+                          {game.status === 'postponed' && <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
                         </div>
                         {game.cancellationReason && (game.status === 'cancelled' || game.status === 'postponed') && (
                           <p className="text-[11px] text-gray-500 italic mt-0.5">{game.cancellationReason}</p>
@@ -677,9 +677,9 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                               <span className="text-gray-500 font-normal text-xs">vs</span>{' '}
                               {game.awayTeamName}
                             </span>
-                            {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
+                            {game.status === 'cancelled' && <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
                             <ExhibitionBadge isExhibition={game.isExhibition} />
-                            {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
+                            {game.status === 'postponed' && <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
                           </div>
                           {game.cancellationReason && (game.status === 'cancelled' || game.status === 'postponed') && (
                             <p className="text-[11px] text-gray-500 italic mt-0.5">{game.cancellationReason}</p>
@@ -720,7 +720,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                               target="_blank"
                               rel="noopener noreferrer"
                               title="Print stat sheet"
-                              className="text-gray-300 hover:text-gray-600 transition-colors flex items-center gap-0.5 text-[10px]"
+                              className="text-gray-300 hover:text-gray-600 transition-colors flex items-center gap-0.5 text-xs"
                             >
                               <PrintIcon />
                               <span>stats</span>

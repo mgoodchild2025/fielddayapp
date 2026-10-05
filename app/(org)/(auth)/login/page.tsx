@@ -75,7 +75,7 @@ export default async function LoginPage({
           <BackLink fallbackHref={backHref} fallbackLabel={backLabel} />
         </div>
         {errorBanner && (
-          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div role="alert" className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {errorBanner}
           </div>
         )}
@@ -104,7 +104,7 @@ export default async function LoginPage({
             ) : orgName ? (
               <h1
                 className="text-3xl font-bold uppercase mb-2"
-                style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary)' }}
+                style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary-ink, var(--brand-primary))' }}
               >
                 {orgName}
               </h1>

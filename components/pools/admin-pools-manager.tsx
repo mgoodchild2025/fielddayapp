@@ -93,9 +93,10 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
   return (
     <div className="px-5 pb-4">
       <button
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="text-xs font-semibold"
-        style={{ color: 'var(--brand-primary)' }}
+        style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
       >
         {open ? '▲ Hide schedule generator' : '⚡ Generate pool schedule'}
       </button>
@@ -111,7 +112,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Start Date *</label>
-              <input
+              <input aria-label="Start Date"
                 type="date" required value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
@@ -119,7 +120,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Game Time</label>
-              <input
+              <input aria-label="Game Time"
                 type="time" value={gameTime}
                 onChange={(e) => setGameTime(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
@@ -127,7 +128,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Days Between Rounds</label>
-              <input
+              <input aria-label="Days Between Rounds"
                 type="number" inputMode="numeric" min={0} max={30} value={daysBetween}
                 onChange={(e) => setDaysBetween(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
@@ -136,7 +137,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Courts</label>
-              <input
+              <input aria-label="Courts"
                 type="number" inputMode="numeric" min={1} max={20} value={courts}
                 onChange={(e) => setCourts(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
@@ -145,7 +146,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Game Duration (min)</label>
-              <input
+              <input aria-label="Game Duration (min)"
                 type="number" inputMode="numeric" min={10} max={240} step={5} value={gameDuration}
                 onChange={(e) => setGameDuration(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
@@ -166,7 +167,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
               <label className="block text-xs text-gray-500 mb-0.5">
                 Max Rounds <span className="text-gray-400 font-normal">(optional — leave blank for full round-robin)</span>
               </label>
-              <input
+              <input aria-label="Max Rounds (optional — leave blank for full round-robin)"
                 type="number" inputMode="numeric" min={1} max={rounds} value={maxRounds}
                 placeholder={`1–${rounds}`}
                 onChange={(e) => setMaxRounds(e.target.value)}
@@ -235,6 +236,7 @@ function SeedFromStandings({
   return (
     <div className="bg-white border rounded-lg overflow-hidden">
       <button
+        aria-expanded={open}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-gray-50 transition-colors"
@@ -254,6 +256,7 @@ function SeedFromStandings({
             <div className="flex gap-2">
               {[2, 3, 4].map((n) => (
                 <button
+                  aria-pressed={poolCount === n}
                   key={n}
                   type="button"
                   onClick={() => setPoolCount(n)}
@@ -461,7 +464,7 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
                     onKeyDown={(e) => { if (e.key === 'Escape') setEditingPoolId(null) }}
                     className="flex-1 border rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                   />
-                  <button type="submit" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                  <button type="submit" className="text-xs font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                     Save
                   </button>
                   <button

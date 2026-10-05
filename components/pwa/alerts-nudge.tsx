@@ -107,7 +107,7 @@ export function AlertsNudge({ orgName }: { orgName: string }) {
 
   return (
     <div className="relative rounded-xl border bg-white px-4 py-4 shadow-sm">
-      <button type="button" onClick={dismiss} aria-label="Dismiss" className="absolute top-2 right-2 p-1 rounded text-gray-400 hover:text-gray-600">
+      <button type="button" onClick={dismiss} aria-label="Dismiss" className="press absolute top-1 right-1 w-10 h-10 inline-flex items-center justify-center rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100">
         <X className="w-4 h-4" />
       </button>
       <div className="flex items-start gap-3">

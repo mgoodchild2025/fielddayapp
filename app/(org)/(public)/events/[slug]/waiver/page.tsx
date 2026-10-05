@@ -73,13 +73,15 @@ export default async function GuestWaiverPage({
     return (
       <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="max-w-md mx-auto px-4 py-16 text-center">
           <p className="text-2xl font-bold mb-2">No waiver required</p>
           <p className="text-gray-500 text-sm">{leagueName} does not require a waiver at this time.</p>
-          <Link href={`/events/${slug}`} className="mt-6 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+          <Link href={`/events/${slug}`} className="mt-6 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
             ← Back to event
           </Link>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -118,6 +120,7 @@ export default async function GuestWaiverPage({
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="max-w-xl mx-auto px-4 py-10">
         <div className="text-center mb-6">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{org.name}</p>
@@ -132,7 +135,7 @@ export default async function GuestWaiverPage({
             <div className="text-5xl mb-4">✓</div>
             <h2 className="text-xl font-bold mb-2">Already signed</h2>
             <p className="text-gray-500 text-sm">You&apos;ve already signed the waiver for {leagueName}. You&apos;re all set.</p>
-            <Link href={`/events/${slug}`} className="mt-6 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+            <Link href={`/events/${slug}`} className="mt-6 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
               ← Back to event
             </Link>
           </div>
@@ -146,6 +149,7 @@ export default async function GuestWaiverPage({
           />
         )}
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

@@ -29,7 +29,7 @@ function TeamBadge({
   const inner = (
     <span className="flex items-center gap-1">
       {logoUrl ? (
-        <Image src={logoUrl} alt={name} width={16} height={16} className="w-4 h-4 rounded-full object-cover shrink-0" />
+        <Image src={logoUrl} alt="" width={16} height={16} className="w-4 h-4 rounded-full object-cover shrink-0" />
       ) : color ? (
         <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
       ) : null}
@@ -184,13 +184,13 @@ export function MyGamesClient({
                 </span>
               )}
               {isSubGame && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-50 border border-violet-100 text-violet-600 leading-tight">
+                <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-violet-50 border border-violet-100 text-violet-600 leading-tight">
                   Sub
                 </span>
               )}
               <ExhibitionBadge isExhibition={g.is_exhibition} />
               {g.isPlayoff && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 leading-tight">
+                <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 leading-tight">
                   Playoff
                 </span>
               )}
@@ -321,10 +321,10 @@ export function MyGamesClient({
           <>
             <button
               onClick={() => setActiveLeague(null)}
+              aria-pressed={!activeLeague}
               className={`press min-h-10 px-4 rounded-full text-sm font-medium ${
-                !activeLeague ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                !activeLeague ? 'bg-brand-primary text-on-brand' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
-              style={!activeLeague ? { backgroundColor: 'var(--brand-primary)' } : {}}
             >
               All
             </button>
@@ -332,10 +332,10 @@ export function MyGamesClient({
               <button
                 key={slug}
                 onClick={() => setActiveLeague(activeLeague === slug ? null : slug)}
+                aria-pressed={activeLeague === slug}
                 className={`press min-h-10 px-4 rounded-full text-sm font-medium ${
-                  activeLeague === slug ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  activeLeague === slug ? 'bg-brand-primary text-on-brand' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
-                style={activeLeague === slug ? { backgroundColor: 'var(--brand-primary)' } : {}}
               >
                 {name}
               </button>

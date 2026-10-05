@@ -46,7 +46,7 @@ export function AddToTeamForm({ userId, leagueId, teams }: Props) {
       >
         {isPending ? '…' : 'Assign'}
       </button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span role="alert" className="text-xs text-red-600">{error}</span>}
     </form>
   )
 }

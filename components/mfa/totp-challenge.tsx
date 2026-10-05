@@ -69,7 +69,7 @@ export function TotpChallenge({ factorId, redirect }: Props) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Authentication code
             </label>
-            <input
+            <input aria-label="Authentication code"
               ref={inputRef}
               type="text"
               inputMode="numeric"
@@ -116,7 +116,7 @@ export function TotpChallenge({ factorId, redirect }: Props) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Backup code
             </label>
-            <input
+            <input aria-label="Backup code"
               type="text"
               autoComplete="off"
               value={backupCode}

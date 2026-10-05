@@ -45,7 +45,7 @@ export function UpcomingEventsSection({ events, timezone }: { events: UpcomingLe
             <Link
               key={league.id}
               href={`/events/${league.slug}`}
-              className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150"
+              className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md motion-safe:hover:-translate-y-0.5 transition-all duration-150"
             >
               <div className="flex items-start justify-between mb-2 gap-2">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -76,7 +76,7 @@ export function UpcomingEventsSection({ events, timezone }: { events: UpcomingLe
               {league.teaser_text && (
                 <p className="text-sm text-gray-500 mt-2 line-clamp-2">{league.teaser_text}</p>
               )}
-              <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
+              <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                 {opensLabel(league.registration_opens_at, timezone)} →
               </p>
             </Link>

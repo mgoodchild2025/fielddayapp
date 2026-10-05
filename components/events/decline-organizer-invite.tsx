@@ -20,7 +20,7 @@ export function DeclineOrganizerInvite({ token, leagueName }: { token: string; l
       <div className="text-center" role="status">
         <p className="text-2xl font-bold mb-2">Invitation declined</p>
         <p className="text-gray-600 text-sm">You won&apos;t be added as a co-organizer of {leagueName}.</p>
-        <Link href="/" className="press mt-6 inline-flex items-center min-h-10 text-sm font-semibold text-brand-primary">Go to the home page →</Link>
+        <Link href="/" className="press mt-6 inline-flex items-center min-h-10 text-sm font-semibold text-brand-ink">Go to the home page →</Link>
       </div>
     )
   }

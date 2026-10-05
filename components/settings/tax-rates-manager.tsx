@@ -163,7 +163,7 @@ export function TaxRatesManager({ rates }: { rates: TaxRateRow[] }) {
           onClick={() => setAdding(true)}
           disabled={isPending || active.length >= 2}
           className="mt-4 text-sm font-medium disabled:opacity-50"
-          style={{ color: 'var(--brand-primary)' }}
+          style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
           title={active.length >= 2 ? 'At most two active rates (e.g. GST + PST)' : undefined}
         >
           + Add tax rate

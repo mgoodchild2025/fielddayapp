@@ -56,6 +56,7 @@ export default async function TeamCardsPage({ params }: { params: Promise<{ team
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="flex-1 mx-auto w-full max-w-4xl px-4 py-8">
         <Link href={`/teams/${teamId}`} className="text-sm text-gray-500 hover:underline">← {team.name}</Link>
         <TeamPageNav teamId={teamId} active="cards" />
@@ -87,6 +88,7 @@ export default async function TeamCardsPage({ params }: { params: Promise<{ team
           </div>
         )}
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

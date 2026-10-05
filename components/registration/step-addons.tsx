@@ -163,7 +163,7 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                       )}
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="font-bold text-lg" style={{ color: 'var(--brand-primary)' }}>
+                      <span className="font-bold text-lg" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                         {formatDollars(item.effective_price_cents)}
                       </span>
                       {item.price_cents !== item.effective_price_cents && (
@@ -267,7 +267,7 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
       {totalCents > 0 && (
         <div className="bg-gray-50 rounded-lg border px-4 py-3 flex items-center justify-between">
           <span className="text-sm font-medium text-gray-600">Merchandise total</span>
-          <span className="font-bold text-lg" style={{ color: 'var(--brand-primary)' }}>
+          <span className="font-bold text-lg" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
             ${(totalCents / 100).toFixed(2)} {currency}
           </span>
         </div>

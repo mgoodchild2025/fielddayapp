@@ -39,6 +39,7 @@ export default async function InvitePage({
     return (
       <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
           <p className="text-4xl">🔍</p>
           <p className="text-2xl font-bold">Invite Not Found</p>
@@ -48,6 +49,7 @@ export default async function InvitePage({
             <Link href="/" className="press inline-flex items-center justify-center min-h-11 px-4 text-sm font-medium text-gray-600 hover:text-gray-900">Home</Link>
           </div>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -70,6 +72,7 @@ export default async function InvitePage({
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
 
       <div className="max-w-md mx-auto px-4 py-12">
         <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
@@ -181,6 +184,7 @@ export default async function InvitePage({
         </div>
       </div>
 
+      </main>
       <Footer org={org} />
     </div>
   )

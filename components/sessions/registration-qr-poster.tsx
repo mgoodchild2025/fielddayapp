@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import QRCode from 'react-qr-code'
 import { Printer, Link as LinkIcon, Check } from 'lucide-react'
+import { announce } from '@/lib/announce'
 
 interface Props {
   url: string
@@ -32,6 +33,7 @@ export function RegistrationQrPoster({ url, eventName, priceLabel }: Props) {
       ta.remove()
     }
     setCopied(true)
+    announce('Link copied')
     setTimeout(() => setCopied(false), 2000)
   }
 
@@ -63,7 +65,7 @@ export function RegistrationQrPoster({ url, eventName, priceLabel }: Props) {
           type="button"
           onClick={copyLink}
           className="shrink-0 text-xs font-semibold hover:underline"
-          style={{ color: 'var(--brand-primary)' }}
+          style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
         >
           {copied ? <span key="copied" className="fd-fade-in">Copied</span> : 'Copy'}
         </button>
@@ -73,7 +75,7 @@ export function RegistrationQrPoster({ url, eventName, priceLabel }: Props) {
         <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Scan to join</p>
         <h1 className="text-2xl font-bold text-gray-900 mt-1 leading-tight">{eventName}</h1>
         {priceLabel && (
-          <p className="text-lg font-semibold mt-1" style={{ color: 'var(--brand-primary)' }}>{priceLabel} drop-in</p>
+          <p className="text-lg font-semibold mt-1" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>{priceLabel} drop-in</p>
         )}
 
         <div className="my-6 flex justify-center">

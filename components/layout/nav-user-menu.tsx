@@ -43,6 +43,7 @@ export function NavUserMenu({ userName, isAdmin }: Props) {
   return (
     <div ref={ref} className="relative">
       <button
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="px-4 py-1.5 rounded-md font-semibold transition-opacity hover:opacity-90 active:opacity-75 flex items-center gap-2 max-w-[200px]"
         style={{ backgroundColor: 'var(--brand-primary)', color: 'var(--brand-on-primary)' }}

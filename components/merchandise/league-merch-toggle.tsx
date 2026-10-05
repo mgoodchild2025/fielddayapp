@@ -110,7 +110,7 @@ export function LeagueMerchToggle({ leagueId, allItems, enabledItemIds, enabledI
   return (
     <div className="space-y-4">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
@@ -210,7 +210,7 @@ function ItemRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm text-gray-900 truncate">{item.name}</span>
-            <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
+            <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
               ${displayPrice}
               {isOverrideActive && (
                 <span className="ml-1 text-xs text-gray-400 font-normal line-through">

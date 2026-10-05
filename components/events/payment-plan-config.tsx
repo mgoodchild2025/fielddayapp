@@ -71,27 +71,27 @@ export function PaymentPlanConfig({ leagueId, existing }: Props) {
           <p className="font-medium">{existing.name}</p>
           <p className="text-gray-500">{existing.installments} payments every {existing.interval_days} days</p>
           {existing.upfront_percent > 0 && <p className="text-gray-500">{existing.upfront_percent}% upfront</p>}
-          <button onClick={() => setOpen(true)} className="text-xs mt-2 underline" style={{ color: 'var(--brand-primary)' }}>Edit</button>
+          <button onClick={() => setOpen(true)} className="text-xs mt-2 underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>Edit</button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
           {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
           <div>
             <label className="text-xs text-gray-500 mb-0.5 block">Plan name</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} required className={inputClass} />
+            <input aria-label="Plan name" type="text" value={name} onChange={e => setName(e.target.value)} required className={inputClass} />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-xs text-gray-500 mb-0.5 block">Payments</label>
-              <input type="number" inputMode="numeric" min={2} max={12} value={installments} onChange={e => setInstallments(e.target.value)} required className={inputClass} />
+              <input aria-label="Payments" type="number" inputMode="numeric" min={2} max={12} value={installments} onChange={e => setInstallments(e.target.value)} required className={inputClass} />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-0.5 block">Every (days)</label>
-              <input type="number" inputMode="numeric" min={7} max={90} value={intervalDays} onChange={e => setIntervalDays(e.target.value)} required className={inputClass} />
+              <input aria-label="Every (days)" type="number" inputMode="numeric" min={7} max={90} value={intervalDays} onChange={e => setIntervalDays(e.target.value)} required className={inputClass} />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-0.5 block">Upfront %</label>
-              <input type="number" inputMode="numeric" min={0} max={100} value={upfrontPercent} onChange={e => setUpfrontPercent(e.target.value)} className={inputClass} />
+              <input aria-label="Upfront %" type="number" inputMode="numeric" min={0} max={100} value={upfrontPercent} onChange={e => setUpfrontPercent(e.target.value)} className={inputClass} />
             </div>
           </div>
           <div className="flex gap-2">

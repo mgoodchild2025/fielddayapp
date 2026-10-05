@@ -462,7 +462,7 @@ export function RegistrationFlow({
                           className={`h-full bg-brand-primary origin-left transition-transform duration-[250ms] ease-snap ${reached ? 'scale-x-100' : 'scale-x-0'}`}
                         />
                       </div>
-                      <p className={`mt-1.5 text-xs truncate ${reached ? 'text-brand-primary font-medium' : 'text-gray-500'}`}>{p.label}</p>
+                      <p className={`mt-1.5 text-xs truncate ${reached ? 'text-brand-ink font-medium' : 'text-gray-500'}`}>{p.label}</p>
                     </li>
                   )
                 })}

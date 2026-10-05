@@ -210,7 +210,7 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
                     aria-current={isActive ? 'page' : undefined}
                     className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
                       isActive
-                        ? 'border-brand-primary text-brand-primary'
+                        ? 'border-brand-primary text-brand-ink'
                         : 'border-transparent text-gray-500 hover:text-gray-800'
                     }`}
                   >

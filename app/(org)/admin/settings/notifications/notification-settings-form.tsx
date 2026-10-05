@@ -291,7 +291,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
         {emailEnabled && (
           <div className="px-5 py-4 space-y-1.5">
             <label className="block text-sm font-medium text-gray-700">Send timing</label>
-            <select
+            <select aria-label="Send timing"
               value={emailHoursBefore}
               onChange={(e) => setEmailHoursBefore(Number(e.target.value))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent bg-white"
@@ -367,7 +367,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
             <label className="block text-sm font-medium text-gray-700">
               Recipient email
             </label>
-            <input
+            <input aria-label="Recipient email"
               type="email"
               value={regNotifEmail}
               onChange={(e) => setRegNotifEmail(e.target.value)}
