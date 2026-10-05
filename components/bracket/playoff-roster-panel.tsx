@@ -97,7 +97,7 @@ export function PlayoffRosterPanel({ teams, roster, onChange, seedsNeeded, disab
         {field.map((t, i) => {
           const seed = i + 1
           return (
-            <li key={t.teamId} className="px-4 py-2 flex items-center gap-3">
+            <li key={t.teamId} className="px-3 sm:px-4 py-1.5 flex items-center gap-2 sm:gap-3">
               <span className={`text-xs font-mono w-6 shrink-0 ${seed > seedsNeeded ? 'text-gray-300' : 'text-gray-400'}`}>
                 {seed}
               </span>
@@ -105,37 +105,38 @@ export function PlayoffRosterPanel({ teams, roster, onChange, seedsNeeded, disab
                 {t.teamName}
                 {seed > seedsNeeded && <span className="text-xs text-gray-300 ml-2">(outside the bracket)</span>}
               </span>
-              <span className="text-xs text-gray-400 tabular-nums">{record(t)}</span>
-              <div className="flex items-center gap-0.5">
+              <span className="text-xs text-gray-500 tabular-nums max-sm:hidden">{record(t)}</span>
+              {/* 40px each; Sit out set apart so a thumb meant for ↓ doesn't bench a team. */}
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
                   onClick={() => move(t.teamId, -1)}
                   disabled={disabled || i === 0}
-                  className="p-1 rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:hover:bg-transparent"
+                  className="press w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:hover:bg-transparent"
                   title="Move up"
                   aria-label={`Move ${t.teamName} up`}
                 >
-                  <ArrowUp className="w-3.5 h-3.5" />
+                  <ArrowUp className="w-4 h-4" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   onClick={() => move(t.teamId, 1)}
                   disabled={disabled || i === field.length - 1}
-                  className="p-1 rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:hover:bg-transparent"
+                  className="press w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:hover:bg-transparent"
                   title="Move down"
                   aria-label={`Move ${t.teamName} down`}
                 >
-                  <ArrowDown className="w-3.5 h-3.5" />
+                  <ArrowDown className="w-4 h-4" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   onClick={() => sitOut(t.teamId)}
                   disabled={disabled}
-                  className="p-1 rounded text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-30"
+                  className="press ml-2 w-10 h-10 inline-flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
                   title="Sit this team out — everyone below shifts up"
                   aria-label={`Sit ${t.teamName} out`}
                 >
-                  <UserMinus className="w-3.5 h-3.5" />
+                  <UserMinus className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
             </li>

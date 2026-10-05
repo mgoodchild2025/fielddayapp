@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { adminCreateTeam } from '@/actions/teams'
 import { toast } from 'sonner'
+import { safeAction } from '@/lib/action-errors'
 
 const schema = z.object({
   name: z.string().min(2, 'Name required'),
@@ -31,9 +32,11 @@ interface Props {
   registeredPlayers?: RegisteredPlayer[]
   /** Unmatched slot labels from template schedule (e.g. ["Team 1", "Team 2"]) */
   slotLabels?: string[]
+  /** Called after a team is created (the phone sheet closes itself). */
+  onCreated?: () => void
 }
 
-export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabels = [] }: Props) {
+export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabels = [], onCreated }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string>('')
@@ -47,13 +50,13 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
   async function onSubmit(data: FormData) {
     setLoading(true)
     setError(null)
-    const result = await adminCreateTeam({
+    const result = await safeAction(adminCreateTeam({
       leagueId,
       ...data,
       color: selectedColor || undefined,
       captainUserId: captainUserId || undefined,
       slotLabel: slotLabel || undefined,
-    })
+    }))
     if (result.error) {
       setError(result.error)
     } else {
@@ -62,6 +65,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
       setSelectedColor('')
       setCaptainUserId('')
       setSlotLabel('')
+      onCreated?.()
     }
     setLoading(false)
   }

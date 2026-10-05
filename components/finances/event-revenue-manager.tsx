@@ -11,6 +11,7 @@ import { addEventRevenue, updateEventRevenue, deleteEventRevenue } from '@/actio
 import type { EventRevenue } from '@/actions/finances'
 import { REVENUE_CATEGORIES, type RevenueCategory } from '@/lib/finance-constants'
 import { useUndoableRemove } from '@/components/ui/use-undoable-remove'
+import { Overlay } from '@/components/ui/overlay'
 
 const CATEGORY_LABELS: Record<RevenueCategory, string> = {
   donation: 'Donation',
@@ -56,8 +57,10 @@ export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: st
     setEditing(e.id)
   }
 
+  // Don't clear the fields here: the sheet animates out with them showing.
+  // Opening "Add" resets; editing fills them.
   function close() {
-    setEditing(null); reset(); setError(null)
+    setEditing(null); setError(null)
   }
 
   function submit() {
@@ -89,24 +92,34 @@ export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: st
   }
 
   const form = (
-    <div className="rounded-lg border bg-gray-50 p-3 space-y-2">
-      <div className="grid grid-cols-2 gap-2">
-        <select value={category} onChange={(e) => setCategory(e.target.value as RevenueCategory)} className="border rounded px-2 py-1.5 text-sm bg-white">
-          {REVENUE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-        </select>
-        <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-          <input type="number" inputMode="decimal" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
-        </div>
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
+        <FormField label="Category">
+          <select value={category} onChange={(e) => setCategory(e.target.value as RevenueCategory)} className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white">
+            {REVENUE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Amount">
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">$</span>
+            <input type="number" inputMode="decimal" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full min-h-10 border rounded-md pl-6 pr-2.5 text-sm bg-white" />
+          </div>
+        </FormField>
       </div>
-      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (e.g. 50/50 draw — week 3)" className="w-full border rounded px-2 py-1.5 text-sm" />
-      <div className="grid grid-cols-2 gap-2">
-        <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="Source / donor (optional)" className="border rounded px-2 py-1.5 text-sm" />
-        <input type="date" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} className="border rounded px-2 py-1.5 text-sm text-gray-600" />
+      <FormField label="Description">
+        <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. 50/50 draw — week 3" className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white" />
+      </FormField>
+      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
+        <FormField label="Source / donor (optional)">
+          <input value={source} onChange={(e) => setSource(e.target.value)} className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white" />
+        </FormField>
+        <FormField label="Date received">
+          <input type="date" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white" />
+        </FormField>
       </div>
       <div className="flex items-center gap-2 justify-end">
-        <button type="button" onClick={close} className="px-3 py-1.5 rounded-md border text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
-        <button type="button" onClick={submit} disabled={pending} className="px-3 py-1.5 rounded-md text-sm font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
+        <button type="button" onClick={close} className="press min-h-10 px-4 rounded-md border text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+        <button type="button" onClick={submit} disabled={pending} className="press min-h-10 px-4 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-60">
           {pending ? 'Saving…' : isNew ? 'Save' : 'Save changes'}
         </button>
       </div>
@@ -124,17 +137,14 @@ export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: st
           <button
             type="button"
             onClick={() => { reset(); setEditing('new') }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
+            className="press inline-flex items-center gap-1.5 min-h-10 px-3.5 rounded-md text-sm font-semibold bg-brand-primary text-on-brand"
           >
             <Plus className="w-4 h-4" /> Add income
           </button>
         )}
       </div>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
 
-      {isNew && form}
 
       {initialRevenue.length === 0 && !isNew ? (
         <div className="bg-white rounded-lg border border-dashed p-6 text-center text-sm text-gray-400">
@@ -145,12 +155,7 @@ export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: st
           <table className="min-w-full divide-y divide-gray-100 text-sm">
             <tbody className="divide-y divide-gray-50">
               {initialRevenue.filter((e) => !isHidden(e.id)).map((e) => (
-                editing === e.id ? (
-                  <tr key={e.id}>
-                    <td colSpan={3} className="p-2">{form}</td>
-                  </tr>
-                ) : (
-                <tr key={e.id} className="hover:bg-gray-50/50">
+                <tr key={e.id} className={`hover:bg-gray-50/50 ${editing === e.id ? 'bg-gray-50' : ''}`}>
                   <td className="px-4 py-2.5">
                     <p className="text-gray-800">{e.description}</p>
                     <p className="text-xs text-gray-400">
@@ -161,15 +166,14 @@ export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: st
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium text-green-700 whitespace-nowrap">{money(e.amount_cents)}</td>
                   <td className="px-2 py-2.5 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => startEdit(e)} disabled={pending} className="text-gray-400 hover:text-gray-700 disabled:opacity-40 p-2 -my-2" aria-label="Edit income">
+                    <button type="button" onClick={() => startEdit(e)} disabled={pending} className="press inline-flex items-center justify-center w-10 h-10 -my-2 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 disabled:opacity-40" aria-label="Edit income">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="text-gray-400 hover:text-red-600 disabled:opacity-40 p-2 -my-2" aria-label="Delete income">
+                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="press inline-flex items-center justify-center w-10 h-10 -my-2 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-40" aria-label="Delete income">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>
-                )
               ))}
             </tbody>
             <tfoot>
@@ -182,6 +186,29 @@ export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: st
           </table>
         </div>
       )}
+
+      {/* Add / edit in a sheet — the form used to expand inside the table row. */}
+      <Overlay
+        open={editing !== null}
+        onClose={close}
+        variant="sheet"
+        labelledBy="revenue-sheet-title"
+        panelClassName="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-4 max-h-[92dvh] overflow-y-auto"
+      >
+        <h3 id="revenue-sheet-title" className="font-semibold text-gray-900 mb-3">{isNew ? 'Add income' : 'Edit income'}</h3>
+        {error && <p role="alert" className="fd-fade-in mb-3 rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</p>}
+        {form}
+      </Overlay>
     </div>
+  )
+}
+
+// A visible label over each control (these forms were placeholder-only).
+function FormField({ label, className = '', children }: { label: string; className?: string; children: React.ReactNode }) {
+  return (
+    <label className={`block min-w-0 ${className}`}>
+      <span className="block text-xs font-medium text-gray-600 mb-1">{label}</span>
+      {children}
+    </label>
   )
 }

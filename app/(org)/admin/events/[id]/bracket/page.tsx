@@ -305,7 +305,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       {/* Always shown: the Award Medals button must be reachable even when no
           medals exist yet, and for standalone brackets with no playoff config. */}
       <div className="mb-6">
-        <AdminMedalsPanel medals={awardedMedals} leagueId={leagueId} />
+        <AdminMedalsPanel medals={awardedMedals} leagueId={leagueId} timeZone={timezone} />
       </div>
 
       <PlayoffConfigWizard

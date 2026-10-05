@@ -141,15 +141,19 @@ function TierRow({
   const tierTeamCount = tier.seedTo - tier.seedFrom + 1
 
   return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 items-center py-2 border-b last:border-0">
+    // Phones: a card — name + remove on the first row, then seeds, format, 3rd
+    // place and team count wrapping below. sm+: the six-column row (it needed
+    // ~480px and cut Format / Remove off at 375).
+    <div className="flex flex-wrap items-center gap-2 py-3 border-b last:border-0 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto_auto] sm:py-2">
       {/* Name with suggestions */}
-      <div className="relative">
+      <div className="relative min-w-0 basis-[calc(100%-3rem)] sm:basis-auto">
         <input
           list={`tier-names-${index}`}
           value={tier.name}
           onChange={(e) => onChange({ name: e.target.value })}
           placeholder="e.g. Gold"
-          className="w-full border rounded-md px-2.5 py-1.5 text-sm font-medium"
+          aria-label="Tier name"
+          className="w-full min-h-10 border rounded-md px-2.5 text-sm font-medium"
         />
         <datalist id={`tier-names-${index}`}>
           {[...Object.values(TIER_PRESETS).flat(), ...TIER_ALT_NAMES]
@@ -159,12 +163,13 @@ function TierRow({
       </div>
 
       {/* Seed from */}
-      <div className="flex items-center gap-1 text-sm text-gray-500">
-        <span className="text-xs text-gray-400">Seeds</span>
+      <div className="flex items-center gap-1 text-sm text-gray-500 max-sm:order-2">
+        <span className="text-xs text-gray-500">Seeds</span>
         <select
           value={tier.seedFrom}
           onChange={(e) => onChange({ seedFrom: Number(e.target.value) })}
-          className="border rounded px-1.5 py-1.5 text-sm w-14"
+          aria-label="First seed"
+          className="min-h-10 border rounded px-1.5 text-sm w-16"
         >
           {seedOptions.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
@@ -172,7 +177,8 @@ function TierRow({
         <select
           value={tier.seedTo}
           onChange={(e) => onChange({ seedTo: Number(e.target.value) })}
-          className="border rounded px-1.5 py-1.5 text-sm w-14"
+          aria-label="Last seed"
+          className="min-h-10 border rounded px-1.5 text-sm w-16"
         >
           {seedOptions.filter((n) => n >= tier.seedFrom).map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
@@ -182,7 +188,8 @@ function TierRow({
       <select
         value={tier.bracketType}
         onChange={(e) => onChange({ bracketType: e.target.value as TierConfig['bracketType'] })}
-        className="border rounded px-2 py-1.5 text-xs"
+        aria-label="Format"
+        className="min-h-10 border rounded px-2 text-sm max-sm:order-2"
         title={tier.bracketType === 'custom' ? 'Hand-built: you place every match, team and route yourself' : undefined}
       >
         <option value="single_elimination">Single Elim</option>
@@ -194,9 +201,9 @@ function TierRow({
       {/* 3rd place — available for single_elimination and all_play; not for
           double_elimination, and meaningless on hand-built shapes */}
       {tier.bracketType === 'double_elimination' || tier.bracketType === 'custom' ? (
-        <span className="text-xs text-gray-300 whitespace-nowrap">3rd place</span>
+        <span className="text-xs text-gray-400 whitespace-nowrap max-sm:order-2">3rd place</span>
       ) : (
-        <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer whitespace-nowrap">
+        <label className="flex items-center gap-1.5 min-h-10 text-xs text-gray-600 cursor-pointer whitespace-nowrap max-sm:order-2">
           <input
             type="checkbox"
             checked={tier.thirdPlaceGame}
@@ -208,7 +215,7 @@ function TierRow({
       )}
 
       {/* Team count badge */}
-      <span className="text-xs text-gray-400 whitespace-nowrap">
+      <span className="text-xs text-gray-500 whitespace-nowrap max-sm:order-2 max-sm:ml-auto">
         {tier.seedTo - tier.seedFrom + 1} teams
       </span>
 
@@ -217,14 +224,14 @@ function TierRow({
         <button
           type="button"
           onClick={onRemove}
-          className="text-gray-300 hover:text-red-400 text-lg leading-none w-6 text-center"
-          title="Remove tier"
+          className="press w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 text-xl leading-none max-sm:order-1"
+          aria-label={`Remove ${tier.name || 'tier'}`}
         >×</button>
-      ) : <span className="w-6" />}
+      ) : <span className="w-10 max-sm:hidden" />}
 
       {/* Cross-tier drop-down settings (flexible brackets Phase 2) */}
       {tier.bracketType === 'single_elimination' && dropDownSources.length > 0 && (
-        <div className="col-span-full flex flex-wrap items-center gap-2 pb-2 -mt-0.5 text-xs text-gray-500">
+        <div className="col-span-full basis-full max-sm:order-3 flex flex-wrap items-center gap-2 pb-2 -mt-0.5 text-xs text-gray-500">
           <span className="text-gray-400">↳</span>
           <span>Receives losers from</span>
           <select
@@ -1063,7 +1070,7 @@ export function PlayoffConfigWizard({
         {/* Tier table */}
         <div className="bg-white rounded-xl border overflow-hidden">
           <div className="px-4 py-3 bg-gray-50 border-b">
-            <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               <span>Tier Name</span>
               <span>Seed Range</span>
               <span>Format</span>

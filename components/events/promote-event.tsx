@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { useRouter } from 'next/navigation'
 import { sendAnnouncement } from '@/actions/messages'
+import { safeAction } from '@/lib/action-errors'
 
 type Audience = 'past_participants' | 'marketing' | 'event_interest'
 type Channel = 'email' | 'sms' | 'both'
@@ -17,14 +18,16 @@ interface Props {
   /** Subject/body of the last promo sent — prefilled so admins continue from it. */
   lastSubject?: string | null
   lastBody?: string | null
+  /** The org's timezone — the schedule field is read in it. */
+  timeZone?: string
 }
 
-export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = false, interestCount = 0, lastSubject = null, lastBody = null }: Props) {
+export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = false, interestCount = 0, lastSubject = null, lastBody = null, timeZone = 'America/Toronto' }: Props) {
   const router = useRouter()
   const [audience, setAudience] = useState<Audience>('marketing')
   const [channel, setChannel] = useState<Channel>('email')
   const [isPending, startTransition] = useTransition()
-  const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
+  const [result, setResult] = useState<{ error?: string; success?: boolean; scheduledFor?: string } | null>(null)
 
   const defaultSubject = lastSubject || `${eventName} — Register Now`
   const defaultBody = lastBody || (
@@ -51,10 +54,10 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
     }))) return
     setResult(null)
     startTransition(async () => {
-      const res = await sendAnnouncement(fd)
+      const res = await safeAction(sendAnnouncement(fd))
       if (res.error) setResult({ error: res.error })
       else {
-        setResult({ success: true })
+        setResult({ success: true, scheduledFor: String(fd.get('scheduled_for') ?? '').trim() || undefined })
         ;form.reset()
         setAudience('marketing')
         setChannel('email')
@@ -130,9 +133,9 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Schedule (optional)</label>
-          <input name="scheduled_for" type="datetime-local" className="w-full border rounded-md px-3 py-2 text-sm" />
-          <p className="text-xs text-gray-500 mt-1">Leave blank to send now.</p>
+          <label htmlFor="promo-scheduled-for" className="block text-sm font-medium text-gray-700 mb-1">Schedule (optional)</label>
+          <input id="promo-scheduled-for" name="scheduled_for" type="datetime-local" aria-describedby="promo-scheduled-hint" className="w-full min-h-10 border rounded-md px-3 text-sm" />
+          <p id="promo-scheduled-hint" className="text-xs text-gray-500 mt-1">Leave blank to send now. Times are in {timeZone.replace(/_/g, ' ')}.</p>
         </div>
         <label className="flex items-center gap-2 mt-7 text-sm text-gray-700">
           <input type="checkbox" name="cc_self" className="w-4 h-4 rounded border-gray-300" />
@@ -141,7 +144,14 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
       </div>
 
       {result?.error && <p role="alert" className="text-sm text-red-600">{result.error}</p>}
-      {result?.success && <p className="text-sm text-green-700">Sent! 🎉 (or scheduled, if you set a time.)</p>}
+      {result?.success && (
+        <p role="status" className="fd-fade-in text-sm text-green-700">
+          {result.scheduledFor
+            // The field holds the org's wall-clock time: format it as-is.
+            ? <>Scheduled for {new Date(`${result.scheduledFor}:00Z`).toLocaleString('en-CA', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} ({timeZone.replace(/_/g, ' ')}).</>
+            : 'Promotion sent.'}
+        </p>
+      )}
 
       <button
         type="submit"

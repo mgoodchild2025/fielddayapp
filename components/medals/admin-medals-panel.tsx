@@ -3,6 +3,9 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { awardLeagueMedals, revokeMedal } from '@/actions/medals'
+import { confirmAction } from '@/components/ui/confirm-dialog'
+import { safeAction } from '@/lib/action-errors'
+import { toast } from 'sonner'
 
 /**
  * Admin view of a league's awarded medals: who won what, exactly as players
@@ -26,10 +29,9 @@ const GLYPH: Record<AdminMedalRow['placement'], string> = {
   gold: '🥇', silver: '🥈', bronze: '🥉', tier_champion: '🏆',
 }
 
-export function AdminMedalsPanel({ medals, leagueId }: { medals: AdminMedalRow[]; leagueId: string }) {
+export function AdminMedalsPanel({ medals, leagueId, timeZone = 'America/Toronto' }: { medals: AdminMedalRow[]; leagueId: string; timeZone?: string }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [confirmId, setConfirmId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [awardMsg, setAwardMsg] = useState<string | null>(null)
   const [isAwarding, startAward] = useTransition()
@@ -46,12 +48,20 @@ export function AdminMedalsPanel({ medals, leagueId }: { medals: AdminMedalRow[]
     })
   }
 
-  function handleRevoke(medalId: string) {
-    setConfirmId(null)
+  // Takes the medal out of every recipient's trophy case — confirm in-app
+  // (the old inline "Revoke? Yes / No" were 11px words side by side).
+  async function handleRevoke(m: AdminMedalRow) {
+    if (!(await confirmAction({
+      title: `Revoke ${m.label ?? 'this medal'}?`,
+      message: `It's removed from ${m.teamName ?? 'the team'}'s players' trophy cases. Re-run Award Medals to bring it back.`,
+      confirmLabel: 'Revoke medal',
+      destructive: true,
+    }))) return
     setErr(null)
     startTransition(async () => {
-      const r = await revokeMedal(medalId, leagueId)
+      const r = await safeAction(revokeMedal(m.id, leagueId))
       if (r.error) { setErr(r.error); return }
+      toast.success('Medal revoked')
       router.refresh()
     })
   }
@@ -94,33 +104,17 @@ export function AdminMedalsPanel({ medals, leagueId }: { medals: AdminMedalRow[]
               </p>
             </div>
             <div className="shrink-0 flex items-center gap-2">
-              <span className="text-[11px] text-gray-400 tabular-nums">
-                {new Date(m.awardedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+              <span className="text-xs text-gray-500 tabular-nums">
+                {new Date(m.awardedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone })}
               </span>
-              {confirmId === m.id ? (
-                <span className="flex items-center gap-1.5 text-[11px]">
-                  <span className="text-gray-500">Revoke?</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRevoke(m.id)}
-                    disabled={isPending}
-                    className="font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
-                  >
-                    Yes
-                  </button>
-                  <button type="button" onClick={() => setConfirmId(null)} className="text-gray-400 hover:text-gray-600">No</button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setConfirmId(m.id)}
-                  disabled={isPending}
-                  className="text-[11px] text-gray-300 hover:text-red-500 disabled:opacity-40"
-                  title="Remove this medal from every recipient's trophy case"
-                >
-                  Revoke
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => handleRevoke(m)}
+                disabled={isPending}
+                className="press inline-flex items-center min-h-10 px-2 -mr-2 text-xs font-medium text-gray-500 hover:text-red-600 disabled:opacity-40"
+              >
+                Revoke
+              </button>
             </div>
           </li>
         ))}

@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { PlayerDetailsForm } from '@/components/players/player-details-form'
@@ -60,6 +60,8 @@ export default async function PlayerManagementPage({
   const { userId } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  // Dates print in the ORG's timezone (the server renders in UTC).
+  const timeZone = await getOrgTimezone(org.id)
   const supabase = createServiceRoleClient()
   const scope = await getAdminScope(org.id)
   const isOrgAdmin = scope.isOrgAdmin
@@ -221,6 +223,7 @@ export default async function PlayerManagementPage({
             {new Date(orgMember.joined_at ?? Date.now()).toLocaleDateString('en-CA', {
               month: 'short',
               year: 'numeric',
+              timeZone,
             })}
           </span>
         </div>
@@ -268,7 +271,7 @@ export default async function PlayerManagementPage({
             const latest = (t: string) => consentSummary.find((c) => c.consent_type === t)
             const privacy = latest('privacy_policy')
             const waiver = latest('waiver')
-            const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })
+            const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric', timeZone })
             const Pill = ({ on }: { on: boolean }) => (
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${on ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                 {on ? 'Opted in' : 'Opted out'}

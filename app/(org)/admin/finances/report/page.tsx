@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
@@ -32,6 +32,8 @@ export default async function FinancialReportPage({
 }) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  // Dates print in the ORG's timezone (the server renders in UTC).
+  const timeZone = await getOrgTimezone(org.id)
   await requireOrgMember(org, ['org_admin'])
 
   if (!(await canAccess(org.id, 'financial_tools'))) {
@@ -67,7 +69,7 @@ export default async function FinancialReportPage({
 
   // Calendar-year orgs see plain "year" labels; everyone else "fiscal year".
   const yearWord = fyStartMonth === 1 ? 'year' : 'fiscal year'
-  const generatedOn = new Date().toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
+  const generatedOn = new Date().toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric', timeZone })
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-8 print:max-w-none print:px-0 print:py-0">

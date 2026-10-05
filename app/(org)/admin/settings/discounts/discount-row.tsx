@@ -5,6 +5,8 @@ import { Trash2 } from 'lucide-react'
 import { deleteDiscount, updateDiscount } from '@/actions/discounts'
 import { useRouter } from 'next/navigation'
 import { undoableRemove } from '@/components/ui/use-undoable-remove'
+import { safeAction } from '@/lib/action-errors'
+import { toast } from 'sonner'
 
 interface DiscountCode {
   id: string
@@ -55,14 +57,20 @@ export function DiscountRow({ code, timeZone = 'America/Toronto' }: { code: Disc
         {code.expires_at ? new Date(code.expires_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone }) : '—'}
       </td>
       <td data-label="Active" className="px-4 py-3 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
+        {/* A switch-like chip: says what tapping does, 40px tall, and a refused
+            update no longer looks like it worked. */}
         <button
           onClick={() => start(async () => {
-            await updateDiscount(code.id, { active: !code.active })
+            const res = await safeAction(updateDiscount(code.id, { active: !code.active }))
+            if (res && 'error' in res && res.error) { toast.error(res.error); return }
+            toast.success(code.active ? `${code.code} turned off` : `${code.code} turned on`)
             router.refresh()
           })}
           disabled={pending}
-          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-            code.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+          aria-pressed={code.active}
+          aria-label={`${code.code}: ${code.active ? 'active — tap to turn off' : 'inactive — tap to turn on'}`}
+          className={`press inline-flex items-center min-h-10 text-xs px-3 rounded-full font-medium disabled:opacity-60 ${
+            code.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
           }`}
         >
           {code.active ? 'Active' : 'Inactive'}

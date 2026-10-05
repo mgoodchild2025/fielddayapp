@@ -209,7 +209,10 @@ export default async function AdminSchedulePage({ params, searchParams }: { para
             <WeekPhasesEditor leagueId={id} initialPhases={weekPhaseList} maxGameWeek={maxGameWeek} />
           )}
           <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} sport={sport} />
-          <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} pools={pools ?? []} timezone={timezone} />
+          {/* Phones already have "+ Add game" at the top (org admins). */}
+          <div className={isOrgAdmin ? 'max-md:hidden' : undefined}>
+            <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} pools={pools ?? []} timezone={timezone} />
+          </div>
           <div className={playsToday ? 'max-md:hidden' : undefined}>
             <DelayScheduleControl leagueId={id} mode="games" />
           </div>

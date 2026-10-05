@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
@@ -141,6 +141,7 @@ export default async function AdminShopPage({
             orders={orders}
             showSource
             isManualPayment={isManualPayment}
+            timeZone={await getOrgTimezone(org.id)}
           />
         </div>
       )}

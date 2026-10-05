@@ -27,7 +27,6 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
   const [addingRound, setAddingRound] = useState<'earlier' | 'later' | null>(null)
   const [newRoundMatches, setNewRoundMatches] = useState('2')
   const [newRoundName, setNewRoundName] = useState('')
-  const [confirmDeleteRound, setConfirmDeleteRound] = useState<number | null>(null)
 
   const roundNumbers = Array.from(new Set(bracket.matches.map((m) => m.roundNumber)))
     .sort((a, b) => b - a) // earliest round (largest number) first, final last
@@ -168,39 +167,31 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                   type="button"
                   onClick={() => run(() => addBracketMatch({ bracketId: bracket.id, leagueId, roundNumber: rn }))}
                   disabled={isPending}
-                  className="inline-flex items-center rounded border border-dashed border-gray-300 px-1.5 py-0.5 text-[11px] text-gray-400 hover:text-gray-600 hover:border-gray-400"
+                  className="press inline-flex items-center justify-center w-10 h-10 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-gray-800 hover:border-gray-400"
+                  aria-label="Add a match to this round"
                   title="Add a match to this round"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="w-4 h-4" aria-hidden="true" />
                 </button>
               </span>
 
               {/* Delete round */}
               <span className="ml-auto">
-                {confirmDeleteRound === rn ? (
-                  <span className="flex items-center gap-1.5 text-[11px]">
-                    <span className="text-gray-500">Delete round?</span>
-                    <button
-                      type="button"
-                      onClick={() => { setConfirmDeleteRound(null); run(() => deleteBracketRound({ bracketId: bracket.id, leagueId, roundNumber: rn })) }}
-                      className="font-medium text-red-600 hover:text-red-700"
-                    >
-                      Yes
-                    </button>
-                    <button type="button" onClick={() => setConfirmDeleteRound(null)} className="text-gray-400 hover:text-gray-600">No</button>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDeleteRound(rn)}
-                    disabled={isPending || hasScores}
-                    className="text-gray-300 hover:text-red-500 disabled:opacity-30"
-                    title={hasScores ? 'A match in this round has a score' : 'Delete this round and its matches'}
-                    aria-label="Delete round"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                {/* In-app confirm — the inline "Delete round? Yes / No" were
+                    11px words side by side. */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!(await confirmAction({ title: 'Delete this round?', message: 'Its matches are deleted too.', confirmLabel: 'Delete round', destructive: true }))) return
+                    run(() => deleteBracketRound({ bracketId: bracket.id, leagueId, roundNumber: rn }))
+                  }}
+                  disabled={isPending || hasScores}
+                  className="press inline-flex items-center justify-center w-10 h-10 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30"
+                  title={hasScores ? 'A match in this round has a score' : 'Delete this round and its matches'}
+                  aria-label="Delete round"
+                >
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
+                </button>
               </span>
             </div>
           )
@@ -228,18 +219,18 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
             onChange={(e) => setNewRoundName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') submitAddRound(addingRound); if (e.key === 'Escape') setAddingRound(null) }}
             placeholder="Round name (optional)"
-            className="border rounded px-1.5 py-0.5 text-xs w-40"
+            aria-label="Round name"
+            className="min-h-10 border rounded-md px-2.5 text-sm w-44"
           />
           <button
             type="button"
             onClick={() => submitAddRound(addingRound)}
             disabled={isPending}
-            className="font-medium text-white rounded px-2 py-0.5 disabled:opacity-60"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
+            className="press min-h-10 px-3 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
           >
             Add
           </button>
-          <button type="button" onClick={() => setAddingRound(null)} className="text-gray-400 hover:text-gray-600">Cancel</button>
+          <button type="button" onClick={() => setAddingRound(null)} className="press min-h-10 px-2 text-sm text-gray-600 hover:text-gray-900">Cancel</button>
         </div>
       ) : (
         <div className="flex items-center gap-2">
@@ -247,7 +238,7 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
             type="button"
             onClick={() => setAddingRound('earlier')}
             disabled={isPending}
-            className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800"
+            className="press inline-flex items-center gap-1 min-h-10 px-2 text-sm font-medium text-gray-600 hover:text-gray-900"
             title="Add a round before the current first round"
           >
             <Plus className="w-3.5 h-3.5" /> Earlier round
@@ -256,7 +247,7 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
             type="button"
             onClick={() => setAddingRound('later')}
             disabled={isPending}
-            className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800"
+            className="press inline-flex items-center gap-1 min-h-10 px-2 text-sm font-medium text-gray-600 hover:text-gray-900"
             title="Add a round after the current last round, toward the final"
           >
             <Plus className="w-3.5 h-3.5" /> Next round

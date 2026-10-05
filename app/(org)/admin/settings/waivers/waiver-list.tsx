@@ -18,9 +18,11 @@ interface Waiver {
 
 interface Props {
   waivers: Waiver[]
+  /** Org timezone for the "Created" dates. */
+  timeZone?: string
 }
 
-export function WaiverList({ waivers: initial }: Props) {
+export function WaiverList({ waivers: initial, timeZone = 'America/Toronto' }: Props) {
   const [waivers, setWaivers] = useState(initial)
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -77,6 +79,7 @@ export function WaiverList({ waivers: initial }: Props) {
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
           onActivated={handleActivated}
+          timeZone={timeZone}
         />
       ))}
     </div>
@@ -92,9 +95,10 @@ interface WaiverCardProps {
   onUpdated: (w: Waiver) => void
   onDeleted: (id: string) => void
   onActivated: (id: string) => void
+  timeZone: string
 }
 
-function WaiverCard({ waiver, editingId, setEditingId, onUpdated, onDeleted, onActivated }: WaiverCardProps) {
+function WaiverCard({ waiver, editingId, setEditingId, onUpdated, onDeleted, onActivated, timeZone }: WaiverCardProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   return (
@@ -115,7 +119,7 @@ function WaiverCard({ waiver, editingId, setEditingId, onUpdated, onDeleted, onA
             )}
           </div>
           <p className="text-xs text-gray-400 mt-0.5">
-            Created {new Date(waiver.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+            Created {new Date(waiver.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone })}
           </p>
         </div>
 

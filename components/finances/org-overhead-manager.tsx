@@ -13,6 +13,7 @@ import { TaxCalc } from '@/components/finances/tax-calc'
 import type { OrgOverhead, AllocationTarget } from '@/actions/finances'
 import { OVERHEAD_CATEGORIES, OVERHEAD_PERIODS, type OverheadCategory, type OverheadPeriod } from '@/lib/finance-constants'
 import { useUndoableRemove } from '@/components/ui/use-undoable-remove'
+import { Overlay } from '@/components/ui/overlay'
 
 const CATEGORY_LABELS: Record<OverheadCategory, string> = {
   insurance: 'Insurance',
@@ -205,7 +206,8 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
     setEditing(e.id)
   }
 
-  function close() { setEditing(null); reset(); setError(null) }
+  // Don't clear the fields here: the sheet animates out with them showing.
+  function close() { setEditing(null); setError(null) }
 
   function submit() {
     const cents = Math.round(parseFloat(amount) * 100)
@@ -234,7 +236,7 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
   }
 
   const form = (
-        <div className="rounded-lg border bg-gray-50 p-3 space-y-3">
+        <div className="space-y-3">
           <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
             <FormField label="Category">
               <select value={category} onChange={(e) => setCategory(e.target.value as OverheadCategory)} className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white">
@@ -298,17 +300,14 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
           <button
             type="button"
             onClick={() => { reset(); setEditing('new') }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
+            className="press inline-flex items-center gap-1.5 min-h-10 px-3.5 rounded-md text-sm font-semibold bg-brand-primary text-on-brand"
           >
             <Plus className="w-4 h-4" /> Add overhead
           </button>
         )}
       </div>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
 
-      {isNew && form}
 
       {initialOverhead.length === 0 && !isNew ? (
         <div className="bg-white rounded-lg border border-dashed p-6 text-center text-sm text-gray-400">
@@ -320,13 +319,6 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
             <tbody className="divide-y divide-gray-50">
               {initialOverhead.filter((e) => !isHidden(e.id)).map((e) => {
                 const allocated = (e.allocations ?? []).reduce((sum, a) => sum + a.amountCents, 0)
-                if (editing === e.id) {
-                  return (
-                    <tr key={e.id}>
-                      <td colSpan={3} className="p-2">{form}</td>
-                    </tr>
-                  )
-                }
                 return (
                 <Fragment key={e.id}>
                 <tr className="hover:bg-gray-50/50">
@@ -354,10 +346,10 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
                       className="text-xs text-gray-400 hover:text-gray-700 underline underline-offset-2 mr-2 py-2 -my-2 px-1">
                       Allocate
                     </button>
-                    <button type="button" onClick={() => startEdit(e)} disabled={pending} className="text-gray-400 hover:text-gray-700 disabled:opacity-40 align-middle p-2 -my-2" aria-label="Edit overhead">
+                    <button type="button" onClick={() => startEdit(e)} disabled={pending} className="press inline-flex items-center justify-center w-10 h-10 -my-2 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 disabled:opacity-40" aria-label="Edit overhead">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="text-gray-400 hover:text-red-600 disabled:opacity-40 align-middle p-2 -my-2" aria-label="Delete overhead">
+                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="press inline-flex items-center justify-center w-10 h-10 -my-2 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-40" aria-label="Delete overhead">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
@@ -386,6 +378,19 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
           </table>
         </div>
       )}
+
+      {/* Add / edit in a sheet — the form used to expand inside the table row. */}
+      <Overlay
+        open={editing !== null}
+        onClose={close}
+        variant="sheet"
+        labelledBy="overhead-sheet-title"
+        panelClassName="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-4 max-h-[92dvh] overflow-y-auto"
+      >
+        <h3 id="overhead-sheet-title" className="font-semibold text-gray-900 mb-3">{isNew ? 'Add overhead' : 'Edit overhead'}</h3>
+        {error && <p role="alert" className="fd-fade-in mb-3 rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</p>}
+        {form}
+      </Overlay>
     </div>
   )
 }

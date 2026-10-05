@@ -6,6 +6,8 @@ import type { MerchOrder } from '@/actions/merchandise'
 import { Overlay, useRetained } from '@/components/ui/overlay'
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { safeAction } from '@/lib/action-errors'
+import { toast } from 'sonner'
+import { undoableRemove } from '@/components/ui/use-undoable-remove'
 
 type FulfillAllTarget =
   | { type: 'league'; leagueId: string }
@@ -17,6 +19,7 @@ interface Props {
   orders: MerchOrder[]
   showSource?: boolean
   isManualPayment?: boolean
+  timeZone?: string
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -38,8 +41,9 @@ function StatusBadge({ order }: { order: MerchOrder }) {
   )
 }
 
-function formatShortDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+// The ORG's calendar day (not the phone's, not the server's UTC).
+function formatShortDate(iso: string, timeZone: string) {
+  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone })
 }
 
 function formatPaymentMethod(method: string | null | undefined): string {
@@ -72,10 +76,9 @@ function SourceBadge({ order }: { order: MerchOrder }) {
   )
 }
 
-export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders, showSource = false, isManualPayment = false }: Props) {
+export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders, showSource = false, isManualPayment = false, timeZone = 'America/Toronto' }: Props) {
   const [orders, setOrders] = useState<MerchOrder[]>(initialOrders)
   const [error, setError] = useState<string | null>(null)
-  const [fulfillPendingId, setFulfillPendingId] = useState<string | null>(null)
   const [fulfillAllPending, setFulfillAllPending] = useState(false)
   const [markPaidOpenId, setMarkPaidOpenId] = useState<string | null>(null)
   const [markPaidMethod, setMarkPaidMethod] = useState<'etransfer' | 'cash'>('etransfer')
@@ -87,6 +90,12 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
   const [, startTransition] = useTransition()
 
   const fulfillableOrders = orders.filter((o) => o.status === 'pending' || o.status === 'paid')
+  // Find one order at the pickup table without scrolling them all.
+  const [query, setQuery] = useState('')
+  const needle = query.trim().toLowerCase()
+  const shownOrders = needle
+    ? orders.filter((o) => [o.player_name, o.player_email, o.item_name, o.variant_label].some((v) => v?.toLowerCase().includes(needle)))
+    : orders
 
   /** Standard price in cents for an order (before any admin override) */
   function standardCents(o: MerchOrder) {
@@ -100,19 +109,19 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     setMarkPaidMethod('etransfer')
   }
 
+  // At the pickup table a mis-tap fulfilled the wrong order with no way back:
+  // mark it at once, offer Undo, and only save when the toast closes.
   function handleFulfill(orderId: string) {
     setError(null)
-    setFulfillPendingId(orderId)
-    startTransition(async () => {
-      const result = await safeAction(fulfillMerchandiseOrder(orderId))
-      setFulfillPendingId(null)
-      if (result.error) {
-        setError(result.error)
-      } else {
-        setOrders((prev) =>
-          prev.map((o) => o.id === orderId ? { ...o, status: 'fulfilled', fulfilled_at: new Date().toISOString() } : o)
-        )
-      }
+    const before = orders.find((o) => o.id === orderId)
+    if (!before) return
+    setOrders((prev) =>
+      prev.map((o) => o.id === orderId ? { ...o, status: 'fulfilled', fulfilled_at: new Date().toISOString() } : o)
+    )
+    undoableRemove({
+      label: `Fulfilled · ${before.player_name ?? 'order'} — ${before.item_name ?? 'item'}`,
+      restore: () => setOrders((prev) => prev.map((o) => o.id === orderId ? before : o)),
+      commit: () => safeAction(fulfillMerchandiseOrder(orderId)),
     })
   }
 
@@ -160,7 +169,8 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
       }))
       setMarkPaidPendingId(null)
       if (result.error) {
-        setError(result.error)
+        // The page-level error sat behind the open sheet.
+        toast.error(result.error)
       } else {
         setOrders((prev) =>
           prev.map((o) => o.id === orderId
@@ -248,6 +258,22 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
         </div>
       )}
 
+      {orders.length > 8 && (
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name, email or item"
+          aria-label="Search orders"
+          autoComplete="off"
+          enterKeyHint="search"
+          className="w-full min-h-11 border rounded-lg px-3 text-base sm:text-sm bg-white"
+        />
+      )}
+      {needle && shownOrders.length === 0 && (
+        <p className="text-sm text-gray-500">No orders match “{query.trim()}”.</p>
+      )}
+
       {/* Actions bar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -314,7 +340,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 max-sm:block">
-              {orders.map((order) => (
+              {shownOrders.map((order) => (
                 <tr key={order.id} className="hover:bg-gray-50/50 transition-colors max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-4 max-sm:gap-y-2 max-sm:p-4">
                   {showSource && (
                     <td className="px-4 py-3 max-sm:p-0">
@@ -400,10 +426,9 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                       <button
                         type="button"
                         onClick={() => handleFulfill(order.id)}
-                        disabled={fulfillPendingId === order.id}
                         className="press min-h-10 px-3 text-xs font-semibold text-[var(--brand-primary)] hover:opacity-75 disabled:opacity-40"
                       >
-                        {fulfillPendingId === order.id ? 'Fulfilling…' : 'Fulfill'}
+                        Fulfill
                       </button>
                     )}
                     {order.status === 'fulfilled' && order.fulfilled_at && order.paid_at && (
@@ -412,13 +437,13 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                           <svg className="w-3 h-3 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          <span>Fulfilled {formatShortDate(order.fulfilled_at)}</span>
+                          <span>Fulfilled {formatShortDate(order.fulfilled_at, timeZone)}</span>
                         </div>
                         <div className="flex items-center gap-1 text-xs text-gray-500">
                           <svg className="w-3 h-3 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
                           </svg>
-                          <span>Paid {formatShortDate(order.paid_at)}</span>
+                          <span>Paid {formatShortDate(order.paid_at, timeZone)}</span>
                         </div>
                         {order.payment_method && (
                           <span className="text-xs text-gray-400">{formatPaymentMethod(order.payment_method)}</span>
@@ -431,7 +456,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                     {order.status === 'fulfilled' && order.fulfilled_at && !order.paid_at && (
                       <div className="flex flex-col items-end gap-0.5">
                         <span className="text-xs text-gray-400">
-                          Fulfilled {formatShortDate(order.fulfilled_at)}
+                          Fulfilled {formatShortDate(order.fulfilled_at, timeZone)}
                         </span>
                         <span className="text-xs font-medium text-amber-600">Payment outstanding</span>
                       </div>

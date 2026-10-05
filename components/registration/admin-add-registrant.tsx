@@ -6,6 +6,7 @@ import { Overlay } from '@/components/ui/overlay'
 import { Plus, X } from 'lucide-react'
 import { adminAddRegistrant } from '@/actions/registrations'
 import { safeAction } from '@/lib/action-errors'
+import { toast } from 'sonner'
 
 type Method = 'cash' | 'etransfer' | 'cheque' | 'card' | 'other'
 
@@ -68,6 +69,7 @@ export function AdminAddRegistrant({
       }))
       if (res.error) { setError(res.error); return }
       close()
+      toast.success(`Added ${fullName.trim()}`)
       router.refresh()
     })
   }
@@ -101,11 +103,11 @@ export function AdminAddRegistrant({
         </div>
 
         <div className="px-5 py-4 space-y-3">
-          {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
+          {error && <div role="alert" className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
 
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Full name <span className="text-red-400">*</span></label>
-            <input data-autofocus value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" placeholder="Jane Doe" />
+            <input data-autofocus value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="off" autoCapitalize="words" className="w-full min-h-10 border rounded-md px-3 text-sm" placeholder="Jane Doe" />
           </div>
 
           {hasSessions && (
@@ -128,11 +130,11 @@ export function AdminAddRegistrant({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Email <span className="text-gray-400">(optional)</span></label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" placeholder="—" />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" autoCapitalize="none" className="w-full min-h-10 border rounded-md px-3 text-sm" placeholder="—" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Phone <span className="text-gray-400">(optional)</span></label>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" placeholder="—" />
+              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="off" className="w-full min-h-10 border rounded-md px-3 text-sm" placeholder="—" />
             </div>
           </div>
           <p className="text-[11px] text-gray-400 -mt-1">
@@ -168,8 +170,8 @@ export function AdminAddRegistrant({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t px-5 py-3.5">
-          <button type="button" onClick={close} className="px-3 py-1.5 rounded-md border text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button type="button" onClick={submit} disabled={pending} className="px-3.5 py-1.5 rounded-md text-sm font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
+          <button type="button" onClick={close} className="press min-h-11 px-4 rounded-md border text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+          <button type="button" onClick={submit} disabled={pending} className="press min-h-11 px-4 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-60">
             {pending ? 'Adding…' : 'Add registrant'}
           </button>
         </div>

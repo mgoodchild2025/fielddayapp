@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { getPositionsForSport } from '@/actions/positions'
 import { AdminCreateTeamForm } from '@/components/teams/admin-create-team-form'
+import { CreateTeamSheetButton } from '@/components/teams/create-team-sheet'
 import { AdminTeamCard } from '@/components/teams/admin-team-card'
 import type { ActiveMember, PendingInvite } from '@/components/teams/roster-manager'
 import type { RosterNote } from '@/actions/roster-notes'
@@ -236,6 +237,11 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div className="md:col-span-2 space-y-2">
+        {isOrgAdmin && (
+          <div className="md:hidden flex justify-end">
+            <CreateTeamSheetButton leagueId={id} registeredPlayers={unassignedPlayers} slotLabels={slotLabels} />
+          </div>
+        )}
         {typedTeams.length > 0 ? (
           typedTeams.map((team) => {
             const allMembers = (team.team_members ?? []) as Array<{
@@ -346,7 +352,9 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
       {/* Sidebar */}
       {isOrgAdmin && (
         <div className="space-y-4">
-          <AdminCreateTeamForm leagueId={id} registeredPlayers={unassignedPlayers} slotLabels={slotLabels} />
+          <div className="max-md:hidden">
+            <AdminCreateTeamForm leagueId={id} registeredPlayers={unassignedPlayers} slotLabels={slotLabels} />
+          </div>
           {slotLabels.length > 0 && (
             <AssignSlotsCard
               leagueId={id}

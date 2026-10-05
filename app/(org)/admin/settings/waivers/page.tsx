@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { WaiverList } from './waiver-list'
 import type { Metadata } from 'next'
@@ -58,7 +58,7 @@ export default async function AdminWaiversPage() {
         </Link>
       </div>
 
-      <WaiverList waivers={waiversWithCounts} />
+      <WaiverList waivers={waiversWithCounts} timeZone={await getOrgTimezone(org.id)} />
     </div>
   )
 }
