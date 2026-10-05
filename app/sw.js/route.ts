@@ -83,10 +83,16 @@ self.addEventListener('notificationclick', (event) => {
   const target = new URL(href, self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      const mine = list.find((c) => new URL(c.url).origin === self.location.origin);
-      if (mine) {
-        const focus = () => mine.focus();
-        return 'navigate' in mine ? mine.navigate(target).then(focus, focus) : focus();
+      // Prefer a tab this worker controls, outside the scoreboard (which has
+      // its own worker — navigate() rejects for clients we don't control, and
+      // taking a game-night board somewhere else would be rude anyway).
+      const sameOrigin = list.filter((c) => new URL(c.url).origin === self.location.origin);
+      const notBoard = sameOrigin.filter((c) => !new URL(c.url).pathname.startsWith('/scoreboard'));
+      const mine = notBoard.find((c) => c.focused) || notBoard[0];
+      if (mine && 'navigate' in mine) {
+        return mine.navigate(target)
+          .then((c) => (c || mine).focus())
+          .catch(() => self.clients.openWindow(target));
       }
       return self.clients.openWindow(target);
     })

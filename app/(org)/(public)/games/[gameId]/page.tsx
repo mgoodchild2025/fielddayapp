@@ -16,8 +16,8 @@ import { redirectToLogin } from '@/lib/auth'
 import { BackLink } from '@/components/ui/back-link'
 import { MapLink } from '@/components/ui/map-link'
 import { MapPin } from 'lucide-react'
-import { LiveScoreBadge } from '@/components/scoreboard/live-score-badge'
-import { inLiveWindowNow } from '@/lib/live-window'
+import { LiveScoreBadgeWhenLive } from '@/components/scoreboard/live-score-badge-when-live'
+import { mayGoLiveSoon } from '@/lib/live-window'
 import type { Metadata } from 'next'
 
 export async function generateMetadata({ params }: { params: Promise<{ gameId: string }> }): Promise<Metadata> {
@@ -318,8 +318,8 @@ export default async function GameMatchupPage({
               {/* The page players reach from the Games tab mid-game: show the
                   scorer's live board (same rule as the event page — only
                   while nothing is saved, and only near game time). */}
-              {!result && !isCancelled && !isPostponed && league?.id && inLiveWindowNow(rawGame.scheduled_at) && (
-                <LiveScoreBadge leagueId={league.id} gameId={rawGame.id} />
+              {!result && !isCancelled && !isPostponed && league?.id && mayGoLiveSoon(rawGame.scheduled_at) && (
+                <LiveScoreBadgeWhenLive leagueId={league.id} gameId={rawGame.id} scheduledAt={rawGame.scheduled_at} />
               )}
               {/* Status badge */}
               {isCancelled && (

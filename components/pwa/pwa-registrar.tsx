@@ -3,6 +3,9 @@
 import { useEffect } from 'react'
 import { isIOS, isStandalone, registerServiceWorker, syncPushSubscription } from '@/lib/push-client'
 import { logPwaLaunch, type PwaPlatform } from '@/actions/pwa'
+// Imported for its side effect: catches Android's one-shot install prompt
+// app-wide, so the dashboard nudge can still use it after a navigation.
+import '@/lib/install-prompt'
 
 const LAUNCH_FLAG = 'fieldday-launch-logged'
 

@@ -13,6 +13,8 @@ export function PushSettingsCard() {
   const [state, setState] = useState<PushState | null>(null)
   const [subscribed, setSubscribed] = useState(false)
   const [configured, setConfigured] = useState(true)
+  // Fetched on mount so the tap goes straight to the permission prompt.
+  const [vapidKey, setVapidKey] = useState<string | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -20,13 +22,13 @@ export function PushSettingsCard() {
     // Browser-only reads, resolved after mount.
     const timer = setTimeout(() => setState(pushState()), 0)
     currentSubscription().then((s) => setSubscribed(!!s)).catch(() => {})
-    getVapidPublicKey().then((key) => setConfigured(!!key)).catch(() => {})
+    getVapidPublicKey().then((key) => { setConfigured(!!key); setVapidKey(key ?? null) }).catch(() => {})
     return () => clearTimeout(timer)
   }, [])
 
   async function turnOn() {
     setBusy(true); setErr(null)
-    const r = await enablePush()
+    const r = await enablePush(vapidKey)
     setBusy(false)
     setState(pushState())
     if (r.ok) setSubscribed(true)

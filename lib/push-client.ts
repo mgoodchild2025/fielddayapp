@@ -77,12 +77,15 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
  * Ask for permission (MUST be called from a user gesture — iOS denies
  * permanently otherwise), subscribe, and record the subscription.
  */
-export async function enablePush(): Promise<{ ok: boolean; error?: string }> {
+export async function enablePush(prefetchedKey?: string | null): Promise<{ ok: boolean; error?: string }> {
   if (!pushSupported()) return { ok: false, error: 'This browser can\'t receive alerts.' }
-  const key = await getVapidPublicKey()
-  if (!key) return { ok: false, error: 'Alerts aren\'t enabled on this site yet.' }
-
+  // Ask FIRST, while the tap's user activation is fresh: a server round trip
+  // before requestPermission (slow gym wifi) could use it up, and iOS then
+  // refuses the prompt. Callers fetch the key on mount and pass it in.
+  if (prefetchedKey === null) return { ok: false, error: 'Alerts aren\'t enabled on this site yet.' }
   const permission = await Notification.requestPermission()
+  const key = prefetchedKey ?? await getVapidPublicKey()
+  if (!key) return { ok: false, error: 'Alerts aren\'t enabled on this site yet.' }
   if (permission !== 'granted') return { ok: false, error: permission === 'denied' ? 'Notifications are blocked for this site.' : 'Permission not granted.' }
 
   const reg = (await navigator.serviceWorker.getRegistration('/')) ?? (await registerServiceWorker())
@@ -123,15 +126,33 @@ export async function disablePush(): Promise<void> {
 export async function syncPushSubscription(): Promise<void> {
   if (pushState() !== 'granted') return
   try { if (sessionStorage.getItem(SYNC_FLAG)) return } catch { /* ignore */ }
-  const sub = await currentSubscription()
-  if (!sub) return
+  let sub = await currentSubscription()
+  if (!sub) {
+    // Permission is per device, the subscription is per signed-in player:
+    // sign-out drops it (clearOfflineCache), so whoever signs in next on a
+    // phone that already allowed alerts gets their own — no extra prompt.
+    const key = await getVapidPublicKey()
+    const reg = await navigator.serviceWorker.getRegistration('/')
+    if (!key || !reg) return
+    try {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) as BufferSource })
+    } catch { return }
+  }
   const { error } = await savePushSubscription(sub.toJSON(), navigator.userAgent)
   if (!error) { try { sessionStorage.setItem(SYNC_FLAG, '1') } catch { /* ignore */ } }
 }
 
-/** Sign-out: tell the worker to drop every cached page (offline copies are per session). */
+/**
+ * Sign-out: drop every cached page (offline copies are per session) AND this
+ * browser's push subscription — on a shared phone or family iPad the previous
+ * player's alerts kept arriving. Unsubscribing invalidates the endpoint, so
+ * the server prunes its row on the next send (404/410). The next player turns
+ * alerts on for themselves. Fire-and-forget: sign-out never waits on it.
+ */
 export function clearOfflineCache(): void {
   try { navigator.serviceWorker?.controller?.postMessage({ type: 'clear-cache' }) } catch { /* no worker */ }
+  try { sessionStorage.removeItem(SYNC_FLAG) } catch { /* ignore */ }
+  void currentSubscription().then((sub) => sub?.unsubscribe()).catch(() => {})
 }
 
 /** Home-screen badge = unread count. No-op where the Badging API is missing. */

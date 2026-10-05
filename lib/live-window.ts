@@ -21,3 +21,17 @@ export function inLiveWindow(scheduledAt: string | null | undefined, now: number
 export function inLiveWindowNow(scheduledAt: string | null | undefined): boolean {
   return inLiveWindow(scheduledAt, Date.now())
 }
+
+/**
+ * Server-side pre-filter for rows that MIGHT go live while the page is open
+ * (up to 24h ahead): they get the client wrapper, which re-checks the real
+ * window every minute. Gating on inLiveWindowNow at render meant a page
+ * opened three hours before a game never showed its live score.
+ */
+export const LIVE_SOON_BEFORE_MS = 24 * 60 * 60 * 1000
+export function mayGoLiveSoon(scheduledAt: string | null | undefined, now: number = Date.now()): boolean {
+  if (!scheduledAt) return false
+  const t = new Date(scheduledAt).getTime()
+  if (Number.isNaN(t)) return false
+  return t - LIVE_SOON_BEFORE_MS <= now && now <= t + LIVE_WINDOW_AFTER_MS
+}

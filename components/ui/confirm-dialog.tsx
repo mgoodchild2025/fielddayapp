@@ -45,7 +45,13 @@ export function ConfirmHost() {
   const titleId = useId()
 
   useEffect(() => {
-    show = (p) => { setPending(p); setOpen(true) }
+    // A second confirm while one is open (a double-tap on a delete) settles
+    // the first as cancelled — it used to hang forever, leaving its caller's
+    // busy state stuck.
+    show = (p) => {
+      setPending((prev) => { if (prev && prev !== p) prev.resolve(false); return p })
+      setOpen(true)
+    }
     return () => { show = null }
   }, [])
 
