@@ -140,7 +140,7 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
       <div className="sticky top-0 z-10 -mx-1 px-1 pt-1 pb-2 mb-1 bg-white/95 backdrop-blur-sm">
       <div className="mb-2">
         <p className="text-sm font-medium">
-          <span style={{ color: 'var(--brand-primary)' }}>{checkedInCount}</span>
+          <span style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>{checkedInCount}</span>
           <span className="text-gray-500"> / {localRegs.length} checked in</span>
           {hasFilters && (
             <span className="text-gray-500 ml-1">

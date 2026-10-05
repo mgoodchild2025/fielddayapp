@@ -238,7 +238,7 @@ function TeamCircle({
       style={{ width: size, height: size, backgroundColor: bg, fontSize: size * 0.3 }}
     >
       {logoUrl ? (
-        <Image src={logoUrl} alt={name} width={size} height={size} className="w-full h-full object-cover" />
+        <Image src={logoUrl} alt="" width={size} height={size} className="w-full h-full object-cover" />
       ) : initials}
     </div>
   )
@@ -281,7 +281,7 @@ function GameHero({
       {/* Dark header */}
       <div className="flex items-center justify-between px-5 py-2.5" style={{ backgroundColor: 'var(--brand-secondary)' }}>
         <span className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-bold uppercase tracking-widest text-white/50 truncate">
+          <span className="text-xs font-bold uppercase tracking-widest text-white/75 truncate">
             {item.isPlayoff
               ? `🏆 ${[item.leagueName, item.playoffLabel].filter(Boolean).join(' · ')}`
               : item.weekNumber ? `Week ${item.weekNumber} · ${item.leagueName}` : item.leagueName}
@@ -302,8 +302,8 @@ function GameHero({
             <div>
               <p className="font-bold text-gray-900 text-sm leading-tight">{item.teamName}</p>
               <span
-                className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 15%, transparent)', color: 'var(--brand-primary)' }}
+                className="inline-block mt-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 15%, transparent)', color: 'var(--brand-primary-ink, var(--brand-primary))' }}
               >
                 You
               </span>
@@ -351,7 +351,7 @@ function GameHero({
         {/* The game page: score entry for captains, who's coming, head-to-head. */}
         {!item.isPlayoff && (
           <div className="mt-3 text-center">
-            <Link href={`/games/${item.id}`} prefetch={false} className="inline-flex items-center min-h-10 px-3 text-sm font-semibold text-brand-primary">
+            <Link href={`/games/${item.id}`} prefetch={false} className="inline-flex items-center min-h-10 px-3 text-sm font-semibold text-brand-ink">
               Game details →
             </Link>
           </div>
@@ -429,7 +429,7 @@ function SameDayGameRow({
         </div>
       </div>
       {item.isPlayoff ? (
-        <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Playoff</span>
+        <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Playoff</span>
       ) : (
         <div className="shrink-0">
           <RsvpChoice value={myRsvp} onChange={onRsvp} />
@@ -446,7 +446,7 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
     <Link href={`/events/${item.leagueSlug}`} className="block bg-white rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow">
       {/* Dark header */}
       <div className="flex items-center justify-between px-5 py-2.5" style={{ backgroundColor: 'var(--brand-secondary)' }}>
-        <span className="text-xs font-bold uppercase tracking-widest text-white/50">
+        <span className="text-xs font-bold uppercase tracking-widest text-white/75">
           {formatEventType(item.eventType)}
         </span>
         <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20">
@@ -470,7 +470,7 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
               className="w-16 h-16 rounded-2xl flex items-center justify-center"
               style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)' }}
             >
-              <CalendarDays className="w-8 h-8" style={{ color: 'var(--brand-primary)' }} />
+              <CalendarDays className="w-8 h-8" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }} />
             </div>
           )}
           <div>
@@ -509,7 +509,7 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
       </div>
 
       <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-end">
-        <span className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--brand-primary)' }}>
+        <span className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
           View event details <ChevronRight className="w-3.5 h-3.5" />
         </span>
       </div>
@@ -732,7 +732,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
         <section>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Next Game</h2>
-            <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+            <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
               Full schedule →
             </Link>
           </div>
@@ -777,7 +777,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Next Session</h2>
             {nextItem?.kind !== 'game' && (
-              <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+              <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                 Full schedule →
               </Link>
             )}
@@ -822,7 +822,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
         <section>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Next Game</h2>
-            <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+            <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
               Full schedule →
             </Link>
           </div>
@@ -896,7 +896,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                 {team.record.standing !== null ? (
                   <>
                     <p className="text-2xl font-extrabold tracking-tight leading-none">
-                      <span style={{ color: 'var(--brand-primary)' }}>
+                      <span style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                         {team.record.standing}{ordinal(team.record.standing)}
                       </span>
                       {team.record.totalTeams !== null && (
@@ -912,7 +912,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
 
               <Link href={`/teams/${team.teamId}/stats`} className="bg-white rounded-xl border p-4 hover:shadow-sm transition-shadow block">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">{team.record.pointsLabel}</p>
-                <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
+                <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                   {team.record.points}
                 </p>
                 <p className="text-xs text-gray-500 mt-1.5">{team.record.pointsHint}</p>
@@ -927,7 +927,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
             <section>
               <div className="flex items-baseline justify-between mb-3">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Recent Results</h2>
-                <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                   See all →
                 </Link>
               </div>
@@ -970,7 +970,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
               <div className="flex items-baseline justify-between mb-3">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">My Team</h2>
                 {teams.length > 1 && (
-                  <Link href="/my-teams" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                  <Link href="/my-teams" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                     All teams →
                   </Link>
                 )}
@@ -986,8 +986,8 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                     <p className="font-bold text-gray-900">{team.teamName}</p>
                     {team.role === 'captain' && (
                       <span
-                        className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)', color: 'var(--brand-primary)' }}
+                        className="text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)', color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                       >
                         Captain
                       </span>

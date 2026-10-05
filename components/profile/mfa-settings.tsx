@@ -120,6 +120,7 @@ export function MfaSettings({ isEnrolled: initialEnrolled, factorId: initialFact
                 Enter your current authenticator code to confirm removal.
               </p>
               <input
+                aria-label="Authenticator code"
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"

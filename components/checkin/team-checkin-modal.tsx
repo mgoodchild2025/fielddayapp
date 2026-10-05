@@ -165,7 +165,7 @@ function TeamCheckinContent({ teamId, leagueId, timezone, onClose }: Props) {
           )}
 
           {error && (
-            <div className="px-5 py-6 text-center text-sm text-red-600">{error}</div>
+            <div role="alert" className="px-5 py-6 text-center text-sm text-red-600">{error}</div>
           )}
 
           {!loading && !error && members.length === 0 && (

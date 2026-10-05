@@ -114,7 +114,7 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
                 <Link
                   href={`/admin/events/${league!.slug ?? league!.id}`}
                   className="text-xs hover:underline ml-auto"
-                  style={{ color: 'var(--brand-primary)' }}
+                  style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                 >
                   League settings →
                 </Link>
@@ -137,7 +137,7 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <TeamAvatar logoUrl={team.logo_url} color={team.color} name={team.name} size="sm" />
-                            <Link href={`/teams/${team.id}`} className="font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                            <Link href={`/teams/${team.id}`} className="font-medium hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                               {team.name}
                             </Link>
                           </div>
@@ -151,7 +151,7 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <Link href={`/teams/${team.id}`} className="text-xs font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                          <Link href={`/teams/${team.id}`} className="text-xs font-medium hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                             Manage →
                           </Link>
                         </td>
@@ -172,7 +172,7 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
                         <Link
                           href={`/teams/${team.id}`}
                           className="font-medium hover:underline truncate"
-                          style={{ color: 'var(--brand-primary)' }}
+                          style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                         >
                           {team.name}
                         </Link>
@@ -192,7 +192,7 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
                       <Link
                         href={`/teams/${team.id}`}
                         className="text-xs font-medium hover:underline"
-                        style={{ color: 'var(--brand-primary)' }}
+                        style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                       >
                         Manage →
                       </Link>

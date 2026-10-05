@@ -34,6 +34,7 @@ export default async function ShopPage() {
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
 
       {/* Branded hero */}
       <div
@@ -78,6 +79,7 @@ export default async function ShopPage() {
         )}
       </div>
 
+      </main>
       <Footer org={org} />
     </div>
   )

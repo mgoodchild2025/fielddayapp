@@ -43,6 +43,7 @@ export default async function PrivacyPage() {
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
 
       <div className="max-w-2xl mx-auto px-6 py-10">
         <Link href="/profile" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6">
@@ -145,6 +146,7 @@ export default async function PrivacyPage() {
         </div>
       </div>
 
+      </main>
       <Footer org={org} />
     </div>
   )

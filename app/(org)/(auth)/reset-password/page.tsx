@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
         <div className="text-center max-w-md">
           <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>Check your email</h1>
           <p className="text-gray-600">If an account with that email exists, we sent a password reset link. It works on any device and expires in an hour.</p>
-          <Link href="/login" className="mt-6 inline-flex items-center min-h-10 text-sm font-medium text-brand-primary hover:underline">
+          <Link href="/login" className="mt-6 inline-flex items-center min-h-10 text-sm font-medium text-brand-ink hover:underline">
             Back to sign in
           </Link>
         </div>

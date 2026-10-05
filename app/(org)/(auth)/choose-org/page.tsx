@@ -107,7 +107,7 @@ export default async function ChooseOrgPage() {
                   <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors leading-snug">
                     {org.name}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1 capitalize">
+                  <p className="text-xs text-gray-500 mt-1 capitalize">
                     {org.role.replace('_', ' ')}
                   </p>
                 </div>
@@ -124,14 +124,14 @@ export default async function ChooseOrgPage() {
           <p className="text-gray-600 text-sm">
             You haven&apos;t joined any sports organization on Fieldday yet. Browse events to get started.
           </p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Looking for your org? Ask your league admin for the link to your organization&apos;s page.
           </p>
         </div>
       )}
 
       <div className="mt-8 text-center">
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-500">
           Not you?{' '}
           <Link href="/login" className="underline hover:text-gray-600">
             Sign in with a different account

@@ -67,7 +67,7 @@ export function DropinWalkupPayment({ orgId, leagueId, sessions, priceLabel }: P
         It registers them for the session and records the payment automatically.
       </p>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
+      {error && <div role="alert" className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
 
       {sessions.length > 0 && (
         <label className="block text-xs font-medium text-gray-500">
@@ -81,11 +81,11 @@ export function DropinWalkupPayment({ orgId, leagueId, sessions, priceLabel }: P
 
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-xs font-medium text-gray-500">
-          Name <span className="text-gray-400">(optional)</span>
+          Name <span className="text-gray-500">(optional)</span>
           <input value={guestName} onChange={(e) => setGuestName(e.target.value)} className="mt-1 w-full border rounded-md px-2 py-2 text-sm" placeholder="Walk-in" />
         </label>
         <label className="block text-xs font-medium text-gray-500">
-          Email <span className="text-gray-400">(optional)</span>
+          Email <span className="text-gray-500">(optional)</span>
           <input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} className="mt-1 w-full border rounded-md px-2 py-2 text-sm" placeholder="for a receipt" />
         </label>
       </div>

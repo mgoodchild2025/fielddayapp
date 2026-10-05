@@ -69,7 +69,7 @@ function NotFoundCard({
   return (
     <main className="flex-1 flex items-center justify-center px-4 py-20">
       <div className="w-full max-w-sm text-center">
-        <p className="text-5xl font-bold tracking-tight text-brand-primary" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+        <p className="text-5xl font-bold tracking-tight text-brand-ink" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           404
         </p>
         <h1 className="mt-3 text-xl font-bold text-gray-900">We can&apos;t find that page</h1>

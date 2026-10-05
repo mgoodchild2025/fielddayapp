@@ -278,7 +278,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
         </div>
         <button
           onClick={() => { setOpen(true); setDirty(false) }}
-          className="press min-h-9 px-2 -mr-2 text-sm text-brand-primary hover:opacity-80 font-medium"
+          className="press min-h-9 px-2 -mr-2 text-sm text-brand-ink hover:opacity-80 font-medium"
         >
           Edit
         </button>
@@ -742,6 +742,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                   },
                 ] as const).map((opt) => (
                   <button
+                    aria-pressed={volleyballMode === opt.value}
                     key={opt.value}
                     type="button"
                     onClick={() => setVolleyballMode(opt.value)}
@@ -802,6 +803,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           {/* Event Format — collapsible */}
           <div className="border rounded-md overflow-hidden">
             <button
+              aria-expanded={formatExpanded}
               type="button"
               onClick={() => setFormatExpanded((v) => !v)}
               className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
@@ -831,6 +833,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           {/* Event Rules — collapsible */}
           <div className="border rounded-md overflow-hidden">
             <button
+              aria-expanded={rulesExpanded}
               type="button"
               onClick={() => setRulesExpanded((v) => !v)}
               className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"

@@ -202,7 +202,7 @@ function AccordionSection({
               </span>
             )}
             {hasErrors && (
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+              <><span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" aria-hidden="true" /><span className="sr-only">(has errors)</span></>
             )}
           </div>
           {!isOpen && (
@@ -1048,7 +1048,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Game Start Time</label>
-              <input
+              <input aria-label="Game Start Time"
                 type="time"
                 value={gameStartTime}
                 onChange={(e) => setGameStartTime(e.target.value)}
@@ -1057,7 +1057,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Game End Time</label>
-              <input
+              <input aria-label="Game End Time"
                 type="time"
                 value={gameEndTime}
                 onChange={(e) => setGameEndTime(e.target.value)}
@@ -1180,7 +1180,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Rules Template
             </label>
-            <select
+            <select aria-label="Rules Template"
               value={selectedTemplateId}
               onChange={(e) => {
                 setSelectedTemplateId(e.target.value)

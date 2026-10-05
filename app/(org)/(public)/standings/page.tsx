@@ -116,6 +116,7 @@ export default async function StandingsPage() {
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
 
       {/* Page header */}
       <div className="border-b" style={{ backgroundColor: 'var(--brand-secondary)' }}>
@@ -152,7 +153,7 @@ export default async function StandingsPage() {
                 <Link
                   key={league.id}
                   href={`/events/${league.slug}?tab=standings`}
-                  className="group block bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150"
+                  className="group block bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md motion-safe:hover:-translate-y-0.5 transition-all duration-150"
                 >
                   <div className="flex items-center justify-between mb-3">
                     <span
@@ -181,7 +182,7 @@ export default async function StandingsPage() {
                   )}
                   <p
                     className="mt-4 text-sm font-semibold group-hover:underline"
-                    style={{ color: 'var(--brand-primary)' }}
+                    style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                   >
                     View standings →
                   </p>
@@ -192,6 +193,7 @@ export default async function StandingsPage() {
         )}
       </div>
 
+      </main>
       <Footer org={org} social={brandingProps} />
     </div>
   )

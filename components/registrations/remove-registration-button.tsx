@@ -39,7 +39,7 @@ export function RemoveRegistrationButton({ registrationId, leagueId, playerName 
       >
         {pending ? '…' : 'Remove'}
       </button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span role="alert" className="text-xs text-red-600">{error}</span>}
     </span>
   )
 }

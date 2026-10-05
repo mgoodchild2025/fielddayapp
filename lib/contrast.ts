@@ -99,3 +99,21 @@ export function readableTextOn(background: string): string {
   const dark = contrastRatio(DARK_ON_BRAND, background) ?? 0
   return dark > white ? DARK_ON_BRAND : '#ffffff'
 }
+
+/**
+ * The brand colour as TEXT on a white/near-white page: the colour itself when
+ * it reads (≥ 4.5:1), else the same hue darkened just enough to reach 4.5:1.
+ * The default #FF5C00 is 3.1:1 on white — fine for a button fill, too faint
+ * for a link or a "Team stats →" label. Unparseable input passes through.
+ */
+export function inkOnWhite(color: string, minRatio = 4.5): string {
+  const rgb = parseHex(color)
+  if (!rgb) return color
+  if ((contrastRatio(color, '#ffffff') ?? 0) >= minRatio) return color
+  const toHex = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0')
+  for (let k = 0.95; k >= 0; k -= 0.025) {
+    const c = `#${toHex(rgb.r * k)}${toHex(rgb.g * k)}${toHex(rgb.b * k)}`
+    if ((contrastRatio(c, '#ffffff') ?? 0) >= minRatio) return c
+  }
+  return '#111827'
+}

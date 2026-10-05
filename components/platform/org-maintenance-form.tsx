@@ -85,7 +85,7 @@ export function OrgMaintenanceForm({ orgId, initialEnabled, initialMessage, init
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Message <span className="text-gray-400 font-normal">(optional)</span>
             </label>
-            <textarea
+            <textarea aria-label="Message (optional)"
               value={message}
               onChange={e => setMessage(e.target.value)}
               maxLength={280}
@@ -100,7 +100,7 @@ export function OrgMaintenanceForm({ orgId, initialEnabled, initialMessage, init
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Estimated return time <span className="text-gray-400 font-normal">(optional)</span>
             </label>
-            <input
+            <input aria-label="Estimated return time (optional)"
               type="datetime-local"
               value={until}
               onChange={e => setUntil(e.target.value)}

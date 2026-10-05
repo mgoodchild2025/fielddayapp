@@ -106,7 +106,7 @@ export function InvitePlayerButton({ orgSlug }: Props) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email address
                   </label>
-                  <input
+                  <input aria-label="Email address"
                     name="email"
                     type="email"
                     required
@@ -119,7 +119,7 @@ export function InvitePlayerButton({ orgSlug }: Props) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Role
                   </label>
-                  <select
+                  <select aria-label="Role"
                     name="role"
                     defaultValue="player"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent"

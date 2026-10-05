@@ -185,7 +185,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
             Start Scanning
           </button>
           {cameraError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-sm font-medium text-red-700">{cameraError}</p>
             </div>
           )}

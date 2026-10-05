@@ -76,7 +76,7 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Audience</label>
-          <select
+          <select aria-label="Audience"
             name="audience_type"
             value={audience}
             onChange={(e) => setAudience(e.target.value as Audience)}
@@ -89,7 +89,7 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Channel</label>
-          <select
+          <select aria-label="Channel"
             name="channel"
             value={channel}
             onChange={(e) => setChannel(e.target.value as Channel)}
@@ -111,7 +111,7 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-        <input
+        <input aria-label="Subject"
           name="title"
           required
           defaultValue={defaultSubject}
@@ -121,7 +121,7 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-        <textarea
+        <textarea aria-label="Message"
           name="body"
           required
           rows={7}

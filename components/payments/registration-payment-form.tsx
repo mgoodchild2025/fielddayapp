@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { saveRegistrationPaymentSettings } from '@/actions/payment-settings'
+import { announce } from '@/lib/announce'
 
 type Mode = 'stripe' | 'manual' | 'both'
 
@@ -37,6 +38,7 @@ export function RegistrationPaymentForm({ mode, instructions }: Props) {
         setError(result.error)
       } else {
         setSaved(true)
+        announce('Saved')
         setTimeout(() => setSaved(false), 3000)
       }
     })
@@ -78,7 +80,7 @@ export function RegistrationPaymentForm({ mode, instructions }: Props) {
             Payment instructions
             <span className="text-red-600 ml-0.5">*</span>
           </label>
-          <textarea
+          <textarea aria-label="Payment instructions"
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={4}

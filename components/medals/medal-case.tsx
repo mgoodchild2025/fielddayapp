@@ -119,7 +119,7 @@ function MedalCard({ medal, onClose }: { medal: MedalView; onClose: () => void }
           <Link
             href={`/events/${medal.leagueSlug}`}
             className="press mt-4 inline-flex items-center min-h-10 text-sm font-medium"
-            style={{ color: 'var(--brand-primary)' }}
+            style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
           >
             View the event →
           </Link>

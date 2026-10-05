@@ -47,16 +47,18 @@ export default async function JoinTeamPage({
     return (
       <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
           <p className="text-4xl">🔍</p>
           <p className="text-2xl font-bold">Team Not Found</p>
           <p className="text-gray-500 text-sm">
             This team code is invalid or the team is no longer accepting players.
           </p>
-          <Link href="/" className="mt-4 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+          <Link href="/" className="mt-4 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
             ← Back to home
           </Link>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -172,6 +174,7 @@ export default async function JoinTeamPage({
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
 
       <div className="max-w-md mx-auto px-4 py-12">
         {/* Card */}
@@ -251,6 +254,7 @@ export default async function JoinTeamPage({
         </div>
       </div>
 
+      </main>
       <Footer org={org} />
     </div>
   )

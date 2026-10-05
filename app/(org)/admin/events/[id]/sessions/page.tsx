@@ -252,7 +252,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
       {joinPolicy === 'private' ? (
         <div className="rounded-lg border bg-white px-4 py-3 text-sm text-gray-600 flex flex-wrap items-center gap-2">
           <span>🔒 This event is <strong>invite only</strong> — registration is restricted to people you invite individually.</span>
-          <Link href={`/admin/events/${id}/invites`} className="font-semibold hover:underline" style={{ color: 'var(--brand-primary)' }}>
+          <Link href={`/admin/events/${id}/invites`} className="font-semibold hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
             Manage invites →
           </Link>
         </div>

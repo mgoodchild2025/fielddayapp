@@ -19,7 +19,7 @@ export function EventRulesModal({ content, title = 'Event Rules', buttonLabel = 
       <button
         onClick={() => setOpen(true)}
         className="mt-4 text-sm font-medium hover:underline"
-        style={{ color: 'var(--brand-primary)' }}
+        style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
       >
         {buttonLabel}
       </button>

@@ -55,18 +55,19 @@ function SponsorForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Sponsor Name *</label>
-          <input value={name} onChange={e => setName(e.target.value)} required className="w-full border rounded-md px-3 py-2 text-sm" placeholder="Acme Corp" />
+          <input aria-label="Sponsor Name" value={name} onChange={e => setName(e.target.value)} required className="w-full border rounded-md px-3 py-2 text-sm" placeholder="Acme Corp" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Website URL</label>
-          <input value={website} onChange={e => setWebsite(e.target.value)} type="url" className="w-full border rounded-md px-3 py-2 text-sm font-mono" placeholder="https://example.com" />
+          <input aria-label="Website URL" value={website} onChange={e => setWebsite(e.target.value)} type="url" className="w-full border rounded-md px-3 py-2 text-sm font-mono" placeholder="https://example.com" />
         </div>
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Tier</label>
         <div className="flex flex-wrap gap-2">
           {TIERS.map(t => (
-            <button key={t.value} type="button" onClick={() => setTier(t.value)}
+            <button
+              aria-pressed={tier === t.value} key={t.value} type="button" onClick={() => setTier(t.value)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${tier === t.value ? 'border-gray-800 ' + t.color : 'border-transparent ' + t.color + ' opacity-60'}`}>
               {t.label}
             </button>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseHex, relativeLuminance, contrastRatio, formatRatio, checkContrast, AA_NORMAL_TEXT, AA_NON_TEXT, readableTextOn, DARK_ON_BRAND } from './contrast'
+import { parseHex, relativeLuminance, contrastRatio, formatRatio, checkContrast, AA_NORMAL_TEXT, AA_NON_TEXT, readableTextOn, DARK_ON_BRAND, inkOnWhite } from './contrast'
 
 describe('parseHex', () => {
   it('parses six-digit and three-digit hex, with or without the hash', () => {
@@ -97,5 +97,19 @@ describe('readableTextOn', () => {
   it('accepts shorthand hex and falls back to white on bad input', () => {
     expect(readableTextOn('#fe0')).toBe(DARK_ON_BRAND)
     expect(readableTextOn('not-a-colour')).toBe('#ffffff')
+  })
+})
+
+describe('inkOnWhite', () => {
+  it('keeps a brand colour that already reads on white', () => {
+    expect(inkOnWhite('#1d4ed8')).toBe('#1d4ed8')
+  })
+  it('darkens a light brand colour to at least 4.5:1, keeping the hue', () => {
+    const ink = inkOnWhite('#FF5C00')
+    expect(contrastRatio(ink, '#ffffff')!).toBeGreaterThanOrEqual(4.5)
+    expect(ink.slice(1, 3)).not.toBe('00') // still orange, not black
+  })
+  it('passes unparseable input through', () => {
+    expect(inkOnWhite('var(--x)')).toBe('var(--x)')
   })
 })

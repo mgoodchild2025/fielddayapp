@@ -56,7 +56,7 @@ export default async function ChampionsPage() {
                   <a
                     key={b.medalId}
                     href={`#event-${b.leagueId}`}
-                    className="block w-36 shrink-0 px-3 pb-8 pt-4 text-center text-[#f5efdd] shadow-lg transition-transform hover:-translate-y-0.5"
+                    className="block w-36 shrink-0 px-3 pb-8 pt-4 text-center text-[#f5efdd] shadow-lg transition-transform motion-safe:hover:-translate-y-0.5"
                     style={{
                       backgroundColor: tints[i],
                       clipPath: 'polygon(0 0, 100% 0, 100% 82%, 50% 100%, 0 82%)',

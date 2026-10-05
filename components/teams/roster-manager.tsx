@@ -11,6 +11,7 @@ import { confirmAction } from '@/components/ui/confirm-dialog'
 import { Overlay, useRetained } from '@/components/ui/overlay'
 import { toast } from 'sonner'
 import { safeAction } from '@/lib/action-errors'
+import { announce } from '@/lib/announce'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -110,6 +111,7 @@ export function RosterManager({
   function copyToClipboard(text: string, field: 'code' | 'link') {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedField(field)
+      announce('Copied to clipboard')
       setTimeout(() => setCopiedField(null), 2000)
     })
   }
@@ -258,6 +260,7 @@ export function RosterManager({
                           const url = `${window.location.origin}/invite/${inv.token}`
                           navigator.clipboard.writeText(url).then(() => {
                             setCopiedInviteId(inv.id)
+                            announce('Invite link copied')
                             setTimeout(() => setCopiedInviteId(null), 2000)
                           })
                         }}
@@ -356,6 +359,7 @@ export function RosterManager({
                     <div className="flex gap-2 mt-2 pl-10">
                       {positions.length > 0 && (
                         <select
+                          aria-label={`Position for ${m.name || m.email}`}
                           value={m.position ?? ''}
                           onChange={(e) => handlePositionChange(m.id, e.target.value)}
                           className="flex-1 min-w-0 text-base md:text-xs border rounded px-2 py-1 bg-white"
@@ -368,6 +372,7 @@ export function RosterManager({
                         </select>
                       )}
                       <select
+                        aria-label={`Role for ${m.name || m.email}`}
                         value={m.role}
                         onChange={(e) => handleRoleChange(m.id, e.target.value as Role)}
                         className={`text-base md:text-xs border rounded px-2 py-1 bg-white ${positions.length > 0 ? 'w-24 shrink-0' : 'flex-1'}`}
@@ -414,7 +419,7 @@ export function RosterManager({
                   style={
                     copiedField === 'code'
                       ? { borderColor: '#22c55e', color: '#16a34a', backgroundColor: '#f0fdf4' }
-                      : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)', backgroundColor: 'white' }
+                      : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary-ink, var(--brand-primary))', backgroundColor: 'white' }
                   }
                   aria-label="Copy join code"
                 >
@@ -440,7 +445,7 @@ export function RosterManager({
                   style={
                     copiedField === 'link'
                       ? { borderColor: '#22c55e', color: '#16a34a', backgroundColor: '#f0fdf4' }
-                      : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)', backgroundColor: 'white' }
+                      : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary-ink, var(--brand-primary))', backgroundColor: 'white' }
                   }
                   aria-label="Copy join link"
                 >
@@ -474,6 +479,7 @@ export function RosterManager({
             </p>
             {shownReminder.type === 'member' && (
               <textarea
+                aria-label="Message"
                 data-autofocus
                 value={reminderMsg}
                 onChange={(e) => setReminderMsg(e.target.value)}

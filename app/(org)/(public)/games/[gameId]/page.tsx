@@ -54,7 +54,7 @@ function TeamLogo({
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={logoUrl}
-        alt={name}
+        alt=""
         className={`${dim} rounded-full object-cover border border-gray-100 shadow-sm`}
       />
     )
@@ -269,6 +269,9 @@ export default async function GameMatchupPage({
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
+        {/* The matchup card is visual; the page's heading is for screen readers and the rotor. */}
+        <h1 className="sr-only">{homeTeam?.name ?? 'TBD'} vs {awayTeam?.name ?? 'TBD'}</h1>
 
       <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 flex-1">
 
@@ -292,7 +295,7 @@ export default async function GameMatchupPage({
                     color={homeTeam.color}
                   />
                   <span className={`text-sm font-semibold leading-tight ${isHomeMyTeam ? '' : 'text-gray-700'}`}
-                    style={isHomeMyTeam ? { color: 'var(--brand-primary)' } : {}}>
+                    style={isHomeMyTeam ? { color: 'var(--brand-primary-ink, var(--brand-primary))' } : {}}>
                     {homeTeam.name ?? 'TBD'}
                   </span>
                 </Link>
@@ -350,7 +353,7 @@ export default async function GameMatchupPage({
                     color={awayTeam.color}
                   />
                   <span className={`text-sm font-semibold leading-tight ${isAwayMyTeam ? '' : 'text-gray-700'}`}
-                    style={isAwayMyTeam ? { color: 'var(--brand-primary)' } : {}}>
+                    style={isAwayMyTeam ? { color: 'var(--brand-primary-ink, var(--brand-primary))' } : {}}>
                     {awayTeam.name ?? 'TBD'}
                   </span>
                 </Link>
@@ -383,7 +386,7 @@ export default async function GameMatchupPage({
                   <MapLink
                     address={league.venue_address}
                     title={`Directions to ${league.venue_name ?? league.venue_address}`}
-                    className="inline-flex items-center gap-1 min-h-10 font-medium text-brand-primary underline-offset-2 hover:underline"
+                    className="inline-flex items-center gap-1 min-h-10 font-medium text-brand-ink underline-offset-2 hover:underline"
                   >
                     <MapPin className="w-4 h-4 shrink-0" aria-hidden />
                     {league.venue_name ?? league.venue_address}
@@ -561,6 +564,7 @@ export default async function GameMatchupPage({
 
       </div>
 
+      </main>
       <Footer org={org} />
     </div>
   )

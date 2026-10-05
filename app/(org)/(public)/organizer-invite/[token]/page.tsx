@@ -42,17 +42,19 @@ export default async function OrganizerInvitePage({
     return (
       <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="max-w-md mx-auto px-4 py-16 text-center">
           <p className="text-2xl font-bold mb-2">Invitation Not Found</p>
           <p className="text-gray-500 text-sm">This invitation link is invalid or has already been used.</p>
           <Link
             href="/my-events"
             className="mt-6 inline-block text-sm font-medium hover:underline"
-            style={{ color: 'var(--brand-primary)' }}
+            style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
           >
             My Events →
           </Link>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -64,11 +66,13 @@ export default async function OrganizerInvitePage({
     return (
       <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="max-w-md mx-auto px-4 py-12">
           <div className="bg-white rounded-xl border shadow-sm p-8">
             <DeclineOrganizerInvite token={token} leagueName={invite.league_name} />
           </div>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -80,6 +84,7 @@ export default async function OrganizerInvitePage({
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="max-w-md mx-auto px-4 py-12">
         <div className="bg-white rounded-xl border shadow-sm p-8">
           <div className="text-center mb-6">
@@ -162,6 +167,7 @@ export default async function OrganizerInvitePage({
           )}
         </div>
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

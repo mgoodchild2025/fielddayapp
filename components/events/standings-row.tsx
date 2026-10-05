@@ -75,7 +75,7 @@ export function StandingsRow({
                   </div>
                 ))}
               </dl>
-              <Link href={teamHref} className="mt-2 inline-flex items-center min-h-9 text-xs font-semibold text-brand-primary">
+              <Link href={teamHref} className="mt-2 inline-flex items-center min-h-9 text-xs font-semibold text-brand-ink">
                 Team stats →
               </Link>
             </div>

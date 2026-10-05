@@ -52,6 +52,7 @@ export default async function SharePage({ searchParams }: { searchParams: Promis
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="max-w-xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-2xl font-bold uppercase mb-1" style={{ fontFamily: 'var(--brand-heading-font)' }}>Share to an event</h1>
         <p className="text-sm text-gray-500 mb-6">Photos and videos you share from your phone land here. Pick the event and send them for approval.</p>
@@ -65,6 +66,7 @@ export default async function SharePage({ searchParams }: { searchParams: Promis
           hadError={sp.error === '1'}
         />
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

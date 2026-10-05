@@ -436,6 +436,7 @@ export default async function TeamStatsPage({
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={orgLogoUrl} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
 
       <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 flex-1 space-y-8 pb-24">
 
@@ -492,7 +493,7 @@ export default async function TeamStatsPage({
 
             <div className="bg-white rounded-xl border p-4">
               <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">{ptsBox.label}</p>
-              <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
+              <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                 {ptsBox.value}
               </p>
               <p className="text-[11px] text-gray-500 mt-1.5">{ptsBox.hint}</p>
@@ -501,12 +502,12 @@ export default async function TeamStatsPage({
             <div className="bg-white rounded-xl border p-4">
               <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">{scoringUnit}</p>
               <p className="text-2xl font-extrabold tracking-tight leading-none text-gray-800">
-                <span style={{ color: 'var(--brand-primary)' }}>{goalsFor}</span>
+                <span style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>{goalsFor}</span>
                 <span className="text-gray-300 font-light mx-0.5">–</span>
                 <span>{goalsAgainst}</span>
               </p>
               <p className={`text-[11px] mt-1.5 ${goalDiff > 0 ? '' : goalDiff < 0 ? 'text-red-600' : 'text-gray-500'}`}
-                 style={goalDiff > 0 ? { color: 'var(--brand-primary)' } : undefined}>
+                 style={goalDiff > 0 ? { color: 'var(--brand-primary-ink, var(--brand-primary))' } : undefined}>
                 {goalDiff > 0 ? '+' : ''}{goalDiff} {scoringUnit.toLowerCase()} diff
               </p>
             </div>
@@ -515,7 +516,7 @@ export default async function TeamStatsPage({
               <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Standing</p>
               {standing !== null ? (
                 <>
-                  <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
+                  <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                     {standing}<sup className="text-sm font-bold">{ordinal(standing)}</sup>
                     {totalTeams > 0 && <span className="text-sm font-semibold text-gray-500"> /{totalTeams}</span>}
                   </p>
@@ -550,6 +551,7 @@ export default async function TeamStatsPage({
 
       </div>
 
+      </main>
       <Footer org={org} />
     </div>
   )

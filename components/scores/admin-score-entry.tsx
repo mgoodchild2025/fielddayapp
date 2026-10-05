@@ -279,7 +279,7 @@ function ScoreEntrySheet({
               ))}
               {canAddMore(scoringMode, sets.length) && (
                 <button type="button" onClick={addSet}
-                  className="press min-h-10 text-sm font-medium text-brand-primary hover:underline pl-10">
+                  className="press min-h-10 text-sm font-medium text-brand-ink hover:underline pl-10">
                   {addButtonLabel(scoringMode, sets.length)}
                 </button>
               )}
@@ -305,7 +305,7 @@ function ScoreEntrySheet({
                   <button type="button"
                     onClick={() => setHomeScore((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
                     aria-label={`One less for ${homeTeamName}`}
-                    className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
+                    className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 press flex items-center justify-center select-none">−</button>
                   <input
                     type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                     value={homeScore}
@@ -319,7 +319,7 @@ function ScoreEntrySheet({
                   <button type="button"
                     onClick={() => setHomeScore((v) => String(parseInt(v || '0') + 1))}
                     aria-label={`One more for ${homeTeamName}`}
-                    className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
+                    className="w-10 h-10 rounded-full text-white text-xl font-bold press flex items-center justify-center select-none"
                     style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
                 </div>
               </div>
@@ -333,7 +333,7 @@ function ScoreEntrySheet({
                   <button type="button"
                     onClick={() => setAwayScore((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
                     aria-label={`One less for ${awayTeamName}`}
-                    className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
+                    className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 press flex items-center justify-center select-none">−</button>
                   <input
                     type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                     value={awayScore}
@@ -347,7 +347,7 @@ function ScoreEntrySheet({
                   <button type="button"
                     onClick={() => setAwayScore((v) => String(parseInt(v || '0') + 1))}
                     aria-label={`One more for ${awayTeamName}`}
-                    className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
+                    className="w-10 h-10 rounded-full text-white text-xl font-bold press flex items-center justify-center select-none"
                     style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
                 </div>
               </div>
@@ -498,7 +498,7 @@ export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTea
               homeTeamName={homeTeamName}
               awayTeamName={awayTeamName}
               result={existingResult}
-              className="press flex-1 min-h-11 text-sm font-semibold text-center text-brand-primary hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
+              className="press flex-1 min-h-11 text-sm font-semibold text-center text-brand-ink hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
             />
             <button
               onClick={() => setSheetOpen(true)}
@@ -510,7 +510,7 @@ export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTea
         ) : (
           <button
             onClick={() => setSheetOpen(true)}
-            className="press w-full min-h-11 text-sm font-semibold text-center text-brand-primary hover:bg-gray-50 active:bg-gray-100"
+            className="press w-full min-h-11 text-sm font-semibold text-center text-brand-ink hover:bg-gray-50 active:bg-gray-100"
           >
             {hasScore ? 'Edit score' : 'Enter score →'}
           </button>

@@ -214,7 +214,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
             <button
               onClick={() => { setQuery(''); setRoleFilter(''); setLeague(null) }}
               className="text-xs font-medium hover:underline"
-              style={{ color: 'var(--brand-primary)' }}
+              style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
             >
               Show all
             </button>
@@ -281,7 +281,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                 <Link
                   href={`/admin/players/${player.userId}`}
                   className="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                  style={{ color: 'var(--brand-primary)' }}
+                  style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                 >
                   View
                   <ArrowIcon />
@@ -337,7 +337,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                         <Link
                           href={`/admin/players/${player.userId}`}
                           className="hover:underline"
-                          style={{ color: 'var(--brand-primary)' }}
+                          style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                         >
                           {player.fullName ?? '—'}
                         </Link>
@@ -383,7 +383,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                         <Link
                           href={`/admin/players/${player.userId}`}
                           className="text-xs font-medium hover:underline"
-                          style={{ color: 'var(--brand-primary)' }}
+                          style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                         >
                           View →
                         </Link>
@@ -412,7 +412,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                     <button
                       onClick={() => setPage((p) => p + 1)}
                       className="text-sm font-medium hover:underline"
-                      style={{ color: 'var(--brand-primary)' }}
+                      style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                     >
                       Load more ({filtered.length - visiblePlayers.length} remaining)
                     </button>

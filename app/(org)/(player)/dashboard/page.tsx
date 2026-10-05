@@ -212,6 +212,7 @@ export default async function DashboardPage() {
     return (
       <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <DashboardClient
           firstName={firstName}
           orgName={org.name}
@@ -227,6 +228,7 @@ export default async function DashboardPage() {
           logoUrl={logoUrl}
           showShop={await canAccess(org.id, 'merchandise_shop')}
         />
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -779,6 +781,7 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="flex-1">
         <DashboardClient
           firstName={firstName}
@@ -798,6 +801,7 @@ export default async function DashboardPage() {
           showShop={await canAccess(org.id, 'merchandise_shop')}
         />
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

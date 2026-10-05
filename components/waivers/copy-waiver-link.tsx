@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Link, Check, Printer } from 'lucide-react'
 import QRCode from 'react-qr-code'
+import { announce } from '@/lib/announce'
 
 interface Props {
   url: string
@@ -15,6 +16,7 @@ export function CopyWaiverLink({ url, compact = false }: Props) {
   async function handleCopy() {
     await navigator.clipboard.writeText(url)
     setCopied(true)
+    announce('Waiver link copied')
     setTimeout(() => setCopied(false), 2000)
   }
 

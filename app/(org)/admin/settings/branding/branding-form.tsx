@@ -416,7 +416,7 @@ export function BrandingForm({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
-            <select {...register('timezone')} className="w-full border rounded-md px-3 py-2 text-sm">
+            <select aria-label="Timezone" {...register('timezone')} className="w-full border rounded-md px-3 py-2 text-sm">
               {TIMEZONES.map((tz) => (
                 <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
               ))}

@@ -20,7 +20,7 @@ export function ApproveRegistrationButton({ registrationId, playerName }: { regi
         toast.success(`${playerName} approved`)
         router.refresh()
       })}
-      className="press min-h-10 text-xs font-medium text-brand-primary hover:underline disabled:opacity-60"
+      className="press min-h-10 text-xs font-medium text-brand-ink hover:underline disabled:opacity-60"
     >
       {pending ? 'Approving…' : 'Approve'}
     </button>

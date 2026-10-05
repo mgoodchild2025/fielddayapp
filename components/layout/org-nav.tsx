@@ -86,6 +86,14 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
   return (
     <>
+      {/* Keyboard / screen-reader shortcut past the nav to the page's
+          <main id="main">; invisible until focused. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[1000] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-gray-900 focus:shadow-lg"
+      >
+        Skip to content
+      </a>
       {/* Above the sticky nav, not inside it: inside, it made the nav taller
           than h-14, so everything sticking at top-14 (event tabs) slid
           under it. It scrolls away with the page instead. */}

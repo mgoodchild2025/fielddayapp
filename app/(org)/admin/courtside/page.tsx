@@ -254,7 +254,7 @@ export default async function CourtsidePage({
         <div className="text-center">
           <p className="text-sm font-semibold">{dayLabel}</p>
           {date !== todayLocal && (
-            <Link href="/admin/courtside" className="text-xs underline" style={{ color: 'var(--brand-primary)' }}>Back to today</Link>
+            <Link href="/admin/courtside" className="inline-flex items-center min-h-10 text-sm font-medium underline text-brand-ink">Back to today</Link>
           )}
         </div>
         <Link href={`/admin/courtside?date=${nextDateStr}`} aria-label="Next day"
@@ -281,19 +281,19 @@ export default async function CourtsidePage({
 
       {unscoredItems.length > 0 && (
         <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Needs a score · {unscoredItems.length}</p>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Needs a score · {unscoredItems.length}</h2>
           {unscoredItems.map(renderItem)}
         </div>
       )}
       {awaitingItems.length > 0 && (
         <div className="space-y-3 mt-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Waiting for confirmation · {awaitingItems.length}</p>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-amber-700">Waiting for confirmation · {awaitingItems.length}</h2>
           {awaitingItems.map(renderItem)}
         </div>
       )}
       {scoredItems.length > 0 && (
         <div className="space-y-3 mt-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Scored · {scoredItems.length}</p>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Scored · {scoredItems.length}</h2>
           {scoredItems.map(renderItem)}
         </div>
       )}

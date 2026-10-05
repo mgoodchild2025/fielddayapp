@@ -139,7 +139,7 @@ function MoveControl({
           <option key={s.id} value={s.id}>{s.label}</option>
         ))}
       </select>
-      {error && <span className="text-[10px] text-red-600">{error}</span>}
+      {error && <span role="alert" className="text-[10px] text-red-600">{error}</span>}
     </span>
   )
 }
@@ -256,7 +256,7 @@ function CreateForm({ leagueId, timezone, onDone }: { leagueId: string; timezone
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={LABEL}>Date &amp; Time *</label>
-          <input
+          <input aria-label="Date & Time"
             name="scheduled_at"
             type="datetime-local"
             required
@@ -266,24 +266,24 @@ function CreateForm({ leagueId, timezone, onDone }: { leagueId: string; timezone
         </div>
         <div>
           <label className={LABEL}>Duration (minutes)</label>
-          <input name="duration_minutes" type="number" inputMode="numeric" defaultValue={90} min={15} className={INPUT} />
+          <input aria-label="Duration (minutes)" name="duration_minutes" type="number" inputMode="numeric" defaultValue={90} min={15} className={INPUT} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={LABEL}>Capacity (blank = unlimited)</label>
-          <input name="capacity" type="number" inputMode="numeric" min={1} placeholder="Unlimited" className={INPUT} />
+          <input aria-label="Capacity (blank = unlimited)" name="capacity" type="number" inputMode="numeric" min={1} placeholder="Unlimited" className={INPUT} />
         </div>
         <div>
           <label className={LABEL}>Location</label>
-          <input name="location_override" type="text" placeholder="Leave blank to use event venue" className={INPUT} />
+          <input aria-label="Location" name="location_override" type="text" placeholder="Leave blank to use event venue" className={INPUT} />
         </div>
       </div>
 
       <div>
         <label className={LABEL}>Notes</label>
-        <input name="notes" type="text" placeholder="e.g. Court 3 only, bring your own net" className={INPUT} />
+        <input aria-label="Notes" name="notes" type="text" placeholder="e.g. Court 3 only, bring your own net" className={INPUT} />
       </div>
 
       {/* Repeat toggle */}
@@ -322,7 +322,7 @@ function CreateForm({ leagueId, timezone, onDone }: { leagueId: string; timezone
             </div>
             <div className="max-w-xs">
               <label className={LABEL}>Repeat until *</label>
-              <input name="repeat_until" type="date" required={repeat} className={INPUT} />
+              <input aria-label="Repeat until" name="repeat_until" type="date" required={repeat} className={INPUT} />
             </div>
             {selectedDays.length > 0 && (
               <p className="text-xs text-gray-500">
@@ -387,7 +387,7 @@ function EditForm({ session, leagueId, timezone, onDone }: { session: Session; l
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={LABEL}>Date &amp; Time *</label>
-          <input
+          <input aria-label="Date & Time"
             name="scheduled_at"
             type="datetime-local"
             required
@@ -397,24 +397,24 @@ function EditForm({ session, leagueId, timezone, onDone }: { session: Session; l
         </div>
         <div>
           <label className={LABEL}>Duration (minutes)</label>
-          <input name="duration_minutes" type="number" inputMode="numeric" defaultValue={session.duration_minutes} min={15} className={INPUT} />
+          <input aria-label="Duration (minutes)" name="duration_minutes" type="number" inputMode="numeric" defaultValue={session.duration_minutes} min={15} className={INPUT} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={LABEL}>Capacity (blank = unlimited)</label>
-          <input name="capacity" type="number" inputMode="numeric" min={1} defaultValue={session.capacity ?? ''} placeholder="Unlimited" className={INPUT} />
+          <input aria-label="Capacity (blank = unlimited)" name="capacity" type="number" inputMode="numeric" min={1} defaultValue={session.capacity ?? ''} placeholder="Unlimited" className={INPUT} />
         </div>
         <div>
           <label className={LABEL}>Location</label>
-          <input name="location_override" type="text" defaultValue={session.location_override ?? ''} placeholder="Event venue" className={INPUT} />
+          <input aria-label="Location" name="location_override" type="text" defaultValue={session.location_override ?? ''} placeholder="Event venue" className={INPUT} />
         </div>
       </div>
 
       <div>
         <label className={LABEL}>Notes</label>
-        <input name="notes" type="text" defaultValue={session.notes ?? ''} className={INPUT} />
+        <input aria-label="Notes" name="notes" type="text" defaultValue={session.notes ?? ''} className={INPUT} />
       </div>
 
       <div className="flex gap-2">

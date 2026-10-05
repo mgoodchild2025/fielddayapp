@@ -54,6 +54,7 @@ export default async function SelfCheckInEventPage({
     return (
       <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="flex-1 flex items-center justify-center px-4">
           <div className="text-center space-y-3">
             <div className="text-4xl">⚠️</div>
@@ -61,6 +62,7 @@ export default async function SelfCheckInEventPage({
             <p className="text-gray-500 text-sm">This check-in link may be invalid.</p>
           </div>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -82,6 +84,7 @@ export default async function SelfCheckInEventPage({
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <SelfCheckinClient
@@ -95,6 +98,7 @@ export default async function SelfCheckInEventPage({
         />
       </div>
 
+      </main>
       <Footer org={org} />
     </div>
   )

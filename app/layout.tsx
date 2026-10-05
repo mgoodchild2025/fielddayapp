@@ -64,6 +64,8 @@ export default function RootLayout({
           toastOptions={{ classNames: { actionButton: '!bg-brand-primary !text-on-brand !font-semibold' } }}
         />
         <ConfirmHost />
+        {/* Polite live region for lib/announce.ts ("Copied", "Saved"). */}
+        <div id="fd-announcer" aria-live="polite" aria-atomic="true" className="sr-only" />
       </body>
     </html>
   )

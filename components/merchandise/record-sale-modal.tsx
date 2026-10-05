@@ -191,7 +191,7 @@ export function RecordSaleModal({ items }: Props) {
 
         <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
           {error && (
-            <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>
+            <div role="alert" className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>
           )}
 
           {/* Line items */}
@@ -243,7 +243,7 @@ export function RecordSaleModal({ items }: Props) {
             {draftItem && (
               <div className="flex items-center gap-2">
                 <label className="text-xs text-gray-500 w-10">Qty</label>
-                <input
+                <input aria-label="Qty"
                   type="number" inputMode="numeric" min={1} value={draftQty}
                   onChange={(e) => setDraftQty(parseInt(e.target.value) || 1)}
                   className="border rounded px-2 py-1.5 text-sm w-20"
@@ -278,11 +278,11 @@ export function RecordSaleModal({ items }: Props) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Buyer name (optional)</label>
-              <input value={buyerName} onChange={(e) => setBuyerName(e.target.value)} className="w-full border rounded px-2 py-1.5 text-sm" placeholder="Walk-in" />
+              <input aria-label="Buyer name (optional)" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} className="w-full border rounded px-2 py-1.5 text-sm" placeholder="Walk-in" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Email (optional)</label>
-              <input type="email" value={buyerEmail} onChange={(e) => setBuyerEmail(e.target.value)} className="w-full border rounded px-2 py-1.5 text-sm" placeholder="—" />
+              <input aria-label="Email (optional)" type="email" value={buyerEmail} onChange={(e) => setBuyerEmail(e.target.value)} className="w-full border rounded px-2 py-1.5 text-sm" placeholder="—" />
             </div>
           </div>
 
@@ -290,7 +290,7 @@ export function RecordSaleModal({ items }: Props) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Payment method</label>
-              <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full border rounded px-2 py-1.5 text-sm">
+              <select aria-label="Payment method" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full border rounded px-2 py-1.5 text-sm">
                 <option value="cash">Cash</option>
                 <option value="etransfer">e-Transfer</option>
                 <option value="card">Card (in person)</option>
@@ -307,7 +307,7 @@ export function RecordSaleModal({ items }: Props) {
 
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Notes (optional)</label>
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full border rounded px-2 py-1.5 text-sm" placeholder="e.g. sold at the spring tournament table" />
+            <input aria-label="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full border rounded px-2 py-1.5 text-sm" placeholder="e.g. sold at the spring tournament table" />
           </div>
         </div>
 

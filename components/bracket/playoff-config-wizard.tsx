@@ -679,6 +679,7 @@ function ManageHeader({
           {/* ⋯ More options */}
           <div className="relative" ref={menuRef}>
             <button
+              aria-expanded={moreOpen}
               onClick={() => setMoreOpen((v) => !v)}
               className="px-2.5 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50"
               title="More options"
@@ -1409,6 +1410,7 @@ export function PlayoffConfigWizard({
           <div className="flex flex-wrap gap-2">
             {tierCountOptions.map((n) => (
               <button
+                aria-pressed={tierCount === n}
                 key={n}
                 type="button"
                 onClick={() => setTierCount(n)}
@@ -1471,8 +1473,8 @@ export function PlayoffConfigWizard({
                 <button
                   type="button"
                   onClick={() => handleDeleteTemplate(t.id, t.name)}
-                  className="absolute top-2 right-2 text-gray-300 hover:text-red-400 text-sm leading-none"
-                  title="Delete template"
+                  className="press absolute top-0 right-0 w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 text-lg leading-none"
+                  aria-label={`Delete template ${t.name}`}
                 >×</button>
               </div>
             ))}

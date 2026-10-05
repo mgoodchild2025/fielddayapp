@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { setMarketingConsent } from '@/actions/player-consents'
+import { announce } from '@/lib/announce'
 
 function Toggle({ checked, onChange, disabled, label }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
   return (
@@ -34,6 +35,7 @@ export function MarketingPrefs({ initialEmail, initialSms }: { initialEmail: boo
     startTransition(async () => {
       await setMarketingConsent(type, value)
       setSaved(true)
+      announce('Saved')
       setTimeout(() => setSaved(false), 2500)
     })
   }

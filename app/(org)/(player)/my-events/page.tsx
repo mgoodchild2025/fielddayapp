@@ -280,6 +280,7 @@ export default async function MyEventsPage() {
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
 
       <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 flex-1">
         <h1
@@ -297,6 +298,7 @@ export default async function MyEventsPage() {
         />
       </div>
 
+      </main>
       <Footer org={org} />
     </div>
   )

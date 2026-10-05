@@ -133,7 +133,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
               {filtered.map(league => (
                 <tr key={league.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">
-                    <Link href={`/admin/events/${league.id}`} className="flex items-center gap-2 hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                    <Link href={`/admin/events/${league.id}`} className="flex items-center gap-2 hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                       <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" />
                       {league.name}
                     </Link>
@@ -154,7 +154,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
                     {league.season_start_date ? formatDateOnly(league.season_start_date) : '—'}
                   </td>
                   <td className="px-4 py-3 flex items-center gap-2">
-                    <Link href={`/admin/events/${league.id}`} className="text-xs font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                    <Link href={`/admin/events/${league.id}`} className="text-xs font-medium hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                       Manage →
                     </Link>
                     <DeleteEventRowButton leagueId={league.id} eventName={league.name} />
@@ -165,7 +165,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                     {hasFilters ? 'No events match your search.' : (
-                      <>No events yet. <Link href="/admin/events/new" className="underline" style={{ color: 'var(--brand-primary)' }}>Create your first event</Link></>
+                      <>No events yet. <Link href="/admin/events/new" className="underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>Create your first event</Link></>
                     )}
                   </td>
                 </tr>
@@ -180,7 +180,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
         {filtered.length === 0 ? (
           <div className="bg-white rounded-lg border p-10 text-center text-gray-400 text-sm">
             {hasFilters ? 'No events match your search.' : (
-              <>No events yet. <Link href="/admin/events/new" className="underline" style={{ color: 'var(--brand-primary)' }}>Create your first event</Link></>
+              <>No events yet. <Link href="/admin/events/new" className="underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>Create your first event</Link></>
             )}
           </div>
         ) : (
@@ -193,7 +193,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
               {/* Name */}
               <div className="flex items-center gap-2 mb-2">
                 <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" />
-                <p className="font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                <p className="font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                   {league.name}
                 </p>
               </div>

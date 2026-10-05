@@ -105,7 +105,7 @@ export function DelayScheduleControl({ leagueId, mode, collapsible = false }: Pr
       {/* Custom amount */}
       <div className="flex items-center gap-2 mb-3">
         <label className="text-xs text-gray-500 shrink-0">Custom (min)</label>
-        <input
+        <input aria-label="Custom (min)"
           type="number"
           min={1}
           value={minutes}

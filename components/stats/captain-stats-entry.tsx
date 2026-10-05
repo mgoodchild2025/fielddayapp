@@ -41,7 +41,7 @@ export function CaptainStatsEntry({ gameId, captainTeamId }: Props) {
         <button
           onClick={handleOpen}
           disabled={loading}
-          className="press inline-flex items-center min-h-10 text-sm font-semibold text-brand-primary disabled:opacity-50"
+          className="press inline-flex items-center min-h-10 text-sm font-semibold text-brand-ink disabled:opacity-50"
         >
           {loading ? 'Loading…' : '+ Enter stats'}
         </button>
