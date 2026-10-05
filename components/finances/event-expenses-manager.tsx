@@ -13,6 +13,7 @@ import { TaxCalc } from '@/components/finances/tax-calc'
 import type { EventExpense } from '@/actions/finances'
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/finance-constants'
 import { useUndoableRemove } from '@/components/ui/use-undoable-remove'
+import { Overlay } from '@/components/ui/overlay'
 
 export type ExpenseSession = { id: string; label: string }
 const ALL_SESSIONS = '__all__'
@@ -79,8 +80,9 @@ export function EventExpensesManager({
     setEditing(e.id)
   }
 
+  // Don't clear the fields here: the sheet animates out with them showing.
   function close() {
-    setEditing(null); reset(); setError(null)
+    setEditing(null); setError(null)
   }
 
   function submit() {
@@ -118,7 +120,7 @@ export function EventExpensesManager({
   }
 
   const form = (
-    <div className="rounded-lg border bg-gray-50 p-3 space-y-3">
+    <div className="space-y-3">
       <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
         <FormField label="Category">
           <select value={category} onChange={(e) => setCategory(e.target.value as ExpenseCategory)} className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white">
@@ -191,17 +193,14 @@ export function EventExpensesManager({
           <button
             type="button"
             onClick={() => { reset(); setEditing('new') }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
+            className="press inline-flex items-center gap-1.5 min-h-10 px-3.5 rounded-md text-sm font-semibold bg-brand-primary text-on-brand"
           >
             <Plus className="w-4 h-4" /> Add expense
           </button>
         )}
       </div>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
 
-      {isNew && form}
 
       {initialExpenses.length === 0 && !isNew ? (
         <div className="bg-white rounded-lg border border-dashed p-6 text-center text-sm text-gray-400">
@@ -212,12 +211,7 @@ export function EventExpensesManager({
           <table className="min-w-full divide-y divide-gray-100 text-sm">
             <tbody className="divide-y divide-gray-50">
               {initialExpenses.filter((e) => !isHidden(e.id)).map((e) => (
-                editing === e.id ? (
-                  <tr key={e.id}>
-                    <td colSpan={3} className="p-2">{form}</td>
-                  </tr>
-                ) : (
-                <tr key={e.id} className="hover:bg-gray-50/50">
+                <tr key={e.id} className={`hover:bg-gray-50/50 ${editing === e.id ? 'bg-gray-50' : ''}`}>
                   <td className="px-4 py-2.5">
                     <p className="text-gray-800">{e.description}</p>
                     <p className="text-xs text-gray-400">
@@ -233,15 +227,14 @@ export function EventExpensesManager({
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium text-gray-800 whitespace-nowrap">{money(e.amount_cents)}</td>
                   <td className="px-2 py-2.5 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => startEdit(e)} disabled={pending} className="text-gray-400 hover:text-gray-700 disabled:opacity-40 p-2 -my-2" aria-label="Edit expense">
+                    <button type="button" onClick={() => startEdit(e)} disabled={pending} className="press inline-flex items-center justify-center w-10 h-10 -my-2 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 disabled:opacity-40" aria-label="Edit expense">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="text-gray-400 hover:text-red-600 disabled:opacity-40 p-2 -my-2" aria-label="Delete expense">
+                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="press inline-flex items-center justify-center w-10 h-10 -my-2 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-40" aria-label="Delete expense">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>
-                )
               ))}
             </tbody>
             <tfoot>
@@ -257,6 +250,19 @@ export function EventExpensesManager({
           </table>
         </div>
       )}
+
+      {/* Add / edit in a sheet — the form used to expand inside the table row. */}
+      <Overlay
+        open={editing !== null}
+        onClose={close}
+        variant="sheet"
+        labelledBy="expense-sheet-title"
+        panelClassName="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-4 max-h-[92dvh] overflow-y-auto"
+      >
+        <h3 id="expense-sheet-title" className="font-semibold text-gray-900 mb-3">{isNew ? 'Add expense' : 'Edit expense'}</h3>
+        {error && <p role="alert" className="fd-fade-in mb-3 rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</p>}
+        {form}
+      </Overlay>
     </div>
   )
 }

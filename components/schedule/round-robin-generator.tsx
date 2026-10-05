@@ -4,6 +4,7 @@ import { useState, useTransition, useMemo } from 'react'
 import { generateRoundRobinSchedule, generateWeeklyLeagueSchedule, generatePickupSchedule } from '@/actions/schedule'
 import { useRouter } from 'next/navigation'
 import { venueLabel } from '@/lib/venue-label'
+import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -103,14 +104,16 @@ function DayOfWeekPicker({ selected, onChange }: { selected: number[]; onChange:
   return (
     <div>
       <label className="block text-xs text-gray-500 mb-1">Day(s) of week *</label>
-      <div className="flex gap-1">
+      <div className="flex flex-wrap gap-1">
         {DOW_LABELS.map((label, i) => (
           <button
             key={i}
             type="button"
             title={DOW_FULL[i]}
+            aria-label={DOW_FULL[i]}
+            aria-pressed={selected.includes(i)}
             onClick={() => toggle(i)}
-            className={`w-8 h-8 rounded-full text-xs font-semibold transition-colors ${
+            className={`press w-10 h-10 rounded-full text-xs font-semibold ${
               selected.includes(i)
                 ? 'bg-gray-800 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -173,8 +176,8 @@ function TimeSlotList({
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none"
-                title="Remove slot"
+                className="press shrink-0 w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 text-lg leading-none"
+                aria-label="Remove time slot"
               >
                 ×
               </button>
@@ -186,7 +189,7 @@ function TimeSlotList({
         <button
           type="button"
           onClick={add}
-          className="mt-1.5 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded px-2 py-0.5 bg-white"
+          className="press mt-1.5 inline-flex items-center min-h-10 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-md px-3 bg-white"
         >
           + Add time
         </button>
@@ -355,7 +358,15 @@ export function RoundRobinGenerator({
       }
 
       setResult(res)
-      if (!res.error) { router.refresh(); setOpen(false) }
+      if (!res.error) {
+        router.refresh()
+        setOpen(false)
+        // The inline "Generated N games!" lived inside the form that just
+        // closed — on a phone, below the whole game list. Say it in a toast.
+        toast.success(useSlotMode
+          ? `Generated ${'count' in res ? res.count : ''} template games — assign teams from the schedule table`
+          : `Generated ${'count' in res ? res.count : ''} games`)
+      }
     })
   }
 

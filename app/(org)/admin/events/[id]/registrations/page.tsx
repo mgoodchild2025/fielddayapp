@@ -3,7 +3,8 @@ import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
-import { activateRegistration } from '@/actions/registrations'
+import { ApproveRegistrationButton } from '@/components/registrations/approve-registration-button'
+import { RegistrationsFilterBar, type RegistrationFilter } from '@/components/registrations/registrations-filter-bar'
 import { RemoveRegistrationButton } from '@/components/registrations/remove-registration-button'
 import { SendWaiverRemindersButton } from '@/components/registrations/send-waiver-reminders-button'
 import { CopyWaiverLink } from '@/components/waivers/copy-waiver-link'
@@ -14,7 +15,6 @@ import { StatusChip } from '@/components/ui/status-chip'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { getTeamPaymentInfo } from '@/lib/team-payments'
 import type { InstallmentRow } from '@/components/payments/installment-schedule'
-import { SubmitButton } from '@/components/ui/submit-button'
 import type { Metadata } from 'next'
 import { formatDollars } from '@/lib/money'
 
@@ -28,8 +28,14 @@ const EDIT_METHODS = new Set(['cash', 'etransfer', 'cheque', 'stripe', 'card', '
 // Phone card cells: the column header becomes an inline label ("Waiver ✓ Signed").
 const LABELLED = 'max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500'
 
-export default async function RegistrationsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function RegistrationsPage({ params, searchParams }: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ q?: string; filter?: string }>
+}) {
   const { id } = await params
+  const sp = await searchParams
+  const q = (sp.q ?? '').trim()
+  const filter: RegistrationFilter = (['pending', 'unpaid', 'nowaiver'] as const).includes(sp.filter as never) ? sp.filter as RegistrationFilter : 'all'
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
@@ -84,6 +90,24 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
     .order('created_at', { ascending: false })
 
   const rows = registrations ?? []
+
+  // Search + status filter (URL state — survives the refresh after a payment
+  // is recorded). Counts are over the whole list.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const profileOf = (r: any) => (Array.isArray(r.user_profile) ? r.user_profile[0] : r.user_profile) as { full_name?: string; email?: string } | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const paymentsOf = (r: any) => ((Array.isArray(r.payments) ? r.payments : r.payments ? [r.payments] : []) as { status: string }[])
+  const matches: Record<RegistrationFilter, (r: (typeof rows)[number]) => boolean> = {
+    all: () => true,
+    pending: (r) => r.status === 'pending',
+    unpaid: (r) => paymentsOf(r).some((p) => p.status === 'pending') && !paymentsOf(r).some((p) => ['paid', 'manual'].includes(p.status)),
+    nowaiver: (r) => r.status === 'active' && !r.waiver_signature_id,
+  }
+  const filterCounts = Object.fromEntries((Object.keys(matches) as RegistrationFilter[]).map((k) => [k, rows.filter(matches[k]).length])) as Record<RegistrationFilter, number>
+  const needle = q.toLowerCase()
+  const shownRows = rows.filter((r) => matches[filter](r) && (!needle
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    || [profileOf(r)?.full_name, profileOf(r)?.email, (r as any).guest_name, (r as any).guest_email].some((v) => v?.toLowerCase().includes(needle))))
 
   // Fetch session dates separately — only works after migration 095 has been applied.
   // Gracefully degrades: if session_id column doesn't exist yet, sessionMap is empty.
@@ -251,6 +275,11 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
         />
       </div>
 
+      <RegistrationsFilterBar q={q} filter={filter} showWaiver={hasWaiver} counts={filterCounts} />
+
+      {shownRows.length === 0 && rows.length > 0 ? (
+        <p className="bg-white rounded-lg border px-4 py-8 text-center text-sm text-gray-500">No registrations match{q ? ` “${q}”` : ''}.</p>
+      ) : (
       <div className="bg-white rounded-lg border overflow-hidden">
         {/* Phones: each row folds into a card (max-sm: utilities below) —
             the 720px table put Approve/Remove ~350px off-screen. */}
@@ -270,16 +299,11 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
           </thead>
           <tbody className="max-sm:block">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {rows.map((reg: any) => {
+            {shownRows.map((reg: any) => {
               const profile = Array.isArray(reg.user_profile)
                 ? reg.user_profile[0]
                 : reg.user_profile
               const payment = Array.isArray(reg.payments) ? reg.payments[0] : reg.payments
-
-              async function approveAction() {
-                'use server'
-                await activateRegistration(reg.id)
-              }
 
               const isDropIn = reg.registration_type === 'drop_in'
               const sessionAt = sessionMap.get(reg.id) ?? null
@@ -432,14 +456,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                     <td className="px-4 py-3 max-sm:p-0 max-sm:w-full max-sm:pt-1">
                       <div className="flex items-center gap-3 max-sm:gap-5">
                         {reg.status === 'pending' && (
-                          <form action={approveAction}>
-                            <SubmitButton
-                              pendingLabel="Approving…"
-                              className="press min-h-10 text-xs font-medium text-brand-primary hover:underline"
-                            >
-                              Approve
-                            </SubmitButton>
-                          </form>
+                          <ApproveRegistrationButton registrationId={reg.id} playerName={profile?.full_name ?? 'Player'} />
                         )}
                         <RemoveRegistrationButton
                           registrationId={reg.id}
@@ -463,6 +480,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
         </table>
         </div>
       </div>
+      )}
     </div>
   )
 }

@@ -78,6 +78,7 @@ export default async function PromoteEventPage({ params }: { params: Promise<{ i
           interestCount={activeCount}
           lastSubject={promos[0]?.title ?? null}
           lastBody={promos[0]?.body ?? null}
+          timeZone={timezone}
         />
       </div>
 

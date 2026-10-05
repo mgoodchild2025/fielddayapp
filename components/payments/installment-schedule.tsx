@@ -125,11 +125,10 @@ export function InstallmentSchedule({ installments, currency = 'CAD', onPayClick
                   type="button"
                   onClick={() => handlePay(inst.id)}
                   disabled={!!pendingId}
-                  className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-md text-white disabled:opacity-60"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                  className="press shrink-0 min-h-10 text-sm font-semibold px-3 rounded-md bg-brand-primary text-on-brand disabled:opacity-60"
                 >
                   {pendingId === inst.id
-                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /><span className="sr-only">Paying…</span></>
                     : `Pay ${fmtMoney(inst.amount_cents, currency)} →`}
                 </button>
               )}
@@ -138,9 +137,9 @@ export function InstallmentSchedule({ installments, currency = 'CAD', onPayClick
                   type="button"
                   onClick={() => handleMark(inst.id)}
                   disabled={!!pendingId}
-                  className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md border text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                  className="press shrink-0 min-h-10 text-sm font-medium px-3 rounded-md border text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                 >
-                  {pendingId === inst.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Mark paid'}
+                  {pendingId === inst.id ? <><Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /><span className="sr-only">Saving…</span></> : 'Mark paid'}
                 </button>
               )}
             </div>

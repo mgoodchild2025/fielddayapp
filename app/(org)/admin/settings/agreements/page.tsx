@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { getOrgAcceptances, getPendingReacceptance } from '@/actions/tenant-consent'
 import { TENANT_CONSENT_SLUGS } from '@/lib/tenant-consent-types'
@@ -19,6 +19,8 @@ const DOC_LABELS: Record<string, string> = {
 export default async function AgreementsSettingsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  // Dates print in the ORG's timezone (the server renders in UTC).
+  const timeZone = await getOrgTimezone(org.id)
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -97,7 +99,7 @@ export default async function AgreementsSettingsPage() {
                         <span className="text-gray-700 font-medium">Version {latest.document_version}</span>
                         {' '}accepted on{' '}
                         {new Date(latest.accepted_at).toLocaleDateString('en-CA', {
-                          year: 'numeric', month: 'long', day: 'numeric',
+                          year: 'numeric', month: 'long', day: 'numeric', timeZone,
                         })}
                       </p>
                       <p>
@@ -132,24 +134,24 @@ export default async function AgreementsSettingsPage() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-2.5 text-left font-semibold text-gray-600">Document</th>
-                  <th className="px-4 py-2.5 text-left font-semibold text-gray-600">Version</th>
+                  <th className="max-sm:hidden px-4 py-2.5 text-left font-semibold text-gray-600">Version</th>
                   <th className="px-4 py-2.5 text-left font-semibold text-gray-600">Accepted</th>
                   <th className="px-4 py-2.5 text-left font-semibold text-gray-600">By</th>
-                  <th className="px-4 py-2.5 text-left font-semibold text-gray-600">Type</th>
+                  <th className="max-sm:hidden px-4 py-2.5 text-left font-semibold text-gray-600">Type</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {acceptances.map((a) => (
                   <tr key={a.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2.5 text-gray-700">{DOC_LABELS[a.document_slug] ?? a.document_slug}</td>
-                    <td className="px-4 py-2.5 text-gray-500">v{a.document_version}</td>
+                    <td className="px-4 py-2.5 text-gray-700">{DOC_LABELS[a.document_slug] ?? a.document_slug}<span className="sm:hidden text-gray-500"> · v{a.document_version}</span></td>
+                    <td className="max-sm:hidden px-4 py-2.5 text-gray-500">v{a.document_version}</td>
                     <td className="px-4 py-2.5 text-gray-500">
                       {new Date(a.accepted_at).toLocaleDateString('en-CA', {
-                        year: 'numeric', month: 'short', day: 'numeric',
+                        year: 'numeric', month: 'short', day: 'numeric', timeZone,
                       })}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-500">{a.accepted_by_name ?? a.accepted_by_email ?? '—'}</td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 text-gray-500 break-all">{a.accepted_by_name ?? a.accepted_by_email ?? '—'}</td>
+                    <td className="max-sm:hidden px-4 py-2.5">
                       <span className={`capitalize px-2 py-0.5 rounded-full text-xs font-medium ${
                         a.acceptance_type === 'manual'
                           ? 'bg-purple-50 text-purple-700'

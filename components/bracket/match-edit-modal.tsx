@@ -249,10 +249,11 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Schedule</p>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Court</label>
+                <label htmlFor="match-court" className="block text-xs text-gray-500 mb-1">Court</label>
                 <input
+                  id="match-court"
                   type="text"
                   value={court}
                   onChange={(e) => setCourt(e.target.value)}
@@ -261,8 +262,9 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Date & Time</label>
+                <label htmlFor="match-time" className="block text-xs text-gray-500 mb-1">Date & Time</label>
                 <input
+                  id="match-time"
                   type="datetime-local"
                   value={scheduledAt}
                   onChange={(e) => setScheduledAt(e.target.value)}

@@ -267,7 +267,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
             <button
               type="submit"
               disabled={isPending}
-              className="flex-1 py-2 rounded text-sm font-semibold text-white disabled:opacity-50"
+              className="press flex-1 min-h-11 rounded-md text-sm font-semibold text-white disabled:opacity-50"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               {isPending ? 'Saving…' : 'Save Changes'}
@@ -275,7 +275,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded text-sm font-medium border text-gray-600 hover:bg-gray-50"
+              className="press min-h-11 px-4 rounded-md text-sm font-medium border text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>

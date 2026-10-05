@@ -7,6 +7,9 @@ import type { InstallmentRow } from './installment-schedule'
 import { adminMarkInstallmentPaid } from '@/actions/payment-plans'
 import { toast } from 'sonner'
 import { Collapse } from '@/components/ui/collapse'
+import { confirmAction } from '@/components/ui/confirm-dialog'
+import { safeAction } from '@/lib/action-errors'
+import { formatDollars } from '@/lib/money'
 
 interface Props {
   registrationId: string
@@ -29,7 +32,16 @@ export function AdminInstallmentRow({ registrationId, installments, canMarkPaid 
   const total = localInstallments.length
 
   async function handleMarkPaid(installmentId: string) {
-    const result = await adminMarkInstallmentPaid(installmentId)
+    // Records money and there's no "unmark" — one stray tap on a phone
+    // shouldn't do that.
+    const inst = localInstallments.find(i => i.id === installmentId)
+    const n = localInstallments.findIndex(i => i.id === installmentId) + 1
+    if (!(await confirmAction({
+      title: `Mark instalment ${n} of ${total} paid?`,
+      message: inst ? `Records ${formatDollars(inst.amount_cents)} as received. This can't be undone from here.` : undefined,
+      confirmLabel: 'Mark paid',
+    }))) return
+    const result = await safeAction(adminMarkInstallmentPaid(installmentId))
     if (result.error) {
       toast.error(result.error)
       return
@@ -38,6 +50,7 @@ export function AdminInstallmentRow({ registrationId, installments, canMarkPaid 
     setLocalInstallments(prev =>
       prev.map(i => i.id === installmentId ? { ...i, status: 'paid' as const } : i)
     )
+    toast.success(`Instalment ${n} marked paid`)
   }
 
   return (
@@ -45,7 +58,7 @@ export function AdminInstallmentRow({ registrationId, installments, canMarkPaid 
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+        className="press inline-flex items-center gap-1 min-h-10 px-3 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
         aria-expanded={open}
         aria-label={`Payment plan: ${paidCount} of ${total} paid`}
       >
