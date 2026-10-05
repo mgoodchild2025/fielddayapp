@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { validateTeamCode, joinTeamByCode } from '@/actions/teams'
+import { safeAction } from '@/lib/action-errors'
 
 export interface TeamOption {
   id: string
@@ -30,7 +31,7 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
     const code = (initialTeamCode ?? '').trim().toUpperCase()
     if (!code) return
     setValidating(true)
-    validateTeamCode(code).then((result) => {
+    safeAction(validateTeamCode(code)).then((result) => {
       setValidating(false)
       if (result.error) {
         setCodeError(result.error)
@@ -50,7 +51,7 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
     if (!code) { setCodeValid(null); setCodeError(null); return null }
     setValidating(true)
     setCodeError(null)
-    const result = await validateTeamCode(code)
+    const result = await safeAction(validateTeamCode(code))
     setValidating(false)
     if (result.error || !result.data) {
       setCodeValid(null)
@@ -68,7 +69,7 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
       return
     }
     setJoining(true)
-    const result = await joinTeamByCode(teamCode.trim().toUpperCase())
+    const result = await safeAction(joinTeamByCode(teamCode.trim().toUpperCase()))
     if (result?.error) {
       setJoining(false)
       setCodeError(result.error)

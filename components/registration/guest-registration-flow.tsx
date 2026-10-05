@@ -6,6 +6,7 @@ import { RichTextContent } from '@/components/ui/rich-text-content'
 import { signWaiverAsGuest } from '@/actions/waivers'
 import { registerGuestDropin } from '@/actions/registrations'
 import { validateDiscountCode } from '@/actions/discounts'
+import { useBfcacheReset } from '@/components/ui/use-bfcache-reset'
 
 type GuardianRelationship = 'parent' | 'legal_guardian'
 
@@ -42,6 +43,8 @@ export function GuestRegistrationFlow({
 }: Props) {
   const [stage, setStage] = useState<Stage>('choice')
   const [loading, setLoading] = useState(false)
+  // Back from Stripe restores the "Taking you to checkout…" screen — go back to the details.
+  useBfcacheReset(() => { setLoading(false); setStage((st) => (st === 'submitting' ? 'details' : st)) })
   const [error, setError] = useState<string | null>(null)
 
   // Details

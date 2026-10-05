@@ -9,6 +9,8 @@ import { deleteGame, deleteGames, setSchedulePublished, clearAllGames } from '@/
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { Overlay, useRetained } from '@/components/ui/overlay'
 import { confirmAction } from '@/components/ui/confirm-dialog'
+import { toast } from 'sonner'
+import { safeAction } from '@/lib/action-errors'
 
 interface SetScore { home: number; away: number }
 
@@ -144,10 +146,13 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
     if (!(await confirmAction({ title: "Delete this game?", message: "This can't be undone.", confirmLabel: "Delete game", destructive: true }))) return
     setDeletingId(gameId)
     startTransition(async () => {
-      await deleteGame(gameId, leagueId)
+      // A refused delete used to hide the row anyway.
+      const res = await safeAction(deleteGame(gameId, leagueId))
+      setDeletingId(null)
+      if (res?.error) { toast.error(res.error); return }
       setDeletedIds((prev) => new Set([...prev, gameId]))
       setSelectedIds((prev) => { const s = new Set(prev); s.delete(gameId); return s })
-      setDeletingId(null)
+      toast.success('Game deleted')
     })
   }
 
@@ -160,7 +165,9 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
       confirmLabel: 'Unpublish',
     }))) return
     startTransition(async () => {
-      await setSchedulePublished(leagueId, !schedulePublished)
+      const res = await safeAction(setSchedulePublished(leagueId, !schedulePublished))
+      if (res?.error) { toast.error(res.error); return }
+      toast.success(schedulePublished ? 'Schedule hidden from players' : 'Schedule published')
       router.refresh()
     })
   }
@@ -170,10 +177,12 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
     if (!(await confirmAction({ title: `Delete all ${count} game${count !== 1 ? 's' : ''}?`, message: "This can't be undone.", confirmLabel: "Delete all", destructive: true }))) return
     setIsClearing(true)
     startTransition(async () => {
-      await clearAllGames(leagueId)
+      const res = await safeAction(clearAllGames(leagueId))
+      setIsClearing(false)
+      if (res?.error) { toast.error(res.error); return }
       setDeletedIds(new Set(games.map(g => g.id)))
       setSelectedIds(new Set())
-      setIsClearing(false)
+      toast.success(`${count} game${count !== 1 ? 's' : ''} deleted`)
       router.refresh()
     })
   }
@@ -197,9 +206,11 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
     const count = ids.length
     if (!(await confirmAction({ title: `Delete ${count} selected game${count !== 1 ? 's' : ''}?`, message: "This can't be undone.", confirmLabel: "Delete", destructive: true }))) return
     startTransition(async () => {
-      await deleteGames(ids, leagueId)
+      const res = await safeAction(deleteGames(ids, leagueId))
+      if (res?.error) { toast.error(res.error); return }
       setDeletedIds((prev) => new Set([...prev, ...ids]))
       setSelectedIds(new Set())
+      toast.success(`${count} game${count !== 1 ? 's' : ''} deleted`)
     })
   }
 

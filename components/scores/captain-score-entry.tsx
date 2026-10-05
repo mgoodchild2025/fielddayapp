@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 
 import { useState } from 'react'
 import { submitScore, confirmScore } from '@/actions/scores'
+import { safeAction } from '@/lib/action-errors'
 
 const SET_SPORTS    = new Set(['volleyball', 'beach_volleyball'])
 const PERIOD_SPORTS = new Set(['hockey'])
@@ -173,7 +174,7 @@ export function CaptainScoreEntry({
       finalSets = undefined
     }
 
-    const res = await submitScore({ gameId, homeScore: finalHome, awayScore: finalAway, sets: finalSets })
+    const res = await safeAction(submitScore({ gameId, homeScore: finalHome, awayScore: finalAway, sets: finalSets }))
     setLoading(false)
     if (res.error) {
       setError(res.error)
@@ -187,7 +188,7 @@ export function CaptainScoreEntry({
   async function handleConfirm() {
     setConfirming(true)
     setError(null)
-    const res = await confirmScore(gameId)
+    const res = await safeAction(confirmScore(gameId))
     setConfirming(false)
     if (res.error) {
       setError(res.error)

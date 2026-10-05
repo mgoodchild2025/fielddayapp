@@ -11,6 +11,7 @@ import { GoogleAuthButton } from '@/components/auth/google-auth-button'
 import { safeRelativePath } from '@/lib/safe-redirect'
 import { BackLink } from '@/components/ui/back-link'
 import { Eye, EyeOff } from 'lucide-react'
+import { safeAction } from '@/lib/action-errors'
 
 // One password field with a show toggle instead of "confirm password": typing
 // it twice on a phone keyboard is the friction, and seeing it is the check.
@@ -42,7 +43,7 @@ export default function RegisterPage() {
     setLoading(true)
     setServerError(null)
 
-    const result = await signUp({ email: data.email, password: data.password, fullName: data.full_name, redirectTo })
+    const result = await safeAction(signUp({ email: data.email, password: data.password, fullName: data.full_name, redirectTo }))
     if (result?.error) {
       setServerError(result.error)
       setLoading(false)

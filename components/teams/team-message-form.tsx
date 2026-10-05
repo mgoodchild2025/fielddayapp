@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { sendTeamMessage } from '@/actions/teams'
 import { scrollBehavior } from '@/lib/motion'
+import { safeAction } from '@/lib/action-errors'
 
 interface Props {
   teamId: string
@@ -39,7 +40,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
     setResult(null)
     setErrorMsg(null)
 
-    const res = await sendTeamMessage({ teamId, subject, body, channel, ccSelf, ccAdmins })
+    const res = await safeAction(sendTeamMessage({ teamId, subject, body, channel, ccSelf, ccAdmins }))
     if (res.error) {
       setErrorMsg(res.error)
       setResult('error')

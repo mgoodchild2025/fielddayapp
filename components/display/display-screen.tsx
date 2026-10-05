@@ -113,12 +113,50 @@ export function DisplayScreen({ config, data, screen }: Props) {
   const router = useRouter()
   const isDark = config.theme === 'dark'
 
-  // Auto-refresh: re-render server component to get fresh data
+  // Auto-refresh: re-render the server component for fresh data — but only
+  // once a cheap probe says the server is answering. A failed refresh makes
+  // Next fall back to a full page load, which on a wifi blip or a deploy's
+  // 502 replaced the TV with the browser's error page until someone walked
+  // over to it. A skipped cycle just keeps the last frame.
   useEffect(() => {
     const secs = Math.max(10, config.refresh_seconds ?? 30)
-    const id = setInterval(() => router.refresh(), secs * 1000)
+    let busy = false
+    const id = setInterval(async () => {
+      if (busy || !navigator.onLine) return
+      busy = true
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 8000)
+      try {
+        const res = await fetch('/api/health', { cache: 'no-store', signal: ctrl.signal })
+        if (res.ok) router.refresh()
+      } catch {
+        // unreachable this cycle — try again next one
+      } finally {
+        clearTimeout(timer)
+        busy = false
+      }
+    }, secs * 1000)
     return () => clearInterval(id)
   }, [config.refresh_seconds, router])
+
+  // Keep the screen awake: the laptop / iPad / Chromebook driving the TV
+  // dimmed or slept mid-evening. Re-acquired when the tab is shown again.
+  useEffect(() => {
+    let lock: { release?: () => Promise<void> } | null = null
+    async function acquire() {
+      try {
+        const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release?: () => Promise<void> }> } }
+        lock = (await nav.wakeLock?.request('screen')) ?? null
+      } catch { /* denied / unsupported */ }
+    }
+    acquire()
+    const onVis = () => { if (document.visibilityState === 'visible') acquire() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      lock?.release?.().catch(() => {})
+    }
+  }, [])
 
   const bg     = isDark ? '#09090b' : '#f9fafb'
   const border = isDark ? '#27272a' : '#e5e7eb'

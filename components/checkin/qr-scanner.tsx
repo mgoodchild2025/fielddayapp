@@ -7,6 +7,7 @@ import type { CheckInResult } from '@/actions/checkin'
 import { unlockAudio, playCheckinSound } from '@/lib/audio'
 import { TeamCheckinModal } from '@/components/checkin/team-checkin-modal'
 import { Overlay } from '@/components/ui/overlay'
+import { actionErrorMessage, safeAction } from '@/lib/action-errors'
 
 interface Props {
   leagueId: string
@@ -75,8 +76,14 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
             setScanState({ type: 'scanning' })
 
             startTransition(async () => {
-              const result = await checkInByToken(token, leagueId, sessionId)
-              const nextState = resultFromAction(result)
+              // A throw here (dropped wifi) used to reach the error boundary
+              // and replace the whole check-in page mid-scan.
+              let nextState: ScanState
+              try {
+                nextState = resultFromAction(await checkInByToken(token, leagueId, sessionId))
+              } catch (err) {
+                nextState = { type: 'error', message: actionErrorMessage(err) }
+              }
               setScanState(nextState)
 
               if (nextState.type === 'success') {
@@ -136,7 +143,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
   function handleWalkIn(registrationId: string, playerName: string) {
     if (!sessionId) return
     startWalkInTransition(async () => {
-      const result = await checkInWalkIn(registrationId, sessionId, leagueId)
+      const result = await safeAction(checkInWalkIn(registrationId, sessionId, leagueId))
       if (result.error) {
         setScanState({ type: 'error', message: result.error })
       } else {

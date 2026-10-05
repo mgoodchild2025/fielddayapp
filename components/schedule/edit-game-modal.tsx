@@ -6,6 +6,7 @@ import { useState, useTransition } from 'react'
 import { updateGame, deleteGame, cancelGame, postponeGame, restoreGame } from '@/actions/schedule'
 import { venueLabel } from '@/lib/venue-label'
 import { confirmAction } from '@/components/ui/confirm-dialog'
+import { safeAction } from '@/lib/action-errors'
 
 interface Team {
   id: string
@@ -78,7 +79,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
     e.preventDefault()
     setError(null)
     startTransition(async () => {
-      const result = await updateGame({
+      const result = await safeAction(updateGame({
         gameId: game.id,
         leagueId: game.leagueId,
         homeTeamId: homeTeamId || undefined,
@@ -90,7 +91,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
         weekNumber: weekNumber ? Number(weekNumber) : undefined,
         poolId: poolId || null,
         isExhibition,
-      })
+      }))
       if (result.error) {
         setError(result.error)
       } else {
@@ -107,7 +108,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
       destructive: true,
     }))) return
     startTransition(async () => {
-      const result = await deleteGame(game.id, game.leagueId)
+      const result = await safeAction(deleteGame(game.id, game.leagueId))
       if (result.error) {
         setError(result.error)
       } else {
@@ -118,14 +119,14 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
 
   function handleCancelGame() {
     startTransition(async () => {
-      const result = await cancelGame({ gameId: game.id, leagueId: game.leagueId, reason: statusReason || undefined, notify: notifyTeams })
+      const result = await safeAction(cancelGame({ gameId: game.id, leagueId: game.leagueId, reason: statusReason || undefined, notify: notifyTeams }))
       if (result.error) { setError(result.error) } else { setGameStatus('cancelled'); setStatusAction(null); onStatusChanged?.(game.id, 'cancelled', statusReason || null) }
     })
   }
 
   function handlePostponeGame() {
     startTransition(async () => {
-      const result = await postponeGame({ gameId: game.id, leagueId: game.leagueId, reason: statusReason || undefined, notify: notifyTeams })
+      const result = await safeAction(postponeGame({ gameId: game.id, leagueId: game.leagueId, reason: statusReason || undefined, notify: notifyTeams }))
       if (result.error) { setError(result.error) } else { setGameStatus('postponed'); setStatusAction(null); onStatusChanged?.(game.id, 'postponed', statusReason || null) }
     })
   }
@@ -138,7 +139,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
       confirmLabel: 'Restore and notify',
     }))) return
     startTransition(async () => {
-      const result = await restoreGame({ gameId: game.id, leagueId: game.leagueId, notify: notifyTeams })
+      const result = await safeAction(restoreGame({ gameId: game.id, leagueId: game.leagueId, notify: notifyTeams }))
       if (result.error) { setError(result.error) } else { setGameStatus('scheduled'); setStatusReason(''); onStatusChanged?.(game.id, 'scheduled', null) }
     })
   }

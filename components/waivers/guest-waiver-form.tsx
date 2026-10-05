@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { signWaiverAsGuest } from '@/actions/waivers'
 import { RichTextContent } from '@/components/ui/rich-text-content'
+import { safeAction } from '@/lib/action-errors'
 
 interface Waiver {
   id: string
@@ -86,7 +87,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
     }
 
     setLoading(true)
-    const result = await signWaiverAsGuest({
+    const result = await safeAction(signWaiverAsGuest({
       waiverId: waiver.id,
       leagueId,
       leagueName,
@@ -96,7 +97,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
       teamName: teamName.trim() || undefined,
       signatureName: isMinor ? guardianName.trim() : signatureName.trim(),
       guardianRelationship: isMinor ? guardianRel : undefined,
-    })
+    }))
     setLoading(false)
 
     if (result.error) {

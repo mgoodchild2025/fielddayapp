@@ -5,6 +5,7 @@ import { selectOfflineTeamPayment } from '@/actions/payments'
 import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICON, type PaymentMethod } from '@/lib/payment-methods'
 import { formatDollars } from '@/lib/money'
+import { useBfcacheReset } from '@/components/ui/use-bfcache-reset'
 
 interface Props {
   teamId: string
@@ -48,6 +49,8 @@ export function TeamPaymentPanel({
   paidAmountCents = null,
 }: Props) {
   const [loading, setLoading] = useState(false)
+  // Back from Stripe restores the page with the button stuck on "Redirecting…".
+  useBfcacheReset(() => setLoading(false))
   const [error, setError] = useState<string | null>(null)
   // Starts on the instructions view when an offline payment is already pending.
   const [manualInstructions, setManualInstructions] = useState<string | null>(pendingOffline ? (offlineInstructions ?? '') : null)

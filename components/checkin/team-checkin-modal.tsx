@@ -5,6 +5,7 @@ import { getTeamCheckinStatus, toggleTeamMemberCheckin } from '@/actions/team-ch
 import type { TeamMemberCheckinStatus } from '@/actions/team-checkin'
 import { Overlay, useRetained } from '@/components/ui/overlay'
 import { toast } from 'sonner'
+import { safeAction } from '@/lib/action-errors'
 
 interface Props {
   teamId: string
@@ -40,7 +41,8 @@ function TeamCheckinContent({ teamId, leagueId, timezone, onClose }: Props) {
 
   // Load team data on mount
   useEffect(() => {
-    getTeamCheckinStatus(teamId, leagueId).then(({ data, error }) => {
+    // A rejected load used to leave "Loading roster…" up forever.
+    safeAction(getTeamCheckinStatus(teamId, leagueId)).then(({ data, error }) => {
       if (error || !data) { setError(error ?? 'Failed to load team'); setLoading(false); return }
       setTeamName(data.teamName)
       setMembers(data.members)

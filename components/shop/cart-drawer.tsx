@@ -6,6 +6,7 @@ import { useCart } from './cart-provider'
 import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
 import { Overlay } from '@/components/ui/overlay'
 import { canOptimizeImage } from '@/lib/image-src'
+import { useBfcacheReset } from '@/components/ui/use-bfcache-reset'
 
 interface Props {
   taxSuffix?: string
@@ -15,6 +16,8 @@ interface Props {
 export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
   const { items, isLoading, removeItem, updateQty, clearCart, clearCartWithUndo, totalCents, isOpen, closeCart } = useCart()
   const [loading, setLoading] = useState(false)
+  // Back from Stripe restores the page with the button stuck on "Redirecting…".
+  useBfcacheReset(() => setLoading(false))
   const [error, setError] = useState<string | null>(null)
 
   // Discount code

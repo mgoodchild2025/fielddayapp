@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { submitScore, adminSetScore } from '@/actions/scores'
@@ -9,6 +9,7 @@ import { logScoreboardInstall, logScoreboardLaunch } from '@/actions/scoreboard-
 import { detectPlatform, getDeviceId, isStandaloneLaunch } from '@/lib/scoreboard-device'
 import { rubberband } from '@/lib/drag-physics'
 import { toast } from 'sonner'
+import { isNetworkError, isStaleBuildError, reloadIfStale } from '@/lib/action-errors'
 import { Overlay, useRetained } from '@/components/ui/overlay'
 
 // ── Fieldday Scoreboard ────────────────────────────────────────────────────────
@@ -149,6 +150,13 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   // auto-save so reloading an already-ended board never re-submits (a captain
   // re-submit would knock a confirmed result back to pending).
   const [justEnded, setJustEnded] = useState(false)
+  // Latest game for async code: a save that resolves after the scorekeeper
+  // pressed Undo must not report "Saved" over a score the server never got.
+  const gameRef = useRef(game)
+  useEffect(() => { gameRef.current = game }, [game])
+  // Bumped when a save finished against an older version of the board, so
+  // the auto-save runs again for the current one.
+  const [resaveTick, setResaveTick] = useState(0)
   const [installed, setInstalled] = useState(false)
   const [installHelp, setInstallHelp] = useState(false)
 
@@ -198,11 +206,22 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   const storageKey = attached
     ? `${STORAGE_KEY}:${attached.kind === 'bracket' ? 'match' : 'game'}:${attached.gameId}`
     : STORAGE_KEY
+  // Set while a finished game still has to reach the server (offline, a
+  // 502 mid-deploy, a reload for a new build) — survives the tab being killed.
+  const pendingKey = `${storageKey}:pending-save`
+  const markPending = (on: boolean) => {
+    try { if (on) localStorage.setItem(pendingKey, '1'); else localStorage.removeItem(pendingKey) } catch { /* storage blocked */ }
+  }
 
   // Load saved game once on mount (client only)
   useEffect(() => {
     setGame(load(storageKey, attached))
     setLoaded(true)
+    // A finished game whose save never landed (tab killed, reload for a new
+    // build): re-arm the auto-save so it goes through now.
+    try {
+      if (attached?.canSave && localStorage.getItem(`${storageKey}:pending-save`) === '1') setJustEnded(true)
+    } catch { /* storage blocked */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey])
 
@@ -241,16 +260,23 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   // Offline shell: register the scoped service worker
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/scoreboard-sw.js', { scope: '/scoreboard' }).catch(() => {})
       // The worker starts AFTER this page loaded, so the first visit's page and
       // chunks never went through it — the board needed two online visits
       // before it opened offline (an iPhone home-screen app's first launch at
       // a gym with no signal failed). Hand it what this page already loaded.
-      navigator.serviceWorker.ready.then((reg) => {
+      // Post to THIS registration's worker: on org hosts the root /sw.js is
+      // usually already active, and serviceWorker.ready resolved with it.
+      const handOff = (w: ServiceWorker | null | undefined) => {
+        if (!w) return
         const urls = performance.getEntriesByType('resource')
           .map((e) => e.name)
           .filter((u) => u.startsWith(location.origin + '/_next/static/') || u.startsWith(location.origin + '/scoreboard'))
-        reg.active?.postMessage({ type: 'cache-urls', urls: [location.pathname + location.search, ...urls] })
+        w.postMessage({ type: 'cache-urls', urls: [location.pathname + location.search, ...urls] })
+      }
+      navigator.serviceWorker.register('/scoreboard-sw.js', { scope: '/scoreboard' }).then((reg) => {
+        if (reg.active) { handOff(reg.active); return }
+        const w = reg.installing ?? reg.waiting
+        w?.addEventListener('statechange', () => { if (w.state === 'activated') handOff(reg.active ?? w) })
       }).catch(() => {})
     }
   }, [])
@@ -569,6 +595,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   // per-set line, matching AdminScoreEntry's convention.
   const saveResult = async () => {
     if (!attached || !canSave) return
+    const snapshot = game.events
     setSaveState('saving')
     setSaveError(null)
     const setLine = isSets && effectiveSets.length > 0 ? effectiveSets : undefined
@@ -591,26 +618,51 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
             : await submitScore({ gameId: attached.gameId, homeScore: effHome, awayScore: effAway, sets: setLine })
         if (res?.error) throw new Error(res.error)
       }
+      markPending(false)
+      // Undo / a re-end while the request was in flight: what was saved is
+      // no longer the board. Go round again with the current score.
+      if (gameRef.current.events !== snapshot) {
+        setSaveState('idle')
+        setResaveTick((t) => t + 1)
+        return
+      }
       setSaveState('saved')
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''
-      // fetch/server-action transport failures vs a refusal from the server
-      // ("Not authenticated", "already confirmed", …): every failure used to
-      // say "couldn't reach Fieldday".
-      const offline = !navigator.onLine || /fetch|network|load failed|failed to/i.test(msg)
+      // A tab from before a deploy: the action id is gone. Reload (the board
+      // is in localStorage) and the pending flag saves it on the new build.
+      if (isStaleBuildError(err)) {
+        markPending(true)
+        if (reloadIfStale(err)) return
+      }
+      // fetch/server-action transport failures (incl. a 5xx mid-deploy) vs a
+      // refusal from the server ("Not authenticated", "already confirmed", …).
+      const offline = isNetworkError(err) || isStaleBuildError(err)
+      if (offline) markPending(true)
       setSaveError({ message: offline || msg === 'tie' ? null : msg || null, offline })
       setSaveState('error')
     }
   }
 
   // Back online after a failed save → try again by itself.
+  // Gym wifi that's "connected" but passes nothing never fires `online`, so
+  // also retry when the screen comes back and every 20s.
   useEffect(() => {
     if (saveState !== 'error' || !saveError?.offline) return
     const retry = () => { void saveResult() }
+    const onVisible = () => { if (document.visibilityState === 'visible') retry() }
     window.addEventListener('online', retry)
-    return () => window.removeEventListener('online', retry)
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = setInterval(retry, 20_000)
+    return () => {
+      window.removeEventListener('online', retry)
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(timer)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveState, saveError])
+
+
 
   // One less tap: ending the match saves it (admins → confirmed final,
   // captains → submitted for the opponent to confirm). Fires only for an End
@@ -620,7 +672,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       saveResult()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [justEnded, over])
+  }, [justEnded, over, resaveTick])
 
   const saveButton = (className: string) =>
     attached && confirmedLock ? (
@@ -889,6 +941,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       {panel(second)}
 
       <InstallHint installPrompt={installPrompt} installed={installed} onInstall={requestInstall} />
+      {!attached && <DetachedNotice />}
 
       {/* Match-over overlay — shown when the scorekeeper ends the match */}
       {matchWinner && (
@@ -1073,6 +1126,37 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
             </p>
           </div>
       </Sheet>
+    </div>
+  )
+}
+
+// ── Detached notice ───────────────────────────────────────────────────────────
+// The link was for a game (?game= / ?match=) but the board came up unattached —
+// opened offline before that game's page was ever cached, so the worker served
+// the plain board. Scores still count on screen but won't save to the game:
+// say so before the scorekeeper finds out at the end.
+const noSubscribe = () => () => {}
+function linkWasForAGame() {
+  const q = new URLSearchParams(window.location.search)
+  return q.has('game') || q.has('match')
+}
+function DetachedNotice() {
+  const wanted = useSyncExternalStore(noSubscribe, linkWasForAGame, () => false)
+  const [dismissed, setDismissed] = useState(false)
+  if (!wanted || dismissed) return null
+  return (
+    <div role="status" className="fixed left-3 right-3 z-30 flex justify-center pointer-events-none" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}>
+      <div className="pointer-events-auto flex items-start gap-3 max-w-md rounded-xl bg-amber-500 text-black px-4 py-3 shadow-lg">
+        <p className="text-sm font-medium leading-snug">
+          This game didn&apos;t load (no signal, or the link is out of date), so scores here won&apos;t be saved to it.
+        </p>
+        <button onClick={() => window.location.reload()} className="shrink-0 min-h-10 px-3 rounded-lg bg-black/80 text-white text-sm font-semibold">
+          Reload
+        </button>
+        <button onClick={() => setDismissed(true)} aria-label="Dismiss" className="shrink-0 w-10 h-10 -mr-2 -my-1 flex items-center justify-center text-black/70 text-lg">
+          ×
+        </button>
+      </div>
     </div>
   )
 }
