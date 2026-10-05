@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { selectOfflineTeamPayment } from '@/actions/payments'
 import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
@@ -233,13 +234,12 @@ export function TeamPaymentPanel({
                 </p>
               </div>
             </div>
-            <a
+            <Link
               href={`/register/${leagueSlug}`}
-              className="block w-full text-center py-2.5 rounded-md text-sm font-semibold text-white"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
+              className="press flex items-center justify-center w-full min-h-11 rounded-md text-sm font-semibold bg-brand-primary text-on-brand"
             >
               Register for this event →
-            </a>
+            </Link>
           </div>
         ) : (
           <>
@@ -256,17 +256,17 @@ export function TeamPaymentPanel({
               </div>
 
               {appliedDiscount && discountAmountCents > 0 && (
-                <div className="flex justify-between items-center px-4 py-3 bg-green-50">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1 px-4 py-3 bg-green-50">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="text-sm font-medium text-green-800">Discount: {appliedDiscount.code}</span>
                     <span className="text-xs text-green-600 bg-green-100 rounded px-1.5 py-0.5">
                       {appliedDiscount.type === 'percent' ? `${appliedDiscount.value}% off` : `$${appliedDiscount.value} off`}
                     </span>
-                    <button type="button" onClick={() => { setAppliedDiscount(null); setDiscountInput('') }} className="text-xs text-green-600 hover:text-red-500 underline">
+                    <button type="button" onClick={() => { setAppliedDiscount(null); setDiscountInput('') }} className="press inline-flex items-center min-h-10 text-sm text-green-700 hover:text-red-600 underline">
                       Remove
                     </button>
                   </div>
-                  <span className="font-semibold text-green-700 tabular-nums">−${(discountAmountCents / 100).toFixed(2)} {curr}</span>
+                  <span className="font-semibold text-green-700 tabular-nums">−{formatDollars(discountAmountCents)} {curr}</span>
                 </div>
               )}
 
@@ -274,7 +274,7 @@ export function TeamPaymentPanel({
                 <div className="flex justify-between items-center px-4 py-3">
                   <span className="text-sm text-gray-600">After discount</span>
                   <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary)' }}>
-                    ${(discountedPriceCents / 100).toFixed(2)} {curr}
+                    {formatDollars(discountedPriceCents)} {curr}
                     {taxSuffix && <span className="ml-1 text-xs font-normal text-gray-500">{taxSuffix}</span>}
                   </span>
                 </div>
@@ -292,7 +292,7 @@ export function TeamPaymentPanel({
             {!appliedDiscount && (
               <div>
                 {!showDiscountInput ? (
-                  <button type="button" onClick={() => setShowDiscountInput(true)} className="text-sm text-gray-500 hover:text-gray-600 underline underline-offset-2">
+                  <button type="button" onClick={() => setShowDiscountInput(true)} className="press inline-flex items-center min-h-10 text-sm text-gray-600 hover:text-gray-900 underline underline-offset-2">
                     Have a discount code?
                   </button>
                 ) : (
@@ -304,20 +304,24 @@ export function TeamPaymentPanel({
                         onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(null) }}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyDiscount() } }}
                         placeholder="Enter code"
-                        className="flex-1 border rounded-md px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:ring-2"
-                        style={{ focusRingColor: 'var(--brand-primary)' } as React.CSSProperties}
+                        aria-label="Discount code"
+                        autoCapitalize="characters"
+                        autoCorrect="off"
+                        autoComplete="off"
+                        spellCheck={false}
+                        enterKeyHint="go"
+                        className="flex-1 min-w-0 min-h-11 border rounded-md px-3 text-base sm:text-sm uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-primary"
                         autoFocus
                       />
                       <button
                         type="button"
                         onClick={handleApplyDiscount}
                         disabled={discountLoading || !discountInput.trim()}
-                        className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
-                        style={{ backgroundColor: 'var(--brand-primary)' }}
+                        className="press min-h-11 px-4 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-50"
                       >
                         {discountLoading ? '…' : 'Apply'}
                       </button>
-                      <button type="button" onClick={() => { setShowDiscountInput(false); setDiscountInput(''); setDiscountError(null) }} className="px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-600">✕</button>
+                      <button type="button" onClick={() => { setShowDiscountInput(false); setDiscountInput(''); setDiscountError(null) }} aria-label="Close discount code" className="press w-11 h-11 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-700">✕</button>
                     </div>
                     {discountError && <p role="alert" className="text-xs text-red-600">{discountError}</p>}
                   </div>
@@ -326,7 +330,7 @@ export function TeamPaymentPanel({
             )}
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>
+              <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>
             )}
 
             {/* Method chooser — when the league accepts more than one */}

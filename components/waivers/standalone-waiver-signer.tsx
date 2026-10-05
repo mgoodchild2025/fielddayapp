@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { signWaiver } from '@/actions/waivers'
 import { RichTextContent } from '@/components/ui/rich-text-content'
+import { safeAction } from '@/lib/action-errors'
 
 type GuardianRelationship = 'parent' | 'legal_guardian'
 
@@ -14,6 +15,8 @@ interface Props {
   leagueId: string
   leagueSlug: string
   playerName: string
+  /** Same-site path to go to after signing (already checked by the page). */
+  redirectTo?: string | null
 }
 
 export function StandaloneWaiverSigner({
@@ -23,6 +26,7 @@ export function StandaloneWaiverSigner({
   leagueId,
   leagueSlug,
   playerName,
+  redirectTo,
 }: Props) {
   const router = useRouter()
 
@@ -34,6 +38,10 @@ export function StandaloneWaiverSigner({
 
   // Waiver scroll state
   const [scrolledToBottom, setScrolledToBottom] = useState(false)
+  // "I have read it": the scroll sentinel can't be reached by keyboard or a
+  // screen reader, and on phones the text is inline anyway.
+  const [acknowledged, setAcknowledged] = useState(false)
+  const canSign = scrolledToBottom || acknowledged
   const sentinelRef = useRef<HTMLDivElement>(null)
 
   // Standard signing
@@ -64,14 +72,15 @@ export function StandaloneWaiverSigner({
       return
     }
     setLoading(true)
-    const result = await signWaiver({
+    const result = await safeAction(signWaiver({
       waiverId,
       signatureName: signer,
       leagueId,
       guardianRelationship: isMinor ? guardianRelationship : undefined,
-    })
+    }))
     if (result.error) { setError(result.error); setLoading(false); return }
-    router.push(`/events/${leagueSlug}`)
+    // Back to where they were headed (a newly accepted roster sub → their team).
+    router.push(redirectTo ?? `/events/${leagueSlug}`)
   }
 
   // ── Age gate (shown only when DOB is unknown) ────────────────────────────────
@@ -130,7 +139,7 @@ export function StandaloneWaiverSigner({
         By signing below, you confirm you are the parent or legal guardian of{' '}
         <strong>{playerName || 'this player'}</strong> and that you have read and agree to the waiver above.
       </p>
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
@@ -141,8 +150,8 @@ export function StandaloneWaiverSigner({
             type="text"
             value={guardianName}
             onChange={(e) => setGuardianName(e.target.value)}
-            disabled={!scrolledToBottom}
-            placeholder={scrolledToBottom ? 'e.g. Jane Smith' : 'Scroll to the bottom to enable signing'}
+            disabled={!canSign}
+            placeholder={canSign ? 'e.g. Jane Smith' : 'Read the waiver to enable signing'}
             className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
@@ -151,7 +160,7 @@ export function StandaloneWaiverSigner({
           <select
             value={guardianRelationship}
             onChange={(e) => setGuardianRelationship(e.target.value as GuardianRelationship)}
-            disabled={!scrolledToBottom}
+            disabled={!canSign}
             className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
           >
             <option value="parent">Parent</option>
@@ -162,7 +171,7 @@ export function StandaloneWaiverSigner({
 
       <button
         onClick={handleSign}
-        disabled={!scrolledToBottom || !guardianName.trim() || loading}
+        disabled={!canSign || !guardianName.trim() || loading}
         className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
@@ -172,21 +181,21 @@ export function StandaloneWaiverSigner({
   ) : (
     <div className="bg-white rounded-lg border p-5 space-y-3">
       <h2 className="font-semibold">Sign Below</h2>
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Type your full legal name</label>
         <input
           type="text"
           value={signatureName}
           onChange={(e) => setSignatureName(e.target.value)}
-          disabled={!scrolledToBottom}
-          placeholder={scrolledToBottom ? 'Your full name' : 'Scroll to the bottom to enable signing'}
+          disabled={!canSign}
+          placeholder={canSign ? 'Your full name' : 'Read the waiver to enable signing'}
           className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
         />
       </div>
       <button
         onClick={handleSign}
-        disabled={!scrolledToBottom || !signatureName.trim() || loading}
+        disabled={!canSign || !signatureName.trim() || loading}
         className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
@@ -201,10 +210,20 @@ export function StandaloneWaiverSigner({
 
       <div className="bg-white rounded-lg border p-5">
         <h2 className="font-semibold mb-1">{waiverTitle}</h2>
-        <p className="text-xs text-gray-400 mb-3">Scroll to the bottom to sign</p>
-        <div className="h-96 overflow-y-auto border rounded-md p-4 text-gray-700">
+        <p className="text-xs text-gray-500 mb-3">Read to the end to sign</p>
+        {/* Phones: the full text inline (the page scrolls); sm+: a scroll box. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label={`${waiverTitle} text`}
+          className="sm:h-96 sm:overflow-y-auto border rounded-md p-4 text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500"
+        >
           <RichTextContent content={waiverContent} />
           <div ref={sentinelRef} className="h-1" />
+        </div>
+        <div className="mt-3 flex items-start gap-2.5">
+          <input id="standalone-waiver-ack" type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-0.5 w-4 h-4 shrink-0" />
+          <label htmlFor="standalone-waiver-ack" className="text-sm text-gray-600">I have read the waiver in full.</label>
         </div>
       </div>
 

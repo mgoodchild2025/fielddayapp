@@ -5,6 +5,7 @@ import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
 import { useState, useTransition } from 'react'
 import { inviteGameSub, removeGameSub } from '@/actions/game-subs'
 import type { GameSub } from '@/actions/game-subs'
+import { safeAction } from '@/lib/action-errors'
 
 interface Props {
   gameId: string
@@ -43,10 +44,20 @@ export function InviteSubButton({ gameId, teamId, initialSubs }: Props) {
     setError(null)
 
     startTransition(async () => {
-      const result = await inviteGameSub(gameId, teamId, trimmedEmail, message.trim() || undefined)
+      const result = await safeAction(inviteGameSub(gameId, teamId, trimmedEmail, message.trim() || undefined))
       if (result.error) {
         setError(result.error)
         return
+      }
+      // Show the new sub straight away (it only appeared after a reload, so
+      // the captain couldn't see or remove who they'd just invited).
+      if (result.subId) {
+        const now = new Date()
+        setSubs((prev) => [...prev, {
+          id: result.subId!, gameId, teamId, userId: null, invitedEmail: trimmedEmail, status: 'invited',
+          inviterName: null, message: message.trim() || null,
+          expiresAt: new Date(now.getTime() + 7 * 86_400_000).toISOString(), createdAt: now.toISOString(),
+        }])
       }
       setSuccess(`Invite sent to ${trimmedEmail}`)
       setEmail('')

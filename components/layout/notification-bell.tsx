@@ -164,8 +164,10 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
               {notifications.map((n) => {
                 const acceptUrl = n.data?.accept_url as string | undefined
                 // Generic link support: any notification can carry data.href (+ link_label)
-                const genericHref = n.data?.href as string | undefined
-                const genericLabel = (n.data?.link_label as string | undefined) ?? 'View →'
+                // team_url: captain_assigned / team_added say "Tap to manage your
+                // roster" but only carried team_url, so the bell row had nothing to tap.
+                const genericHref = (n.data?.href as string | undefined) ?? (n.data?.team_url as string | undefined)
+                const genericLabel = (n.data?.link_label as string | undefined) ?? (n.data?.href ? 'View →' : n.data?.team_url ? 'Go to team →' : 'View →')
                 const requestId = n.data?.request_id as string | undefined
                 const isJoinRequest = n.type === 'join_request' && requestId
                 const isActioning = actioningId === n.id

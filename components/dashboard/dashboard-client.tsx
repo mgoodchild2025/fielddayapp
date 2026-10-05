@@ -28,6 +28,7 @@ import Image from 'next/image'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
+import { readableTextOn } from '@/lib/contrast'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -841,12 +842,19 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
             <button
               key={t.teamId}
               onClick={() => setActiveIdx(i)}
+              aria-pressed={i === activeIdx}
               className={`press flex items-center gap-2 min-h-10 px-3.5 rounded-full text-sm font-semibold ${
                 i === activeIdx
-                  ? 'text-white shadow-sm'
-                  : 'bg-white border text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'shadow-sm'
+                  : 'bg-white border text-gray-600 hover:text-gray-800 hover:border-gray-300'
               }`}
-              style={i === activeIdx ? { backgroundColor: t.teamColor ?? 'var(--brand-primary)' } : undefined}
+              // Text colour follows the team colour: white on a yellow or
+              // white team was unreadable.
+              style={i === activeIdx
+                ? (t.teamColor
+                  ? { backgroundColor: t.teamColor, color: readableTextOn(t.teamColor) }
+                  : { backgroundColor: 'var(--brand-primary)', color: 'var(--brand-on-primary)' })
+                : undefined}
             >
               <TeamCircle name={t.teamName} color={t.teamColor} logoUrl={t.teamLogoUrl} size={20} />
               {t.teamName}

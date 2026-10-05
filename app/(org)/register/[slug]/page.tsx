@@ -18,6 +18,8 @@ import { resolveLeagueMethods } from '@/lib/payment-methods'
 import { canAccess } from '@/lib/features'
 import { countDropInRegsBySession } from '@/lib/session-counts'
 import { getOrgBrandingCached } from '@/lib/org-cache'
+import { getOrgTimezone } from '@/lib/tenant'
+import { startOfYearInTimezone } from '@/lib/format-time'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CalendarX } from 'lucide-react'
 import type { OrgContext } from '@/lib/tenant'
@@ -509,7 +511,9 @@ export default async function RegisterLeaguePage({
   // year don't need to sign again — reuse that signature and skip the step.
   let priorWaiverSignatureId: string | null = null
   if (isDropIn && waiver) {
-    const yearStart = `${new Date().getFullYear()}-01-01`
+    // Jan 1 in the ORG's timezone (the server's year flips at UTC midnight —
+    // 7pm Dec 31 in Toronto).
+    const yearStart = startOfYearInTimezone(await getOrgTimezone(org.id))
 
     const { data: priorSig } = await db
       .from('waiver_signatures')

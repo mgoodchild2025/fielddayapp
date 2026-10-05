@@ -940,7 +940,11 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
       {panel(second)}
 
-      <InstallHint installPrompt={installPrompt} installed={installed} onInstall={requestInstall} />
+      {/* Only before scoring starts (and never on a locked board): it sat over
+          the bottom panel's −/+ buttons, and on Android the card is a button. */}
+      {!locked && game.events.length === 0 && (
+        <InstallHint installPrompt={installPrompt} installed={installed} onInstall={requestInstall} />
+      )}
       {!attached && <DetachedNotice />}
 
       {/* Match-over overlay — shown when the scorekeeper ends the match */}
@@ -1284,8 +1288,12 @@ function HoldToUnlock({ onUnlock }: { onUnlock: () => void }) {
 
 function MatchOverlay({ children }: { children: React.ReactNode }) {
   return (
-    <div role="dialog" aria-modal="true" aria-label="Match over" className="fd-result-in fixed inset-0 z-40 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6">
-      {children}
+    // Scrolls when it doesn't fit (a short landscape phone once the Done link
+    // or an error line appears clipped the Undo row off both ends).
+    <div role="dialog" aria-modal="true" aria-label="Match over" className="fd-result-in fixed inset-0 z-40 bg-black/75 backdrop-blur-sm overflow-y-auto overscroll-contain px-6">
+      <div className="min-h-full flex flex-col items-center justify-center text-center py-6">
+        {children}
+      </div>
     </div>
   )
 }

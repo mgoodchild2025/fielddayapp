@@ -6,6 +6,7 @@ import { type BioCardData } from './player-bio-card'
 import { BioFlipCard } from './bio-flip-card'
 import type { PlayerCareer } from '@/lib/career'
 import { UploadStatus } from '@/components/ui/upload-status'
+import { safeAction } from '@/lib/action-errors'
 
 /**
  * "My bio card" (S1): the player edits the exact card the TV will show —
@@ -89,14 +90,14 @@ export function BioEditor({
     setErr(null)
     setSaved(false)
     startTransition(async () => {
-      const r = await saveMyBio({
+      const r = await safeAction(saveMyBio({
         jerseyNumber: jerseyNumber || null,
         position: position || null,
         hometown: hometown || null,
         yearsPlaying: yearsPlaying ? parseInt(yearsPlaying) : null,
         tagline: tagline || null,
         showOnDisplays,
-      })
+      }))
       if (r.error) { setErr(r.error); return }
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
@@ -116,8 +117,6 @@ export function BioEditor({
       </div>
 
       <div className="p-5 space-y-3">
-        {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
-
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <label className="text-xs text-gray-500">Number
             <input value={jerseyNumber} onChange={(e) => setJerseyNumber(e.target.value)} maxLength={6} placeholder="7" inputMode="numeric"
@@ -155,7 +154,7 @@ export function BioEditor({
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }} />
           <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-            className="text-sm font-medium border rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            className="press min-h-10 text-sm font-medium border rounded-md px-3 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
             {uploading ? 'Uploading…' : photoUrl ? 'Change card photo' : '📸 Add a card photo'}
           </button>
           <span className="text-xs text-gray-500">No photo? Your profile picture is used.</span>
@@ -173,13 +172,14 @@ export function BioEditor({
           </span>
         </label>
 
+        {/* Errors sit by Save (at the top of the fields they were a screen away). */}
+        {err && <p role="alert" className="fd-fade-in text-sm text-red-600">{err}</p>}
         <div className="flex items-center gap-3 pt-1">
           <button type="button" onClick={handleSave} disabled={isPending}
-            className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60"
-            style={{ backgroundColor: 'var(--brand-primary)' }}>
+            className="press min-h-11 px-5 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-60">
             {isPending ? 'Saving…' : 'Save bio'}
           </button>
-          {saved && <span className="fd-fade-in text-sm text-green-600">Saved</span>}
+          <span role="status" aria-live="polite">{saved && <span className="fd-fade-in text-sm text-green-700">Saved</span>}</span>
         </div>
       </div>
     </div>

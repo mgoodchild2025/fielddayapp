@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createTeam } from '@/actions/teams'
 
 interface Props {
@@ -34,18 +35,17 @@ export function StepCaptainTeam({ leagueId, captainTeamId, captainTeamName, onBa
             Your team <strong>{captainTeamName}</strong> is set up. Head to your team page to manage your roster and complete payment.
           </p>
         </div>
-        <a
+        <Link
           href={`/teams/${captainTeamId}`}
-          className="block w-full py-3 rounded-md font-semibold text-white text-center"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
+          className="press flex items-center justify-center w-full min-h-11 rounded-md font-semibold bg-brand-primary text-on-brand"
         >
           Go to my team &amp; pay →
-        </a>
+        </Link>
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="text-sm text-gray-400 hover:text-gray-600"
+            className="press inline-flex items-center min-h-10 text-sm font-medium text-gray-600 hover:text-gray-900"
           >
             ← Back
           </button>
@@ -122,7 +122,7 @@ export function StepCaptainTeam({ leagueId, captainTeamId, captainTeamName, onBa
         <button
           type="button"
           onClick={onBack}
-          className="text-sm text-gray-400 hover:text-gray-600"
+          className="press inline-flex items-center min-h-10 text-sm font-medium text-gray-600 hover:text-gray-900"
         >
           ← Back
         </button>

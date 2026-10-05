@@ -247,7 +247,7 @@ export function GuestRegistrationFlow({
   if (stage === 'details') {
     return (
       <div className="space-y-4">
-        <button type="button" onClick={() => { setStage('choice'); setError(null) }} className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600">
+        <button type="button" onClick={() => { setStage('choice'); setError(null) }} className="press inline-flex items-center gap-1 min-h-10 text-sm font-medium text-gray-600 hover:text-gray-900">
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
         <div>

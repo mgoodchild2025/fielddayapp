@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { StandaloneWaiverSigner } from '@/components/waivers/standalone-waiver-signer'
+import { safeRelativePath } from '@/lib/safe-redirect'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
@@ -14,10 +15,14 @@ export const metadata: Metadata = { title: 'Sign waiver' }
 
 export default async function SignWaiverPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ redirect?: string }>
 }) {
   const { slug } = await params
+  // A newly accepted roster sub is sent here with ?redirect=/teams/<id>.
+  const { redirect: redirectParam } = await searchParams
   const user = await requireAuth()
 
   const headersList = await headers()
@@ -127,11 +132,10 @@ export default async function SignWaiverPage({
               </p>
             </div>
             <Link
-              href={`/events/${slug}`}
-              className="inline-block text-sm font-medium hover:underline"
-              style={{ color: 'var(--brand-primary)' }}
+              href={safeRelativePath(redirectParam) ?? `/events/${slug}`}
+              className="inline-flex items-center min-h-10 text-sm font-medium text-brand-primary hover:underline"
             >
-              ← Back to Event
+              {safeRelativePath(redirectParam)?.startsWith('/teams/') ? 'Go to your team →' : '← Back to Event'}
             </Link>
           </div>
         ) : (
@@ -143,6 +147,7 @@ export default async function SignWaiverPage({
             leagueId={league.id}
             leagueSlug={league.slug}
             playerName={playerName}
+            redirectTo={safeRelativePath(redirectParam)}
           />
         )}
       </div>
