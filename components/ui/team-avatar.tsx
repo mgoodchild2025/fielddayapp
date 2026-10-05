@@ -59,22 +59,22 @@ export function TeamAvatar({ logoUrl, color, name, size = 'sm', className = '', 
 
   if (color) {
     return (
-      <div
+      <span
         {...(labelled ? { role: 'img', 'aria-label': name } : { 'aria-hidden': true })}
         className={`${sizeClass} rounded-full shrink-0 flex items-center justify-center font-semibold text-white ${className}`}
         style={{ backgroundColor: color }}
       >
         {initial}
-      </div>
+      </span>
     )
   }
 
   return (
-    <div
+    <span
       {...(labelled ? { role: 'img', 'aria-label': name } : { 'aria-hidden': true })}
       className={`${sizeClass} rounded-full flex items-center justify-center shrink-0 font-semibold ${avatarColor(name)} ${className}`}
     >
       {initial}
-    </div>
+    </span>
   )
 }

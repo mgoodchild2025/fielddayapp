@@ -76,7 +76,7 @@ export function EventAvatar({ logoUrl, name, sport, size = 'sm', className = '',
   const SportIcon = getSportIcon(sport)
 
   return (
-    <div
+    <span
       className={`${sizeClass} rounded-lg shrink-0 flex items-center justify-center bg-white/20 ${className}`}
       aria-hidden="true"
     >
@@ -85,6 +85,6 @@ export function EventAvatar({ logoUrl, name, sport, size = 'sm', className = '',
         stroke={iconStroke[size]}
         className="text-white/80"
       />
-    </div>
+    </span>
   )
 }

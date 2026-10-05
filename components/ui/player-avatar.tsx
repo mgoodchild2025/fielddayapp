@@ -46,7 +46,7 @@ export function PlayerAvatar({ avatarUrl, name, size = 'sm', className = '', pri
 
   if (avatarUrl) {
     return (
-      <div className={`${sizeClass} rounded-full overflow-hidden shrink-0 ${className}`}>
+      <span className={`block ${sizeClass} rounded-full overflow-hidden shrink-0 ${className}`}>
         <Image
           src={avatarUrl}
           // Decorative by default: it sits beside the player's name.
@@ -60,16 +60,16 @@ export function PlayerAvatar({ avatarUrl, name, size = 'sm', className = '', pri
           priority={priority}
           loading={priority ? undefined : 'lazy'}
         />
-      </div>
+      </span>
     )
   }
 
   return (
-    <div
+    <span
       {...(labelled ? { role: 'img', 'aria-label': name } : { 'aria-hidden': true })}
       className={`${sizeClass} rounded-full flex items-center justify-center shrink-0 font-semibold ${avatarColor(name)} ${className}`}
     >
       {initial}
-    </div>
+    </span>
   )
 }
