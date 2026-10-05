@@ -83,7 +83,10 @@ export function ShareInbox({
     setBusy(true)
     const cache = await caches.open(SHARE_CACHE)
     const folder = `fieldday/${orgId}/events/${leagueId}`
-    let ok = 0
+    // Tracked locally: the `progress` state read after the loop was the
+    // render's stale snapshot, so uploaded files were kept in the index (their
+    // blobs already deleted) and every retry failed — the inbox never cleared.
+    const doneIds = new Set<string>()
     for (const it of items) {
       setProgress((p) => ({ ...p, [it.id]: { state: 'uploading', fraction: 0 } }))
       try {
@@ -111,21 +114,23 @@ export function ShareInbox({
         })
         if (r.error) throw new Error(r.error)
         await cache.delete(`/share-inbox/${it.id}`)
-        ok++
+        doneIds.add(it.id)
         setProgress((p) => ({ ...p, [it.id]: { state: 'done', fraction: 1 } }))
       } catch (e) {
         setProgress((p) => ({ ...p, [it.id]: { state: 'error', fraction: 0, error: e instanceof Error ? e.message : 'Upload failed.' } }))
       }
     }
-    const failed = items.filter((i) => (progress[i.id]?.state ?? 'queued') === 'error')
-    if (failed.length === 0 && ok === items.length) {
+    if (doneIds.size === items.length) {
       await clearInbox()
       setFinished(true)
     } else {
-      // Keep only failed files in the inbox so a retry is possible.
-      const keep = items.filter((i) => progress[i.id]?.state !== 'done')
+      // Keep only the files that didn't upload, so Retry has something to send.
+      const keep = items.filter((i) => !doneIds.has(i.id))
       await cache.put(INDEX_KEY, new Response(JSON.stringify(keep), { headers: { 'content-type': 'application/json' } }))
       setItems(keep)
+      // Their failed state stays visible; the × (hidden while a file has
+      // progress) comes back so a bad file can be dropped.
+      setProgress((p) => Object.fromEntries(Object.entries(p).filter(([id]) => !doneIds.has(id))))
     }
     setBusy(false)
   }
@@ -206,7 +211,7 @@ export function ShareInbox({
               )}
               {p?.state === 'done' && <div className="absolute inset-0 grid place-items-center bg-green-600/60 text-white text-2xl">✓</div>}
               {p?.state === 'error' && <div className="absolute inset-0 grid place-items-center bg-red-600/70 text-white text-[10px] p-1 text-center">{p.error}</div>}
-              {!busy && !p && (
+              {!busy && (!p || p.state === 'error') && (
                 <button type="button" onClick={() => removeItem(it.id)} aria-label={`Remove ${it.name}`}
                   className="absolute top-0 right-0 w-10 h-10 inline-flex items-center justify-center"><span className="h-7 w-7 rounded-full bg-black/60 text-white text-sm inline-flex items-center justify-center">×</span></button>
               )}

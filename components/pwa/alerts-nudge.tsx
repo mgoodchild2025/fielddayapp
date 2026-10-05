@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Bell, Share, X } from 'lucide-react'
 import { enablePush, isIOS, isMobile, isStandalone, pushState } from '@/lib/push-client'
 import { getVapidPublicKey } from '@/actions/push'
+import { getInstallPrompt, onInstallPrompt, type BeforeInstallPromptEvent } from '@/lib/install-prompt'
 
 /**
  * Dashboard card that gets a phone from "visits the site" to "gets alerts".
@@ -18,7 +19,6 @@ import { getVapidPublicKey } from '@/actions/push'
  * step comes first and the copy sells alerts, not the install itself.
  */
 
-type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
 
 const DISMISS_KEY = 'fieldday-alerts-nudge-dismissed'
 const VISITS_KEY = 'fieldday-dashboard-visits'
@@ -28,14 +28,17 @@ type Mode = 'hidden' | 'install' | 'enable' | 'done'
 
 export function AlertsNudge({ orgName }: { orgName: string }) {
   const [mode, setMode] = useState<Mode>('hidden')
-  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
+  // Captured app-wide (lib/install-prompt) — it may have fired on an earlier
+  // page. Safe to read at init: the nudge renders nothing until after mount.
+  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(() => getInstallPrompt())
   const [showIosSteps, setShowIosSteps] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // Fetched before the tap so "Turn on" goes straight to the permission prompt.
+  const [vapidKey, setVapidKey] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    const onPrompt = (e: Event) => { e.preventDefault(); setInstallEvent(e as BeforeInstallPromptEvent) }
-    window.addEventListener('beforeinstallprompt', onPrompt)
+    const offPrompt = onInstallPrompt(setInstallEvent)
 
     // Decide after paint: reads browser/storage state, so it can't run on the server.
     const timer = setTimeout(() => {
@@ -50,7 +53,7 @@ export function AlertsNudge({ orgName }: { orgName: string }) {
         if (isStandalone()) {
           if (pushState() === 'default') {
             // Only offer the switch when the server can actually deliver.
-            getVapidPublicKey().then((key) => { if (key) setMode('enable') }).catch(() => {})
+            getVapidPublicKey().then((key) => { if (key) { setVapidKey(key); setMode('enable') } }).catch(() => {})
           }
         } else {
           setMode('install')
@@ -60,7 +63,7 @@ export function AlertsNudge({ orgName }: { orgName: string }) {
 
     return () => {
       clearTimeout(timer)
-      window.removeEventListener('beforeinstallprompt', onPrompt)
+      offPrompt()
     }
   }, [])
 
@@ -84,7 +87,7 @@ export function AlertsNudge({ orgName }: { orgName: string }) {
 
   async function handleEnable() {
     setBusy(true); setErr(null)
-    const r = await enablePush()
+    const r = await enablePush(vapidKey)
     setBusy(false)
     if (r.ok) setMode('done')
     else setErr(r.error ?? 'Something went wrong.')

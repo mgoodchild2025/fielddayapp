@@ -225,15 +225,44 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey])
 
-  // Persist on every change
+  // Persist on every change — except a change that just came FROM storage
+  // (another tab, or a back/forward restore), which would echo back and forth.
+  const fromStorage = useRef(false)
   useEffect(() => {
     if (!loaded) return
+    if (fromStorage.current) { fromStorage.current = false; return }
     try {
       localStorage.setItem(storageKey, JSON.stringify({ ...game, updatedAt: Date.now() }))
     } catch {
       // storage full/unavailable — scoreboard still works, just won't survive reload
     }
   }, [game, loaded, storageKey])
+
+  // The same board open in two tabs, or a page restored from the back/forward
+  // cache, used to write its OLDER events over the newer ones on its next
+  // change. Follow the newest stored copy instead.
+  useEffect(() => {
+    if (!loaded) return
+    const adoptStored = () => {
+      try {
+        const raw = localStorage.getItem(storageKey)
+        if (!raw) return
+        const stored = JSON.parse(raw) as SavedGame
+        if (!stored?.events || stored.updatedAt <= (gameRef.current.updatedAt ?? 0)) return
+        fromStorage.current = true
+        setGame(load(storageKey, attached))
+      } catch { /* unreadable — keep what's on screen */ }
+    }
+    const onStorage = (e: StorageEvent) => { if (e.key === storageKey) adoptStored() }
+    const onShow = (e: PageTransitionEvent) => { if (e.persisted) adoptStored() }
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('pageshow', onShow)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('pageshow', onShow)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, storageKey])
 
   // Screen wake lock, re-acquired when the tab becomes visible again
   useEffect(() => {

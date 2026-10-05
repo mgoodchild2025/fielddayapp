@@ -437,6 +437,14 @@ body { --fd-toast-bottom: 32px; }
   }
 }
 
+/* Keyboard open (Overlay sets data-kb + --fd-kb / --fd-vv from the visual
+   viewport): the overlay ends at the keyboard's top edge and the panel fits
+   the visible area, scrolling inside. Unlayered so it beats a panel's own
+   max-h-* utility. Drop the home-indicator spacer — the keyboard covers it. */
+.fd-overlay[data-kb] { bottom: var(--fd-kb, 0px); }
+.fd-overlay[data-kb] .fd-overlay__panel { max-height: calc(var(--fd-vv, 100dvh) - 0.75rem); overflow-y: auto; }
+.fd-overlay[data-kb] .fd-overlay__panel::after { display: none; }
+
 /* ── Overlay (components/ui/overlay.tsx) ────────────────────────────────────
    Transitions, not keyframes: a close that interrupts an open retargets from
    wherever it is. Enter via @starting-style; exits are faster than entrances

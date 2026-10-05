@@ -16,10 +16,10 @@ import { EventCalendarSubscribeButton } from '@/components/events/event-calendar
 import { getEventSponsors } from '@/actions/event-sponsors'
 import { EventSponsorStrip } from '@/components/sponsors/event-sponsor-strip'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
-import { LiveScoreBadge } from '@/components/scoreboard/live-score-badge'
+import { LiveScoreBadgeWhenLive } from '@/components/scoreboard/live-score-badge-when-live'
 // Badges mount only near game time: each mounted badge joins the event's
 // Realtime channel, so a season of past/future rows shouldn't open a socket.
-import { inLiveWindowNow } from '@/lib/live-window'
+import { mayGoLiveSoon } from '@/lib/live-window'
 import { GameKindBadge, ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { ScheduleFilterBar } from '@/components/events/schedule-filter-bar'
 import { SchedulePhaseSummary } from '@/components/schedule/schedule-phase-summary'
@@ -253,8 +253,8 @@ function DateGroup({
                   </div>
                 ) : (
                   <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                    {game.status !== 'cancelled' && game.status !== 'postponed' && inLiveWindowNow(game.scheduled_at) && (
-                      <LiveScoreBadge leagueId={leagueId} gameId={game.id} />
+                    {game.status !== 'cancelled' && game.status !== 'postponed' && mayGoLiveSoon(game.scheduled_at) && (
+                      <LiveScoreBadgeWhenLive leagueId={leagueId} gameId={game.id} scheduledAt={game.scheduled_at} />
                     )}
                     {game.status === 'cancelled' ? (
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>
@@ -343,7 +343,7 @@ function DateGroup({
                     </div>
                   ) : game.status !== 'cancelled' && game.status !== 'postponed' ? (
                     <span className="inline-flex items-center gap-1.5">
-                      {inLiveWindowNow(game.scheduled_at) && <LiveScoreBadge leagueId={leagueId} gameId={game.id} />}
+                      {mayGoLiveSoon(game.scheduled_at) && <LiveScoreBadgeWhenLive leagueId={leagueId} gameId={game.id} scheduledAt={game.scheduled_at} />}
                       {(game.status !== 'scheduled' || isPast) && (
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                           game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'

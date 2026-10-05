@@ -21,10 +21,12 @@ export async function GET() {
     const db = createServiceRoleClient()
     const [{ data: org }, { data: branding }] = await Promise.all([
       db.from('organizations').select('name').eq('id', orgId).maybeSingle(),
-      db.from('org_branding').select('logo_url, primary_color').eq('organization_id', orgId).maybeSingle(),
+      db.from('org_branding').select('logo_url, secondary_color').eq('organization_id', orgId).maybeSingle(),
     ])
     if (org?.name) name = org.name
-    if (branding?.primary_color) themeColor = branding.primary_color
+    // The nav colour — same as the page's theme-color (generateViewport), so
+    // Android's splash and status bar don't flash a different colour on launch.
+    if (branding?.secondary_color) themeColor = branding.secondary_color
     logoUrl = branding?.logo_url ?? null
   }
 

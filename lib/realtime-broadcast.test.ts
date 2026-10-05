@@ -154,6 +154,32 @@ describe('createBroadcastSocket', () => {
     expect(FakeWS.all).toHaveLength(1)
   })
 
+  it('closes the socket after the tab is hidden a while, and reconnects when shown', () => {
+    let visibility = 'visible'
+    const docListeners: Record<string, () => void> = {}
+    const win = globalThis as unknown as { window?: unknown; document?: unknown }
+    const prevWin = win.window, prevDoc = win.document
+    win.window = { addEventListener: () => {} }
+    win.document = {
+      get visibilityState() { return visibility },
+      addEventListener: (ev: string, fn: () => void) => { docListeners[ev] = fn },
+    }
+    try {
+      const s = createBroadcastSocket({ url: 'https://abc.supabase.co', apiKey: 'anon', WebSocketImpl: FakeWS, heartbeatMs: 60_000, hiddenSuspendMs: 1000, watchLifecycle: true })
+      s.subscribe('scoreboard:A', vi.fn())
+      const first = last(); first.open()
+      visibility = 'hidden'; docListeners.visibilitychange()
+      vi.advanceTimersByTime(1000)
+      expect(first.closed).toBe(true)
+      vi.advanceTimersByTime(5000)
+      expect(FakeWS.all).toHaveLength(1) // no reconnect while hidden
+      visibility = 'visible'; docListeners.visibilitychange()
+      expect(FakeWS.all).toHaveLength(2)
+    } finally {
+      win.window = prevWin; win.document = prevDoc
+    }
+  })
+
   it('ignores junk and frames for unknown topics', () => {
     const s = make()
     const h = vi.fn()
