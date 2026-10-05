@@ -94,6 +94,30 @@ describe('createBroadcastSocket', () => {
     expect(h).toHaveBeenCalledTimes(1)
   })
 
+  it('on wake, probes an "open" socket and reconnects when the probe goes unanswered', () => {
+    const s = createBroadcastSocket({ url: 'https://abc.supabase.co', apiKey: 'anon', WebSocketImpl: FakeWS, heartbeatMs: 60_000, probeMs: 500, backoffMs: [100, 500] })
+    s.subscribe('scoreboard:A', vi.fn())
+    const first = last(); first.open()
+    s.wake() // phone unlocked: socket says OPEN but may be dead
+    expect(first.events('heartbeat')).toHaveLength(1)
+    vi.advanceTimersByTime(500) // no reply
+    expect(first.closed).toBe(true)
+    vi.advanceTimersByTime(100)
+    expect(FakeWS.all).toHaveLength(2)
+  })
+
+  it('a probe that is answered keeps the socket', () => {
+    const s = createBroadcastSocket({ url: 'https://abc.supabase.co', apiKey: 'anon', WebSocketImpl: FakeWS, heartbeatMs: 60_000, probeMs: 500 })
+    s.subscribe('scoreboard:A', vi.fn())
+    const ws = last(); ws.open()
+    s.wake()
+    const beat = ws.events('heartbeat')[0]
+    ws.push({ topic: 'phoenix', event: 'phx_reply', payload: { status: 'ok' }, ref: beat.ref })
+    vi.advanceTimersByTime(1000)
+    expect(ws.closed).toBe(false)
+    expect(FakeWS.all).toHaveLength(1)
+  })
+
   it('backs off on repeated failures and resets after a good connection', () => {
     const s = make()
     s.subscribe('scoreboard:A', vi.fn())

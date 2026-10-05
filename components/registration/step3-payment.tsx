@@ -11,6 +11,7 @@ import {
   PAYMENT_METHOD_ICON,
   type PaymentMethod,
 } from '@/lib/payment-methods'
+import { useBfcacheReset } from '@/components/ui/use-bfcache-reset'
 
 type League = Database['public']['Tables']['leagues']['Row']
 
@@ -52,6 +53,8 @@ interface Props {
 
 export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack, acceptedMethods = [], offlineInstructions = null, onComplete, onPendingDone, teamId = null, paymentPlan = null, taxSuffix = '' }: Props) {
   const [loading, setLoading] = useState(false)
+  // Back from Stripe restores the page with the button stuck on "Redirecting…".
+  useBfcacheReset(() => setLoading(false))
   const [error, setError] = useState<string | null>(null)
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
   const [offlineDone, setOfflineDone] = useState<{ instructions: string | null; label: string; amountCents: number; taxCents: number } | null>(null)

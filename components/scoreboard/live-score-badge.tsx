@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useLiveScore } from '@/lib/use-live-scores'
 import { ScoreTick } from '@/components/scoreboard/score-tick'
 
@@ -11,6 +13,20 @@ import { ScoreTick } from '@/components/scoreboard/score-tick'
 // any court in the event.
 export function LiveScoreBadge({ leagueId, gameId }: { leagueId: string; gameId: string }) {
   const board = useLiveScore(leagueId, gameId)
+  const router = useRouter()
+  const refreshed = useRef(false)
+
+  // The scorer ended the match: the saved result exists now (or will in a
+  // moment), but this page was rendered without it — once the live board is
+  // pruned the row went back to blank until a reload. Pull the saved score.
+  const isFinal = !!board?.final
+  useEffect(() => {
+    if (!isFinal || refreshed.current) return
+    refreshed.current = true
+    const t = setTimeout(() => router.refresh(), 4000)
+    return () => clearTimeout(t)
+  }, [isFinal, router])
+
   if (!board) return null
 
   return (

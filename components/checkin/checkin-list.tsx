@@ -85,6 +85,13 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
     setBusyRows((b) => new Set(b).add(row))
     try {
       await toggle(reg, currentlyCheckedIn)
+    } catch {
+      // Dropped request at the door: the row turned green but nothing was
+      // recorded. Put it back and say so.
+      const useId = sessionId ? !reg.sessionRegistrationId : false
+      const key = useId ? reg.id : (sessionId ? (reg.sessionRegistrationId ?? reg.id) : reg.id)
+      revertToggle(key, reg.checkedInAt, useId)
+      toast.error(`${currentlyCheckedIn ? "Couldn't undo" : "Couldn't check in"} ${reg.playerName} — check your connection and try again.`)
     } finally {
       inFlight.current.delete(row)
       setBusyRows((b) => { const n = new Set(b); n.delete(row); return n })

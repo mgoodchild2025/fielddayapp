@@ -5,6 +5,7 @@ import { fulfillMerchandiseOrder, fulfillAllMerchandiseOrders, fulfillAllShopOrd
 import type { MerchOrder } from '@/actions/merchandise'
 import { Overlay, useRetained } from '@/components/ui/overlay'
 import { confirmAction } from '@/components/ui/confirm-dialog'
+import { safeAction } from '@/lib/action-errors'
 
 type FulfillAllTarget =
   | { type: 'league'; leagueId: string }
@@ -103,7 +104,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     setError(null)
     setFulfillPendingId(orderId)
     startTransition(async () => {
-      const result = await fulfillMerchandiseOrder(orderId)
+      const result = await safeAction(fulfillMerchandiseOrder(orderId))
       setFulfillPendingId(null)
       if (result.error) {
         setError(result.error)
@@ -127,11 +128,11 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     startTransition(async () => {
       let result: { error: string | null }
       if (fulfillAllTarget.type === 'all') {
-        result = await fulfillAllOrgOrders(fulfillAllTarget.orgId)
+        result = await safeAction(fulfillAllOrgOrders(fulfillAllTarget.orgId))
       } else if (fulfillAllTarget.type === 'shop') {
-        result = await fulfillAllShopOrders(fulfillAllTarget.orgId)
+        result = await safeAction(fulfillAllShopOrders(fulfillAllTarget.orgId))
       } else {
-        result = await fulfillAllMerchandiseOrders(fulfillAllTarget.leagueId)
+        result = await safeAction(fulfillAllMerchandiseOrders(fulfillAllTarget.leagueId))
       }
       setFulfillAllPending(false)
       if (result.error) {
@@ -152,11 +153,11 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
       ? Math.round(parsedAmount * 100)
       : standardCents
     startTransition(async () => {
-      const result = await markMerchandiseOrderPaid(orderId, {
+      const result = await safeAction(markMerchandiseOrderPaid(orderId, {
         method: markPaidMethod,
         notes: markPaidNotes || undefined,
         amountCents,
-      })
+      }))
       setMarkPaidPendingId(null)
       if (result.error) {
         setError(result.error)

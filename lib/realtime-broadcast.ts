@@ -40,6 +40,8 @@ export type BroadcastSocketOptions = {
   apiKey: string
   WebSocketImpl?: new (url: string) => WsLike
   heartbeatMs?: number
+  /** How long a wake-up probe waits for its heartbeat reply. */
+  probeMs?: number
   /** Reconnect delays, last one repeats */
   backoffMs?: number[]
   /** Browser lifecycle hooks (visibility/online). Off in tests and on the server. */
@@ -55,6 +57,7 @@ export function realtimeSocketUrl(url: string, apiKey: string): string {
 export function createBroadcastSocket(opts: BroadcastSocketOptions) {
   const WS = opts.WebSocketImpl ?? (globalThis.WebSocket as unknown as new (url: string) => WsLike)
   const heartbeatMs = opts.heartbeatMs ?? 25_000
+  const probeMs = opts.probeMs ?? 5_000
   const backoff = opts.backoffMs ?? [1_000, 2_000, 5_000, 10_000]
 
   const topics = new Map<string, { handler: BroadcastHandler; joinRef: string }>()
@@ -99,6 +102,26 @@ export function createBroadcastSocket(opts: BroadcastSocketOptions) {
     if (heartbeatTimer) clearInterval(heartbeatTimer)
     heartbeatTimer = null
     pendingHeartbeat = null
+    if (probeTimer) clearTimeout(probeTimer)
+    probeTimer = null
+  }
+
+  // After a phone sleeps, the socket often still reports OPEN while being
+  // dead — waiting for the next 25s beat (plus the sender's 15s) left live
+  // badges blank for up to a minute. Beat now; no answer in 5s → reconnect.
+  let probeTimer: ReturnType<typeof setTimeout> | null = null
+  function probe() {
+    if (probeTimer || !ws || ws.readyState !== OPEN) return
+    const ref = nextRef()
+    pendingHeartbeat = ref
+    send({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref })
+    probeTimer = setTimeout(() => {
+      probeTimer = null
+      if (pendingHeartbeat !== ref) return
+      pendingHeartbeat = null
+      attempt = 0
+      ws?.close(1000, 'wake probe timeout')
+    }, probeMs)
   }
 
   function startHeartbeat() {
@@ -171,7 +194,7 @@ export function createBroadcastSocket(opts: BroadcastSocketOptions) {
 
   function reconnectNow() {
     if (topics.size === 0) return
-    if (ws && ws.readyState === OPEN) return
+    if (ws && ws.readyState === OPEN) { probe(); return }
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
     if (ws) return // still connecting
     attempt = 0
@@ -209,5 +232,7 @@ export function createBroadcastSocket(opts: BroadcastSocketOptions) {
     },
     /** Test/debug: is the socket open right now? */
     isOpen: () => !!ws && ws.readyState === OPEN,
+    /** What tab-visible / online run: reconnect if closed, probe if "open". */
+    wake: reconnectNow,
   }
 }

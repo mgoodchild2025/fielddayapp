@@ -5,6 +5,7 @@ import { Overlay } from '@/components/ui/overlay'
 import { adminSetScore, adminClearScore, recordForfeit } from '@/actions/scores'
 import { toast } from 'sonner'
 import { confirmAction } from '@/components/ui/confirm-dialog'
+import { safeAction } from '@/lib/action-errors'
 
 const SET_SPORTS    = new Set(['volleyball', 'beach_volleyball'])
 const PERIOD_SPORTS = new Set(['hockey'])
@@ -127,7 +128,7 @@ function ScoreEntrySheet({
   function applyForfeit(forfeitSide: 'home' | 'away' | 'both') {
     setError(null)
     startTransition(async () => {
-      const result = await recordForfeit({ gameId, leagueId, forfeitSide })
+      const result = await safeAction(recordForfeit({ gameId, leagueId, forfeitSide }))
       if (result.error) setError(result.error)
       else {
         onClose()
@@ -153,7 +154,7 @@ function ScoreEntrySheet({
   function clearScore() {
     setError(null)
     startTransition(async () => {
-      const result = await adminClearScore(gameId)
+      const result = await safeAction(adminClearScore(gameId))
       if (result.error) {
         setError(result.error)
         setConfirmClear(false)
@@ -202,7 +203,7 @@ function ScoreEntrySheet({
     }))) return
 
     startTransition(async () => {
-      const result = await adminSetScore({ gameId, leagueId, homeScore: finalHome, awayScore: finalAway, sets: finalSets })
+      const result = await safeAction(adminSetScore({ gameId, leagueId, homeScore: finalHome, awayScore: finalAway, sets: finalSets }))
       if (result.error) {
         setError(result.error)
       } else {
@@ -438,12 +439,12 @@ function ConfirmPendingButton({ gameId, leagueId, homeTeamName, awayTeamName, re
       disabled={isPending}
       onClick={() =>
         startTransition(async () => {
-          const res = await adminSetScore({
+          const res = await safeAction(adminSetScore({
             gameId, leagueId,
             homeScore: result.homeScore ?? 0,
             awayScore: result.awayScore ?? 0,
             sets: result.sets ?? undefined,
-          })
+          }))
           if (res.error) toast.error(res.error)
           else toast.success(`Confirmed ${result.homeScore}–${result.awayScore} · ${homeTeamName} vs ${awayTeamName}`)
         })

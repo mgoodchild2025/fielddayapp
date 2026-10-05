@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { signWaiver } from '@/actions/waivers'
 import type { Database } from '@/types/database'
 import { RichTextContent } from '@/components/ui/rich-text-content'
+import { safeAction } from '@/lib/action-errors'
 
 type Waiver = Database['public']['Tables']['waivers']['Row']
 type GuardianRelationship = 'parent' | 'legal_guardian'
@@ -86,14 +87,14 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
       return
     }
     setLoading(true)
-    const result = await signWaiver({
+    const result = await safeAction(signWaiver({
       waiverId: waiver!.id,
       signatureName: signer,
       leagueId,
       leagueName,
       registrationId: registrationId ?? undefined,
       guardianRelationship: isMinor ? guardianRelationship : undefined,
-    })
+    }))
     if (result.error) { setError(result.error); setLoading(false); return }
     // Dismiss keyboard and reset scroll before the step transition
     ;(document.activeElement as HTMLElement)?.blur()

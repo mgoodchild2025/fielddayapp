@@ -6,6 +6,7 @@ import { signWaiver } from '@/actions/waivers'
 import { confirmGameSub, declineGameSub } from '@/actions/game-subs'
 import { RichTextContent } from '@/components/ui/rich-text-content'
 import type { GameSubInviteDetails } from '@/actions/game-subs'
+import { safeAction } from '@/lib/action-errors'
 
 type GuardianRelationship = 'parent' | 'legal_guardian'
 
@@ -101,7 +102,7 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
   async function handleConfirm() {
     setLoading(true)
     setErrorMsg(null)
-    const result = await confirmGameSub(token)
+    const result = await safeAction(confirmGameSub(token))
     if (result.error) { setErrorMsg(result.error); setLoading(false); return }
     setStage('confirmed')
     setLoading(false)
@@ -111,7 +112,7 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
   async function handleDecline() {
     setLoading(true)
     setErrorMsg(null)
-    const result = await declineGameSub(token)
+    const result = await safeAction(declineGameSub(token))
     if (result.error) { setErrorMsg(result.error); setLoading(false); return }
     setStage('declined')
     setLoading(false)
@@ -130,20 +131,20 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
       return
     }
 
-    const sigResult = await signWaiver({
+    const sigResult = await safeAction(signWaiver({
       waiverId: waiver.id,
       signatureName: signer,
       leagueId: invite.leagueId ?? undefined,
       leagueName: invite.leagueName ?? undefined,
       guardianRelationship: isMinor ? guardianRelationship : undefined,
-    })
+    }))
     if (sigResult.error || !sigResult.data?.signatureId) {
       setErrorMsg(sigResult.error ?? 'Waiver signing failed')
       setLoading(false)
       return
     }
 
-    const confirmResult = await confirmGameSub(token, sigResult.data.signatureId)
+    const confirmResult = await safeAction(confirmGameSub(token, sigResult.data.signatureId))
     if (confirmResult.error) { setErrorMsg(confirmResult.error); setLoading(false); return }
     setStage('confirmed')
     setLoading(false)

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Overlay } from '@/components/ui/overlay'
 import { Plus, X } from 'lucide-react'
 import { adminAddRegistrant } from '@/actions/registrations'
+import { safeAction } from '@/lib/action-errors'
 
 type Method = 'cash' | 'etransfer' | 'cheque' | 'card' | 'other'
 
@@ -55,7 +56,7 @@ export function AdminAddRegistrant({
     if (isNaN(cents) || cents < 0) { setError('Enter a valid amount (or leave blank).'); return }
     setError(null)
     startTransition(async () => {
-      const res = await adminAddRegistrant({
+      const res = await safeAction(adminAddRegistrant({
         leagueId,
         fullName: fullName.trim(),
         email: email.trim() || undefined,
@@ -64,7 +65,7 @@ export function AdminAddRegistrant({
         method,
         notes: canRecordPayment ? notes.trim() || undefined : undefined,
         sessionId: sessionId || undefined,
-      })
+      }))
       if (res.error) { setError(res.error); return }
       close()
       router.refresh()
