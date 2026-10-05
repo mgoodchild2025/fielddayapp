@@ -101,7 +101,7 @@ function ComingSoonCard({ event, timezone }: { event: EventItem; timezone?: stri
   return (
     <Link
       href={`/events/${event.slug}`}
-      className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150"
+      className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md motion-safe:hover:-translate-y-0.5 transition-all duration-150"
     >
       <div className="flex items-start justify-between mb-2 gap-2">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -123,7 +123,7 @@ function ComingSoonCard({ event, timezone }: { event: EventItem; timezone?: stri
         <h3 className="text-lg font-bold leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>{event.name}</h3>
       </div>
       {event.teaser_text && <p className="text-sm text-gray-500 mt-2 line-clamp-2">{event.teaser_text}</p>}
-      <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>{opens} →</p>
+      <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>{opens} →</p>
     </Link>
   )
 }
@@ -196,6 +196,7 @@ function Accordion({
   return (
     <div className="bg-white rounded-2xl border overflow-hidden">
       <button
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
       >
@@ -315,7 +316,7 @@ export function EventsFilter({ events, timezone }: { events: EventItem[]; timezo
             <div className="flex">
               <button
                 onClick={() => { setSelectedSport(null); setSelectedType(null) }}
-                className="text-xs font-medium text-gray-500 hover:text-gray-600 transition-colors flex items-center gap-1"
+                className="press min-h-10 text-sm font-medium text-gray-600 hover:text-gray-900 flex items-center gap-1"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

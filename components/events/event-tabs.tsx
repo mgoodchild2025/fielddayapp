@@ -75,7 +75,7 @@ export function EventTabNav({ slug, activeTab, tabs }: { slug: string; activeTab
                 onClick={() => tap(tab.id)}
                 aria-current={activeTab === tab.id ? 'page' : undefined}
                 className={`relative shrink-0 px-3.5 sm:px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors ${
-                  lit ? 'text-brand-primary' : 'text-gray-500 hover:text-gray-800'
+                  lit ? 'text-brand-ink' : 'text-gray-500 hover:text-gray-800'
                 }`}
               >
                 {tab.label}

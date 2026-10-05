@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { announce } from '@/lib/announce'
 
 /** Copies the current page URL — the "share my card" affordance. */
 export function CopyLinkButton() {
@@ -11,6 +12,7 @@ export function CopyLinkButton() {
       onClick={() => {
         navigator.clipboard.writeText(window.location.href).then(() => {
           setCopied(true)
+          announce('Link copied')
           setTimeout(() => setCopied(false), 2000)
         }).catch(() => {})
       }}

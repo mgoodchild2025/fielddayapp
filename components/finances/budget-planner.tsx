@@ -177,7 +177,7 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
                 </button>
               </div>
             ))}
-            <button type="button" onClick={addLine} className="press inline-flex items-center gap-1 min-h-10 text-sm font-medium text-brand-primary">
+            <button type="button" onClick={addLine} className="press inline-flex items-center gap-1 min-h-10 text-sm font-medium text-brand-ink">
               <Plus className="w-4 h-4" /> Add cost
             </button>
           </div>

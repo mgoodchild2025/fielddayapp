@@ -28,7 +28,7 @@ export function GameKindBadge({
   }
 
   return (
-    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${color} ${className}`}>
+    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${color} ${className}`}>
       {label}
     </span>
   )
@@ -53,7 +53,7 @@ export function ExhibitionBadge({
   if (!isExhibition) return null
   return (
     <span
-      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap bg-violet-100 text-violet-700 ${className}`}
+      className={`text-xs font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap bg-violet-100 text-violet-700 ${className}`}
       title="Doesn't count toward standings"
     >
       Exhibition

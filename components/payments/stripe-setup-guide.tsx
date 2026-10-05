@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Overlay } from '@/components/ui/overlay'
+import { announce } from '@/lib/announce'
 
 interface Step {
   title: string
@@ -10,7 +11,7 @@ interface Step {
 
 function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium underline decoration-dotted" style={{ color: 'var(--brand-primary)' }}>
+    <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium underline decoration-dotted" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
       {children} ↗
     </a>
   )
@@ -219,6 +220,7 @@ export function StripeSetupGuide({ orgSlug }: Props) {
   function handleCopy(text: string) {
     navigator.clipboard.writeText(text)
     setCopied(text)
+    announce('Copied to clipboard')
     setTimeout(() => setCopied(null), 2000)
   }
 
@@ -236,7 +238,7 @@ export function StripeSetupGuide({ orgSlug }: Props) {
       <button
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 text-sm font-medium"
-        style={{ color: 'var(--brand-primary)' }}
+        style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />

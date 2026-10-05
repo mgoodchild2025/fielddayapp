@@ -189,6 +189,7 @@ export default async function TeamSchedulePage({
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 flex-1">
 
         <div className="flex items-center justify-between">
@@ -232,6 +233,7 @@ export default async function TeamSchedulePage({
         />
 
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

@@ -72,6 +72,7 @@ export default async function ProfilePage() {
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="max-w-2xl mx-auto px-6 py-10">
         <h1 className="text-3xl font-bold uppercase mb-6" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           My Profile
@@ -158,6 +159,7 @@ export default async function ProfilePage() {
           <SignOutButton className="press inline-flex items-center gap-2 min-h-11 text-sm font-medium text-red-600 hover:text-red-700" />
         </div>
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

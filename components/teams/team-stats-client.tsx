@@ -183,18 +183,23 @@ function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean })
   return (
     <div className="bg-white rounded-xl border overflow-hidden">
       {/* Summary row */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
-      >
+      {/* The opponent's name is a link; the rest of the row toggles the game
+          list. (A link inside a button is invalid and reads unpredictably.) */}
+      <div className="w-full flex items-center gap-3 px-4 py-1.5">
         <TeamAvatar logoUrl={opponentLogoUrl} color={opponentColor} name={opponentName} size="sm" />
         <Link
           href={`/teams/${opponentId}/stats`}
-          onClick={(e) => e.stopPropagation()}
-          className="flex-1 min-w-0 font-semibold text-sm text-gray-900 hover:underline truncate relative z-10"
+          className="min-w-0 font-semibold text-sm text-gray-900 hover:underline truncate"
         >
           {opponentName}
         </Link>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={`${open ? 'Hide' : 'Show'} games against ${opponentName}`}
+          onClick={() => setOpen(o => !o)}
+          className="flex-1 flex items-center justify-end gap-3 min-h-11 rounded-md hover:bg-gray-50 transition-colors"
+        >
 
         {/* W-D-L summary */}
         <div className="flex items-center gap-3 shrink-0 text-xs text-gray-500 tabular-nums">
@@ -211,10 +216,11 @@ function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean })
         </div>
 
         {open
-          ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" />
-          : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+          ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
+          : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
         }
-      </button>
+        </button>
+      </div>
 
       {/* Expanded game list */}
       <Collapse open={open} className="border-t divide-y">

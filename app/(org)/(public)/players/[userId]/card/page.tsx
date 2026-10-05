@@ -47,7 +47,10 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ use
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="flex-1 mx-auto w-full max-w-md px-4 py-10">
+        {/* The card is drawn, not headed — give the page its heading for screen readers. */}
+        <h1 className="sr-only">{card.bio.name} — player card</h1>
         <BioFlipCard bio={card.bio} career={card.career} />
         <div className="mt-4 flex items-center justify-between gap-3">
           {/* A shared card is mostly opened by other people — only its owner goes "home". */}
@@ -57,6 +60,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ use
           <CopyLinkButton />
         </div>
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

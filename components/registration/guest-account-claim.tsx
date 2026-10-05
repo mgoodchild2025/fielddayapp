@@ -75,7 +75,7 @@ export function GuestAccountClaim({ registrationId, guestEmail }: Props) {
         <p className="text-sm text-gray-500 mt-0.5">Set a password for <strong>{guestEmail}</strong>.</p>
       </div>
 
-      {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
+      {error && <div role="alert" className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
 
       <label className="block text-sm font-medium text-gray-700">
         Password

@@ -328,7 +328,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
                 <span className="font-medium">{league.name}</span>
                 <p className="text-xs text-gray-500 mt-0.5">Registration fee</p>
               </div>
-              <span className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-400' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary)' }}>
+              <span className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-400' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                 {formatDollars(registrationPriceCents)} {currency}
               </span>
             </div>
@@ -362,7 +362,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
           {appliedDiscount && registrationPriceCents > 0 && (
             <div className="flex justify-between items-center px-4 py-3">
               <span className="text-sm text-gray-600">After discount</span>
-              <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary)' }}>
+              <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                 ${(discountedRegistrationCents / 100).toFixed(2)} {currency}
               </span>
             </div>
@@ -391,7 +391,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
           {merchTotalCents > 0 && (
             <div className="flex justify-between items-center px-4 py-3 bg-gray-50">
               <span className="font-semibold text-sm text-gray-700">Total</span>
-              <span className="font-bold text-xl tabular-nums" style={{ color: 'var(--brand-primary)' }}>
+              <span className="font-bold text-xl tabular-nums" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                 ${(totalCents / 100).toFixed(2)} {currency}
               </span>
             </div>

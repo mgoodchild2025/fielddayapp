@@ -213,7 +213,7 @@ function DateGroup({
                   {game.isPlayoff && (game.playoffTier || game.playoffRound) && (
                     <span className="text-gray-500">{[game.playoffTier, game.playoffRound].filter(Boolean).join(' · ')}</span>
                   )}
-                  {isForfeit && <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 not-italic">Forfeit</span>}
+                  {isForfeit && <span className="ml-auto text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 not-italic">Forfeit</span>}
                 </div>
                 {/* Teams + scores */}
                 <div className="space-y-1">
@@ -224,14 +224,14 @@ function DateGroup({
                     <div key={idx} className="flex items-center justify-between gap-2">
                       <span
                         className={`text-sm truncate ${team.won ? 'font-bold' : hasScore ? 'font-normal text-gray-500' : 'font-semibold'}`}
-                        style={team.won ? { color: 'var(--brand-primary)' } : undefined}
+                        style={team.won ? { color: 'var(--brand-primary-ink, var(--brand-primary))' } : undefined}
                       >
                         {team.name}
                       </span>
                       {hasScore && (
                         <span
                           className={`text-sm tabular-nums shrink-0 font-semibold ${isTie ? 'text-gray-700' : !team.won ? 'text-gray-500 font-normal' : ''}`}
-                          style={(!isTie && team.won) ? { color: 'var(--brand-primary)' } : undefined}
+                          style={(!isTie && team.won) ? { color: 'var(--brand-primary-ink, var(--brand-primary))' } : undefined}
                         >
                           {team.score}
                         </span>
@@ -283,24 +283,24 @@ function DateGroup({
                     <p className={`text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-500' : ''}`}>
                       {/* Home team name */}
                       <span
-                        className={`font-semibold ${hasScore && !homeWon ? (isPast ? 'text-gray-400 font-normal' : 'text-gray-400 font-normal') : isPast ? 'text-gray-500' : ''}`}
-                        style={(homeWon && !(game.status === 'cancelled' || game.status === 'postponed')) ? { color: 'var(--brand-primary)' } : undefined}
+                        className={`font-semibold ${hasScore && !homeWon ? (isPast ? 'text-gray-500 font-normal' : 'text-gray-500 font-normal') : isPast ? 'text-gray-500' : ''}`}
+                        style={(homeWon && !(game.status === 'cancelled' || game.status === 'postponed')) ? { color: 'var(--brand-primary-ink, var(--brand-primary))' } : undefined}
                       >
                         {homeTeam?.name ?? game.home_team_label ?? 'TBD'}
                       </span>
                       <span className="mx-2 font-normal text-gray-500">vs</span>
                       {/* Away team name */}
                       <span
-                        className={`font-semibold ${hasScore && !awayWon ? (isPast ? 'text-gray-400 font-normal' : 'text-gray-400 font-normal') : isPast ? 'text-gray-500' : ''}`}
-                        style={(awayWon && !(game.status === 'cancelled' || game.status === 'postponed')) ? { color: 'var(--brand-primary)' } : undefined}
+                        className={`font-semibold ${hasScore && !awayWon ? (isPast ? 'text-gray-500 font-normal' : 'text-gray-500 font-normal') : isPast ? 'text-gray-500' : ''}`}
+                        style={(awayWon && !(game.status === 'cancelled' || game.status === 'postponed')) ? { color: 'var(--brand-primary-ink, var(--brand-primary))' } : undefined}
                       >
                         {awayTeam?.name ?? game.away_team_label ?? 'TBD'}
                       </span>
                     </p>
-                    {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
-                    {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
+                    {game.status === 'cancelled' && <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
+                    {game.status === 'postponed' && <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
                     <ExhibitionBadge isExhibition={game.is_exhibition} />
-                    {isForfeit && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Forfeit</span>}
+                    {isForfeit && <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Forfeit</span>}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
                     {game.court && <span>Court {game.court}</span>}
@@ -319,15 +319,15 @@ function DateGroup({
                     <div>
                       <p className="tabular-nums text-sm font-semibold">
                         <span
-                          className={`${isTie ? 'text-gray-700' : !homeWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
-                          style={(!isTie && homeWon) ? { color: 'var(--brand-primary)' } : undefined}
+                          className={`${isTie ? 'text-gray-700' : !homeWon ? 'text-gray-500 font-normal' : 'font-bold'}`}
+                          style={(!isTie && homeWon) ? { color: 'var(--brand-primary-ink, var(--brand-primary))' } : undefined}
                         >
                           {result!.home_score}
                         </span>
                         <span className="mx-1 text-gray-500 font-normal">–</span>
                         <span
-                          className={`${isTie ? 'text-gray-700' : !awayWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
-                          style={(!isTie && awayWon) ? { color: 'var(--brand-primary)' } : undefined}
+                          className={`${isTie ? 'text-gray-700' : !awayWon ? 'text-gray-500 font-normal' : 'font-bold'}`}
+                          style={(!isTie && awayWon) ? { color: 'var(--brand-primary-ink, var(--brand-primary))' } : undefined}
                         >
                           {result!.away_score}
                         </span>
@@ -463,6 +463,7 @@ export default async function EventDetailPage({
     return (
       <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+        <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-12 flex-1">
           <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
             <div className="px-6 py-8 text-center" style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}>
@@ -476,7 +477,7 @@ export default async function EventDetailPage({
             <div className="px-6 py-6 space-y-5 text-center">
               {league.teaser_text && <p className="text-gray-600 whitespace-pre-wrap">{league.teaser_text}</p>}
               {opensLabel && (
-                <p className="text-sm font-medium text-gray-900">Registration opens <span style={{ color: 'var(--brand-primary)' }}>{opensLabel}</span></p>
+                <p className="text-sm font-medium text-gray-900">Registration opens <span style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>{opensLabel}</span></p>
               )}
               <div className="rounded-xl bg-gray-50 border px-4 py-5">
                 <p className="text-sm font-semibold text-gray-900 mb-3">Want first dibs? Get notified the moment registration opens.</p>
@@ -485,6 +486,7 @@ export default async function EventDetailPage({
             </div>
           </div>
         </div>
+        </main>
         <Footer org={org} />
       </div>
     )
@@ -1555,6 +1557,7 @@ export default async function EventDetailPage({
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
 
       {eventLiveStream && (
         <a href={eventLiveStream.url} target="_blank" rel="noopener noreferrer"
@@ -1603,7 +1606,7 @@ export default async function EventDetailPage({
             )}
             {((league.status === 'registration_open' && !teamsAtCapacity) || isOrgAdmin) && (
               <>
-                <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>{price}</span>
+                <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>{price}</span>
                 {dropInPriceLabel && (
                   <span className="text-sm text-white/60">{dropInPriceLabel}</span>
                 )}
@@ -1631,7 +1634,7 @@ export default async function EventDetailPage({
                   <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-white to-transparent" />
                 </div>
                 {validTabIds.includes('overview') && (
-                  <Link href={`/events/${slug}?tab=overview`} scroll={false} className="inline-flex items-center min-h-8 text-sm font-semibold text-brand-primary">
+                  <Link href={`/events/${slug}?tab=overview`} scroll={false} className="inline-flex items-center min-h-8 text-sm font-semibold text-brand-ink">
                     More about this event →
                   </Link>
                 )}
@@ -1685,7 +1688,7 @@ export default async function EventDetailPage({
                 )}
                 {league.venue_name && (league.venue_address ? (
                   // Tappable: directions from the schedule screen, not just Event Info.
-                  <MapLink address={league.venue_address} title={`Directions to ${league.venue_name}`} className="inline-flex items-center gap-1 min-h-8 font-medium text-brand-primary underline-offset-2 hover:underline">
+                  <MapLink address={league.venue_address} title={`Directions to ${league.venue_name}`} className="inline-flex items-center gap-1 min-h-8 font-medium text-brand-ink underline-offset-2 hover:underline">
                     <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1890,7 +1893,7 @@ export default async function EventDetailPage({
                     <MapLink
                       address={league.venue_address}
                       className="shrink-0 flex items-center justify-center w-10 h-10 rounded-full border hover:bg-gray-50 transition-colors"
-                      style={{ color: 'var(--brand-primary)' }}
+                      style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                       title="Open in maps"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2394,7 +2397,7 @@ export default async function EventDetailPage({
                         aria-current={active ? 'page' : undefined}
                         className={`inline-flex items-center min-h-11 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${
                           active
-                            ? 'border-brand-primary text-brand-primary'
+                            ? 'border-brand-primary text-brand-ink'
                             : 'border-transparent text-gray-400 hover:text-white'
                         }`}
                       >
@@ -2523,6 +2526,7 @@ export default async function EventDetailPage({
         />
       )}
 
+      </main>
       <Footer org={org} />
     </div>
   )

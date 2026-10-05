@@ -122,7 +122,7 @@ export function ComposeMessageForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Send To</label>
-          <select
+          <select aria-label="Send To"
             name="audience_type"
             value={audienceType}
             onChange={(e) => setAudienceType(e.target.value as AudienceType)}
@@ -137,7 +137,7 @@ export function ComposeMessageForm({
         {audienceType === 'league' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Event</label>
-            <select name="league_id" required className="w-full border rounded-md px-3 py-2 text-sm">
+            <select aria-label="Event" name="league_id" required className="w-full border rounded-md px-3 py-2 text-sm">
               <option value="">Select league…</option>
               {leagues.map((l) => (
                 <option key={l.id} value={l.id}>{l.name}</option>
@@ -150,7 +150,7 @@ export function ComposeMessageForm({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Filter by League <span className="text-gray-400 font-normal">(optional)</span>
             </label>
-            <select
+            <select aria-label="Filter by League (optional)"
               value={teamLeagueFilter}
               onChange={(e) => setTeamLeagueFilter(e.target.value)}
               className="w-full border rounded-md px-3 py-2 text-sm"
@@ -168,7 +168,7 @@ export function ComposeMessageForm({
       {audienceType === 'team' && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
-          <select name="team_id" required key={teamLeagueFilter} className="w-full border rounded-md px-3 py-2 text-sm">
+          <select aria-label="Team" name="team_id" required key={teamLeagueFilter} className="w-full border rounded-md px-3 py-2 text-sm">
             <option value="">Select team…</option>
             {filteredTeams.map((t) => (
               <option key={t.id} value={t.id}>
@@ -239,7 +239,7 @@ export function ComposeMessageForm({
       {/* Subject */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-        <input
+        <input aria-label="Subject"
           name="title"
           type="text"
           required
@@ -251,7 +251,7 @@ export function ComposeMessageForm({
       {/* Body */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-        <textarea
+        <textarea aria-label="Message"
           name="body"
           required
           rows={5}
@@ -263,9 +263,10 @@ export function ComposeMessageForm({
       {/* Message type (CASL) */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Message type</label>
-        <input type="hidden" name="message_class" value={messageClass} />
+        <input aria-label="Message type" type="hidden" name="message_class" value={messageClass} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
+            aria-pressed={messageClass === 'transactional'}
             type="button"
             onClick={() => setMessageClass('transactional')}
             className={`text-left rounded-md border px-3 py-2.5 transition-colors ${
@@ -281,6 +282,7 @@ export function ComposeMessageForm({
             </span>
           </button>
           <button
+            aria-pressed={messageClass === 'commercial'}
             type="button"
             onClick={() => setMessageClass('commercial')}
             className={`text-left rounded-md border px-3 py-2.5 transition-colors ${
@@ -315,7 +317,7 @@ export function ComposeMessageForm({
           <label
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm cursor-pointer select-none transition-colors ${
               channel === 'email' ? 'border-transparent text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
+            } has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--brand-primary)]`}
             style={channel === 'email' ? { backgroundColor: 'var(--brand-primary)' } : {}}
           >
             <input type="radio" name="channel" value="email" checked={channel === 'email'} onChange={() => setChannel('email')} className="sr-only" />
@@ -330,7 +332,7 @@ export function ComposeMessageForm({
                 : channel === 'sms'
                 ? 'border-transparent text-white cursor-pointer'
                 : 'border-gray-200 text-gray-600 hover:bg-gray-50 cursor-pointer'
-            }`}
+            } has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--brand-primary)]`}
             style={canSms && channel === 'sms' ? { backgroundColor: 'var(--brand-primary)' } : {}}
           >
             <input
@@ -353,7 +355,7 @@ export function ComposeMessageForm({
                 : channel === 'both'
                 ? 'border-transparent text-white cursor-pointer'
                 : 'border-gray-200 text-gray-600 hover:bg-gray-50 cursor-pointer'
-            }`}
+            } has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--brand-primary)]`}
             style={canSms && channel === 'both' ? { backgroundColor: 'var(--brand-primary)' } : {}}
           >
             <input
@@ -391,7 +393,7 @@ export function ComposeMessageForm({
       {/* Schedule */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Schedule (optional)</label>
-        <input
+        <input aria-label="Schedule (optional)"
           name="scheduled_for"
           type="datetime-local"
           aria-describedby="scheduled-for-hint"

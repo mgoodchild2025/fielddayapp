@@ -61,7 +61,7 @@ export function InsertBreakForm({ leagueId, gameTimes, timezone }: Props) {
       </p>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-xs mb-3">
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-xs mb-3">
           {error}
         </div>
       )}
@@ -69,7 +69,7 @@ export function InsertBreakForm({ leagueId, gameTimes, timezone }: Props) {
       <form onSubmit={handleSubmit} className="space-y-2">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Break starts at</label>
-          <input
+          <input aria-label="Break starts at"
             type="datetime-local"
             value={breakAt}
             onChange={e => setBreakAt(e.target.value)}
@@ -80,7 +80,7 @@ export function InsertBreakForm({ leagueId, gameTimes, timezone }: Props) {
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Break duration (min)</label>
-          <input
+          <input aria-label="Break duration (min)"
             type="number" inputMode="numeric"
             min={1}
             value={duration}

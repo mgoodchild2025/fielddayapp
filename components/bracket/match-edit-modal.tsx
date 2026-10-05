@@ -9,6 +9,7 @@ import type { BracketMatchData } from './bracket-view'
 import { useRoutingTargets } from './bracket-routing'
 import { useBracketTimezone } from './bracket-timezone'
 import { parseLocalToUtc } from '@/lib/format-time'
+import { announce } from '@/lib/announce'
 
 interface Team {
   id: string
@@ -179,6 +180,7 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
       }
 
       setSaved(true)
+      announce('Saved')
       router.refresh()
       setTimeout(onClose, 600)
     })
@@ -212,6 +214,7 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Slot 1 (currently: {team1Label})</label>
                 <select
+                  aria-label="Slot 1 team"
                   value={team1Id}
                   onChange={(e) => setTeam1Id(e.target.value)}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -226,6 +229,7 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Slot 2 (currently: {team2Label})</label>
                 <select
+                  aria-label="Slot 2 team"
                   value={team2Id}
                   onChange={(e) => setTeam2Id(e.target.value)}
                   className="w-full border rounded-md px-3 py-2 text-sm"
@@ -275,7 +279,7 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
 
             <div>
               <label className="block text-xs text-gray-500 mb-1">Notes</label>
-              <input
+              <input aria-label="Notes"
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -299,6 +303,7 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
                 <label className="block text-xs text-gray-500 mb-1">Winner advances to</label>
                 <div className="flex gap-2">
                   <select
+                    aria-label="Winner advances to"
                     value={winnerToMatchId}
                     onChange={(e) => setWinnerToMatchId(e.target.value)}
                     className="flex-1 border rounded-md px-3 py-2 text-sm min-w-0"
@@ -313,6 +318,7 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
                     ))}
                   </select>
                   <select
+                    aria-label="Winner slot"
                     value={winnerToSlot}
                     onChange={(e) => setWinnerToSlot(Number(e.target.value))}
                     disabled={!winnerToMatchId}
@@ -328,6 +334,7 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
                 <label className="block text-xs text-gray-500 mb-1">Loser advances to</label>
                 <div className="flex gap-2">
                   <select
+                    aria-label="Loser advances to"
                     value={loserToMatchId}
                     onChange={(e) => setLoserToMatchId(e.target.value)}
                     className="flex-1 border rounded-md px-3 py-2 text-sm min-w-0"
@@ -342,6 +349,7 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
                     ))}
                   </select>
                   <select
+                    aria-label="Loser slot"
                     value={loserToSlot}
                     onChange={(e) => setLoserToSlot(Number(e.target.value))}
                     disabled={!loserToMatchId}

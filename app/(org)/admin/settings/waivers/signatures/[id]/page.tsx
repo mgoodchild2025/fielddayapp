@@ -72,7 +72,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
           href={`/admin/settings/waivers/signatures/${id}/print`}
           target="_blank"
           className="shrink-0 flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md border hover:bg-gray-50 transition-colors mt-6"
-          style={{ color: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' }}
+          style={{ color: 'var(--brand-primary-ink, var(--brand-primary))', borderColor: 'var(--brand-primary)' }}
         >
           🖨 Print / Save as PDF
         </Link>
@@ -116,7 +116,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
                 <Link
                   href={`/admin/events/${league.id}`}
                   className="font-medium hover:underline"
-                  style={{ color: 'var(--brand-primary)' }}
+                  style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                 >
                   {eventName}
                 </Link>

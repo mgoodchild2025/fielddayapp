@@ -72,7 +72,7 @@ export default async function AdminSettingsPage() {
               {group.items.map(({ href, label, description, Icon }) => (
                 <li key={href}>
                   <Link href={href} className="flex items-center gap-3 px-4 py-3 min-h-14 hover:bg-gray-50 transition-colors">
-                    <span className="w-8 h-8 rounded-md bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
+                    <span className="w-8 h-8 rounded-md bg-brand-primary/10 text-brand-ink flex items-center justify-center shrink-0">
                       <Icon className="w-4 h-4" aria-hidden="true" />
                     </span>
                     <span className="flex-1 min-w-0">

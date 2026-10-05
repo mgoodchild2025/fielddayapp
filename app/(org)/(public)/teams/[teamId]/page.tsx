@@ -369,6 +369,7 @@ export default async function TeamDetailPage({
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
 
         {/* Back names where it goes: your teams if you're on this one, else the event. */}
@@ -674,6 +675,7 @@ export default async function TeamDetailPage({
           </div>
         )}
       </div>
+      </main>
       <Footer org={org} />
       {/* Captain/coach onboarding tutorial — client component, no-ops for players */}
       <TeamTutorial teamId={team.id} isManager={isManager} />

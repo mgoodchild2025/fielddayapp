@@ -197,7 +197,7 @@ export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [], initialS
       {/* Stats — each card also filters the list to its rows */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <FilterCard label="Total Collected" tone="paid" active={statusFilter === 'paid'} onToggle={() => toggleStatus('paid')}>
-          <p className="text-xl sm:text-2xl font-bold mt-1" style={{ color: 'var(--brand-primary)' }}>
+          <p className="text-xl sm:text-2xl font-bold mt-1" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
             {money(filteredStats.collected.totalCents)}
           </p>
           {filteredStats.collected.taxCents > 0 && (

@@ -19,6 +19,7 @@ export function CollapsiblePast({ count, noun, children }: Props) {
   return (
     <div className="mt-1">
       <button
+        aria-expanded={expanded}
         type="button"
         onClick={() => setExpanded((v) => !v)}
         className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors py-1"

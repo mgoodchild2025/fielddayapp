@@ -69,7 +69,7 @@ function EditRow({
     <div className="border border-dashed border-gray-300 rounded-lg p-3 bg-gray-50 space-y-2.5">
       <div>
         <label className="block text-xs text-gray-500 mb-1">Name <span className="text-red-400">*</span></label>
-        <input
+        <input aria-label="Name"
           ref={nameRef}
           type="text"
           value={name}
@@ -85,7 +85,7 @@ function EditRow({
         <label className="block text-xs text-gray-500 mb-1">
           Email <span className="text-gray-500 font-normal">(optional — enables Invite)</span>
         </label>
-        <input
+        <input aria-label="Email (optional — enables Invite)"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -97,7 +97,7 @@ function EditRow({
       </div>
       <div>
         <label className="block text-xs text-gray-500 mb-1">Note <span className="text-gray-500 font-normal">(optional)</span></label>
-        <input
+        <input aria-label="Note (optional)"
           type="text"
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
@@ -110,7 +110,7 @@ function EditRow({
       </div>
       <div>
         <label className="block text-xs text-gray-500 mb-1">Role</label>
-        <select
+        <select aria-label="Role"
           value={role}
           onChange={(e) => setRole(e.target.value as InviteRole)}
           className={inputClass}
@@ -252,6 +252,7 @@ function NoteRow({
         {note.email && !inviteSuccess && (
           <>
             <select
+              aria-label="Invite as"
               value={inviteRole}
               onChange={(e) => handleRoleChange(e.target.value as InviteRole)}
               disabled={rolePending}

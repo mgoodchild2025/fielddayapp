@@ -213,7 +213,7 @@ export function GuestRegistrationFlow({
           <h1 className="text-2xl font-bold text-gray-900 mt-1 leading-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
             {league.name}
           </h1>
-          {priceLabel && <p className="text-lg font-semibold mt-1" style={{ color: 'var(--brand-primary)' }}>{priceLabel} drop-in</p>}
+          {priceLabel && <p className="text-lg font-semibold mt-1" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>{priceLabel} drop-in</p>}
           {payInPerson && <p className="text-xs text-gray-500 mt-1">💵 Paid in person at the venue</p>}
         </div>
 
@@ -221,7 +221,7 @@ export function GuestRegistrationFlow({
           href={loginHref}
           className="flex items-center gap-3 w-full rounded-xl border bg-white px-4 py-4 hover:shadow-sm transition-shadow text-left"
         >
-          <LogIn className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-primary)' }} />
+          <LogIn className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }} />
           <span>
             <span className="block font-semibold text-gray-900">Sign in or create an account</span>
             <span className="block text-sm text-gray-500">Track your events, receive event alerts, and keep your waivers and receipts.</span>
@@ -298,7 +298,7 @@ export function GuestRegistrationFlow({
                     ? `now ${new Intl.NumberFormat('en-CA', { style: 'currency', currency: (currency || 'cad').toUpperCase() }).format(discountedPriceCents / 100)}`
                     : 'free'}
                 </span>
-                <button type="button" onClick={() => { setAppliedDiscount(null); setDiscountInput('') }} className="text-green-700 hover:underline text-xs">Remove</button>
+                <button type="button" onClick={() => { setAppliedDiscount(null); setDiscountInput('') }} className="press inline-flex items-center min-h-10 px-1 text-green-700 hover:underline text-sm">Remove</button>
               </div>
             ) : (
               <div>
@@ -413,9 +413,10 @@ export function GuestRegistrationFlow({
               Guardian&apos;s full legal name
               <input value={guardianName} onChange={(e) => setGuardianName(e.target.value)} autoComplete="name" autoCapitalize="words" className="mt-1 w-full border rounded-md px-3 py-2 text-base" placeholder="Full name" />
             </label>
-            <fieldset className="flex gap-2">
+            <fieldset className="flex flex-wrap gap-2">
+              <legend className="sr-only">Relationship to the player</legend>
               {(['parent', 'legal_guardian'] as GuardianRelationship[]).map((rel) => (
-                <label key={rel} className={`flex-1 text-center text-sm px-3 py-2 rounded-md border cursor-pointer ${guardianRelationship === rel ? 'border-[var(--brand-primary)] bg-gray-50 font-medium' : ''}`}>
+                <label key={rel} className={`flex-1 flex items-center justify-center min-h-11 text-center text-sm px-3 rounded-md border cursor-pointer has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--brand-primary)] ${guardianRelationship === rel ? 'border-[var(--brand-primary)] bg-gray-50 font-medium' : ''}`}>
                   <input type="radio" name="rel" className="sr-only" checked={guardianRelationship === rel} onChange={() => setGuardianRelationship(rel)} />
                   {rel === 'parent' ? 'Parent' : 'Legal guardian'}
                 </label>

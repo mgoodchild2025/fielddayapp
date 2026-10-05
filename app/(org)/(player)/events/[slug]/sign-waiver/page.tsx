@@ -99,6 +99,7 @@ export default async function SignWaiverPage({
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
 
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
         <Link
@@ -133,7 +134,7 @@ export default async function SignWaiverPage({
             </div>
             <Link
               href={safeRelativePath(redirectParam) ?? `/events/${slug}`}
-              className="inline-flex items-center min-h-10 text-sm font-medium text-brand-primary hover:underline"
+              className="inline-flex items-center min-h-10 text-sm font-medium text-brand-ink hover:underline"
             >
               {safeRelativePath(redirectParam)?.startsWith('/teams/') ? 'Go to your team →' : '← Back to Event'}
             </Link>
@@ -152,6 +153,7 @@ export default async function SignWaiverPage({
         )}
       </div>
 
+      </main>
       <Footer org={org} />
     </div>
   )

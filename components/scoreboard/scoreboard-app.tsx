@@ -799,7 +799,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           </span>
         </p>
         {game.config.mode === 'sets' && won > 0 && (
-          <div className="flex gap-1.5 mt-1" aria-label={`${won} sets won`}>
+          <div className="flex gap-1.5 mt-1" role="img" aria-label={`${won} ${won === 1 ? 'set' : 'sets'} won`}>
             {Array.from({ length: won }, (_, i) => (
               <span key={i} className="w-2.5 h-2.5 rounded-full bg-white" />
             ))}
@@ -979,7 +979,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       <Sheet open={!!editTeam} onClose={() => setEditTeam(null)} title={`Edit ${shownTeam === 'A' ? 'first' : 'second'} team`} align="top">
         {shownTeam && (<>
           <label className="block text-xs text-white/60 mb-1">Team name</label>
-          <input
+          <input aria-label="Team name"
             data-autofocus
             value={(shownTeam === 'A' ? game.teamA : game.teamB).name}
             onChange={(e) =>
@@ -1260,8 +1260,10 @@ function InstallHint({
 /** "Hold to unlock" — a deliberate 700ms press, so a pocket tap can't do it. */
 function HoldToUnlock({ onUnlock }: { onUnlock: () => void }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastDown = useRef(0)
   const [holding, setHolding] = useState(false)
   const start = () => {
+    lastDown.current = Date.now()
     setHolding(true)
     timer.current = setTimeout(() => { setHolding(false); onUnlock() }, 700)
   }
@@ -1277,9 +1279,13 @@ function HoldToUnlock({ onUnlock }: { onUnlock: () => void }) {
       onPointerLeave={cancel}
       onPointerCancel={cancel}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onUnlock() }}
+      // VoiceOver / TalkBack "double-tap" and switch access deliver a click
+      // with no finger held down first: treat that as unlock. A real touch
+      // still has to hold (the pointerdown just before makes it a tap).
+      onClick={() => { if (Date.now() - lastDown.current > 1000) onUnlock() }}
       onContextMenu={(e) => e.preventDefault()}
       className={`inline-flex items-center justify-center min-h-10 px-4 rounded-lg text-sm font-semibold text-white transition-colors duration-700 ${holding ? 'bg-emerald-600' : 'bg-white/15'}`}
-      aria-label="Board locked — press and hold to unlock"
+      aria-label="Board locked — press and hold, or activate, to unlock"
     >
       🔒 Locked — hold to unlock
     </button>

@@ -126,7 +126,7 @@ export function SignaturesTable({
                         <Link
                           href={`/admin/settings/waivers/signatures/${row.sigId}`}
                           className="press inline-flex items-center min-h-10 text-xs font-medium hover:underline"
-                          style={{ color: 'var(--brand-primary)' }}
+                          style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
                         >
                           View →
                         </Link>

@@ -146,7 +146,7 @@ export function StandaloneWaiverSigner({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Guardian&apos;s full legal name
           </label>
-          <input
+          <input aria-label="Guardian's full legal name"
             type="text"
             value={guardianName}
             onChange={(e) => setGuardianName(e.target.value)}
@@ -157,7 +157,7 @@ export function StandaloneWaiverSigner({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Relationship to player</label>
-          <select
+          <select aria-label="Relationship to player"
             value={guardianRelationship}
             onChange={(e) => setGuardianRelationship(e.target.value as GuardianRelationship)}
             disabled={!canSign}
@@ -184,7 +184,7 @@ export function StandaloneWaiverSigner({
       {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Type your full legal name</label>
-        <input
+        <input aria-label="Type your full legal name"
           type="text"
           value={signatureName}
           onChange={(e) => setSignatureName(e.target.value)}

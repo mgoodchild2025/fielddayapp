@@ -183,7 +183,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                               {timeRangeClub(league.game_start_time, league.game_end_time)}
                             </p>
                           )}
-                          <p className="mt-3 text-sm font-semibold group-hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                          <p className="mt-3 text-sm font-semibold group-hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                             {formatEventPrice(league)} →
                           </p>
                         </Link>

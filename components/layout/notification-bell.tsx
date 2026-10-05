@@ -148,7 +148,7 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
               <button
                 onClick={handleMarkAllRead}
                 disabled={isPending}
-                className="press min-h-10 px-2 -mr-2 text-sm font-medium text-brand-primary disabled:opacity-50"
+                className="press min-h-10 px-2 -mr-2 text-sm font-medium text-brand-ink disabled:opacity-50"
               >
                 Mark all read
               </button>
@@ -212,7 +212,7 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
                           <Link
                             href={acceptUrl}
                             onClick={() => setOpen(false)}
-                            className="inline-flex items-center min-h-10 text-sm font-semibold text-brand-primary"
+                            className="inline-flex items-center min-h-10 text-sm font-semibold text-brand-ink"
                           >
                             View Invite →
                           </Link>
@@ -224,7 +224,7 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
                               setNotifications((prev) => prev.filter((x) => x.id !== n.id))
                               setOpen(false)
                             }}
-                            className="inline-flex items-center min-h-10 text-sm font-semibold text-brand-primary"
+                            className="inline-flex items-center min-h-10 text-sm font-semibold text-brand-ink"
                           >
                             {genericLabel}
                           </Link>

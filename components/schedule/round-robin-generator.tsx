@@ -378,6 +378,7 @@ export function RoundRobinGenerator({
   return (
     <div className="bg-white rounded-lg border p-4">
       <button
+        aria-expanded={open}
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between text-sm font-semibold"
       >
@@ -430,6 +431,7 @@ export function RoundRobinGenerator({
                   <label className="block text-xs text-gray-500 mb-1">Teams</label>
                   <div className="flex rounded-md border border-gray-200 overflow-hidden text-sm">
                     <button
+                      aria-pressed={teamCountSource === 'existing'}
                       type="button"
                       onClick={() => setTeamCountSource('existing')}
                       className={`flex-1 py-1.5 font-medium transition-colors ${
@@ -441,6 +443,7 @@ export function RoundRobinGenerator({
                       Existing ({teamCount})
                     </button>
                     <button
+                      aria-pressed={teamCountSource === 'custom'}
                       type="button"
                       onClick={() => setTeamCountSource('custom')}
                       className={`flex-1 py-1.5 font-medium transition-colors ${
@@ -492,11 +495,11 @@ export function RoundRobinGenerator({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Start date *</label>
-                  <input type="date" value={wlStartDate} onChange={e => setWlStartDate(e.target.value)} required className={inputCls} />
+                  <input aria-label="Start date" type="date" value={wlStartDate} onChange={e => setWlStartDate(e.target.value)} required className={inputCls} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">End date *</label>
-                  <input type="date" value={wlEndDate} onChange={e => setWlEndDate(e.target.value)} required className={inputCls} />
+                  <input aria-label="End date" type="date" value={wlEndDate} onChange={e => setWlEndDate(e.target.value)} required className={inputCls} />
                 </div>
               </div>
 
@@ -510,7 +513,7 @@ export function RoundRobinGenerator({
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Game duration (min)</label>
-                  <input type="number" inputMode="numeric" min={5} max={240} value={wlGameDuration} onChange={e => setWlGameDuration(e.target.value)} className={inputCls} />
+                  <input aria-label="Game duration (min)" type="number" inputMode="numeric" min={5} max={240} value={wlGameDuration} onChange={e => setWlGameDuration(e.target.value)} className={inputCls} />
                 </div>
               </div>
 
@@ -564,11 +567,11 @@ export function RoundRobinGenerator({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Start date *</label>
-                  <input type="date" value={puStartDate} onChange={e => setPuStartDate(e.target.value)} required className={inputCls} />
+                  <input aria-label="Start date" type="date" value={puStartDate} onChange={e => setPuStartDate(e.target.value)} required className={inputCls} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">End date *</label>
-                  <input type="date" value={puEndDate} onChange={e => setPuEndDate(e.target.value)} required className={inputCls} />
+                  <input aria-label="End date" type="date" value={puEndDate} onChange={e => setPuEndDate(e.target.value)} required className={inputCls} />
                 </div>
               </div>
 
@@ -581,7 +584,7 @@ export function RoundRobinGenerator({
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Game duration (min)</label>
-                  <input type="number" inputMode="numeric" min={5} max={240} value={puGameDuration} onChange={e => setPuGameDuration(e.target.value)} className={inputCls} />
+                  <input aria-label="Game duration (min)" type="number" inputMode="numeric" min={5} max={240} value={puGameDuration} onChange={e => setPuGameDuration(e.target.value)} className={inputCls} />
                 </div>
               </div>
 
@@ -610,6 +613,7 @@ export function RoundRobinGenerator({
                   <label className="block text-xs text-gray-500 mb-1">Teams</label>
                   <div className="flex rounded-md border border-gray-200 overflow-hidden text-sm">
                     <button
+                      aria-pressed={teamCountSource === 'existing'}
                       type="button"
                       onClick={() => setTeamCountSource('existing')}
                       className={`flex-1 py-1.5 font-medium transition-colors ${
@@ -621,6 +625,7 @@ export function RoundRobinGenerator({
                       Existing ({teamCount})
                     </button>
                     <button
+                      aria-pressed={teamCountSource === 'custom'}
                       type="button"
                       onClick={() => setTeamCountSource('custom')}
                       className={`flex-1 py-1.5 font-medium transition-colors ${
@@ -679,11 +684,11 @@ export function RoundRobinGenerator({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Date *</label>
-                  <input type="date" value={dsDate} onChange={e => setDsDate(e.target.value)} required className={inputCls} />
+                  <input aria-label="Date" type="date" value={dsDate} onChange={e => setDsDate(e.target.value)} required className={inputCls} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">First game</label>
-                  <input type="time" value={dsTime} onChange={e => setDsTime(e.target.value)} className={inputCls} />
+                  <input aria-label="First game" type="time" value={dsTime} onChange={e => setDsTime(e.target.value)} className={inputCls} />
                 </div>
               </div>
 
@@ -691,11 +696,11 @@ export function RoundRobinGenerator({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Game duration (min)</label>
-                  <input type="number" inputMode="numeric" min={5} max={240} value={dsGameDuration} onChange={e => setDsGameDuration(e.target.value)} className={inputCls} />
+                  <input aria-label="Game duration (min)" type="number" inputMode="numeric" min={5} max={240} value={dsGameDuration} onChange={e => setDsGameDuration(e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Break between games (min)</label>
-                  <input type="number" inputMode="numeric" min={0} max={120} value={dsBreak} onChange={e => setDsBreak(e.target.value)} className={inputCls} />
+                  <input aria-label="Break between games (min)" type="number" inputMode="numeric" min={0} max={120} value={dsBreak} onChange={e => setDsBreak(e.target.value)} className={inputCls} />
                 </div>
               </div>
 

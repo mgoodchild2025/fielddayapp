@@ -325,7 +325,7 @@ export default async function AdminDashboardPage() {
       {/* ── Tonight: game-night shortcuts, first thing on a game day ───────── */}
       {tonightEvents.size > 0 && (
         <div className="mb-6 rounded-xl border-2 border-brand-primary/30 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">Today</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink">Today</p>
           <p className="mt-0.5 text-sm text-gray-700">
             {[
               tGames.length > 0 && `${tGames.length} game${tGames.length !== 1 ? 's' : ''}`,
@@ -399,7 +399,7 @@ export default async function AdminDashboardPage() {
         <div className="bg-white rounded-lg border p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold">Active Events</h2>
-            <Link href="/admin/events" className="text-sm hover:underline" style={{ color: 'var(--brand-primary)' }}>View all</Link>
+            <Link href="/admin/events" className="text-sm hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>View all</Link>
           </div>
           <div className="space-y-2">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -420,7 +420,7 @@ export default async function AdminDashboardPage() {
         <div className="bg-white rounded-lg border p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold">Recent Payments</h2>
-            <Link href="/admin/payments" className="text-sm hover:underline" style={{ color: 'var(--brand-primary)' }}>View all</Link>
+            <Link href="/admin/payments" className="text-sm hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>View all</Link>
           </div>
           <div className="space-y-2">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -462,7 +462,7 @@ export default async function AdminDashboardPage() {
           <Link
             href="/admin/calendar"
             className="text-sm font-medium hover:underline flex items-center gap-1"
-            style={{ color: 'var(--brand-primary)' }}
+            style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
           >
             Full calendar →
           </Link>

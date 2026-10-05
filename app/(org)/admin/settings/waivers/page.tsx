@@ -52,7 +52,7 @@ export default async function AdminWaiversPage() {
         <Link
           href="/admin/settings/waivers/signatures"
           className="shrink-0 text-sm font-medium px-3 py-1.5 rounded-md border hover:bg-gray-50 transition-colors"
-          style={{ color: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' }}
+          style={{ color: 'var(--brand-primary-ink, var(--brand-primary))', borderColor: 'var(--brand-primary)' }}
         >
           View Signed Waivers →
         </Link>

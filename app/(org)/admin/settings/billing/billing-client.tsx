@@ -246,7 +246,7 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
         </div>
       )}
       {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div role="alert" className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
       {/* ── Scheduled downgrade banner ────────────────────────────────────── */}
@@ -574,7 +574,7 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">
                   Auto-resume date <span className="text-gray-400 font-normal">(optional — leave blank to resume manually)</span>
                 </label>
-                <input
+                <input aria-label="Auto-resume date (optional — leave blank to resume manually)"
                   type="date"
                   min={minResumeDate()}
                   value={hibernateResumeDate}
@@ -665,7 +665,7 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
               <label className="block text-xs font-medium text-gray-700 mb-1.5">
                 Reason for leaving <span className="text-gray-400 font-normal">(optional — helps us improve)</span>
               </label>
-              <textarea
+              <textarea aria-label="Reason for leaving (optional — helps us improve)"
                 value={closeReason}
                 onChange={(e) => setCloseReason(e.target.value)}
                 placeholder="e.g. Switching to another platform, shutting down our league, etc."

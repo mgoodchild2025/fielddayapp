@@ -79,7 +79,7 @@ export function MerchItemList({ items: initialItems }: Props) {
   return (
     <div className="space-y-6">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
@@ -146,7 +146,7 @@ export function MerchItemList({ items: initialItems }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-gray-900 truncate">{item.name}</span>
-                        <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                        <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                           ${(item.price_cents / 100).toFixed(2)} {item.currency.toUpperCase()}
                         </span>
                         {item.shop_enabled && (

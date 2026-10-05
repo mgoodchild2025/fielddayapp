@@ -47,6 +47,7 @@ export function LegalEditor({ doc }: Props) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900">
         <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1">
           <button
+            aria-pressed={activeTab === 'edit'}
             onClick={() => setActiveTab('edit')}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'edit'
@@ -207,7 +208,7 @@ function PublishDialog({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Version <span className="text-red-600">*</span>
             </label>
-            <input
+            <input aria-label="Version"
               type="text"
               value={version}
               onChange={(e) => setVersion(e.target.value)}
@@ -220,7 +221,7 @@ function PublishDialog({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Effective date
             </label>
-            <input
+            <input aria-label="Effective date"
               type="date"
               value={effectiveDate}
               onChange={(e) => setEffectiveDate(e.target.value)}
@@ -232,7 +233,7 @@ function PublishDialog({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Release notes (optional)
             </label>
-            <textarea
+            <textarea aria-label="Release notes (optional)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="What changed in this version?"
@@ -262,7 +263,7 @@ function PublishDialog({
               {requiresReconsent && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Summary of changes (shown to tenants)</label>
-                  <textarea
+                  <textarea aria-label="Summary of changes (shown to tenants)"
                     value={reconsentSummary}
                     onChange={(e) => setReconsentSummary(e.target.value)}
                     placeholder="Briefly describe what changed in this version…"

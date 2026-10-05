@@ -89,7 +89,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Pr
       <h3 className="font-semibold mb-3 text-sm">Add Game</h3>
 
       {serverError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-xs mb-3">
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-xs mb-3">
           {serverError}
         </div>
       )}
@@ -97,7 +97,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Pr
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Date & Time</label>
-          <input
+          <input aria-label="Date & Time"
             {...register('scheduledAt')}
             type="datetime-local"
             className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
@@ -109,7 +109,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Pr
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Home Team</label>
-          <select {...register('homeTeamId')} className="w-full border rounded px-2 py-1.5 text-sm">
+          <select aria-label="Home Team" {...register('homeTeamId')} className="w-full border rounded px-2 py-1.5 text-sm">
             <option value="">TBD</option>
             {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
@@ -125,7 +125,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Pr
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Away Team</label>
-          <select {...register('awayTeamId')} className="w-full border rounded px-2 py-1.5 text-sm">
+          <select aria-label="Away Team" {...register('awayTeamId')} className="w-full border rounded px-2 py-1.5 text-sm">
             <option value="">TBD</option>
             {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
@@ -154,7 +154,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Pr
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Week #</label>
-            <input
+            <input aria-label="Week #"
               {...register('weekNumber', { valueAsNumber: true })}
               type="number" inputMode="numeric"
               min={1}
@@ -166,7 +166,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Pr
         {pools.length > 0 && (
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Pool</label>
-            <select {...register('poolId')} className="w-full border rounded px-2 py-1.5 text-sm">
+            <select aria-label="Pool" {...register('poolId')} className="w-full border rounded px-2 py-1.5 text-sm">
               <option value="">— None —</option>
               {pools.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>

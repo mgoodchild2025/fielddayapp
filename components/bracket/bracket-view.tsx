@@ -173,7 +173,7 @@ function ScoreModal({
 
           {isVolleyball ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
                 <span className="w-10 text-center">Set</span>
                 <span className="flex-1 text-center truncate">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
                 <span className="w-4" />
@@ -181,7 +181,7 @@ function ScoreModal({
               </div>
               {sets.map((set, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-10 text-center font-semibold">{i + 1}</span>
+                  <span className="text-xs text-gray-500 w-10 text-center font-semibold">{i + 1}</span>
                   <div className="flex-1 flex justify-center">
                     <input
                       data-autofocus={i === 0 ? true : undefined}
@@ -216,7 +216,7 @@ function ScoreModal({
               {sets.length < 3 && (
                 <button type="button"
                   onClick={() => setSets((prev) => [...prev, { s1: '', s2: '' }])}
-                  className="press min-h-10 text-sm font-medium text-brand-primary hover:underline pl-10">
+                  className="press min-h-10 text-sm font-medium text-brand-ink hover:underline pl-10">
                   + Add set 3
                 </button>
               )}
@@ -229,7 +229,7 @@ function ScoreModal({
                   <button type="button"
                     onClick={() => setS1((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
                     aria-label={`One less for ${match.team1Name ?? match.team1Label ?? 'TBD'}`}
-                    className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
+                    className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 press flex items-center justify-center select-none">−</button>
                   <input
                     data-autofocus
                     value={s1} onChange={(e) => setS1(e.target.value)}
@@ -242,7 +242,7 @@ function ScoreModal({
                   <button type="button"
                     onClick={() => setS1((v) => String(parseInt(v || '0') + 1))}
                     aria-label={`One more for ${match.team1Name ?? match.team1Label ?? 'TBD'}`}
-                    className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
+                    className="w-10 h-10 rounded-full text-white text-xl font-bold press flex items-center justify-center select-none"
                     style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
                 </div>
               </div>
@@ -253,7 +253,7 @@ function ScoreModal({
                   <button type="button"
                     onClick={() => setS2((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
                     aria-label={`One less for ${match.team2Name ?? match.team2Label ?? 'TBD'}`}
-                    className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
+                    className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 press flex items-center justify-center select-none">−</button>
                   <input
                     value={s2} onChange={(e) => setS2(e.target.value)}
                     aria-label={`${match.team2Name ?? match.team2Label ?? 'TBD'} score`}
@@ -265,7 +265,7 @@ function ScoreModal({
                   <button type="button"
                     onClick={() => setS2((v) => String(parseInt(v || '0') + 1))}
                     aria-label={`One more for ${match.team2Name ?? match.team2Label ?? 'TBD'}`}
-                    className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
+                    className="w-10 h-10 rounded-full text-white text-xl font-bold press flex items-center justify-center select-none"
                     style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
                 </div>
               </div>
@@ -415,7 +415,7 @@ function MatchAdminActions({
               <button
                 onClick={() => setScoreOpen(true)}
                 className="press w-full px-3 min-h-10 text-xs font-semibold text-center hover:bg-gray-50"
-                style={{ color: 'var(--brand-primary)' }}
+                style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
               >
                 {isCompleted ? 'Edit score' : 'Enter score →'}
               </button>
@@ -790,7 +790,7 @@ function BracketDiagram({
         <div className="flex mb-3">
           {roundNumbers.map((rn) => (
             <div key={rn} style={{ width: ROUND_WIDTH, flexShrink: 0 }}>
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 px-2">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 px-2">
                 {roundDisplayName(roundNames, rn, bracketSize)}
               </p>
             </div>
@@ -852,7 +852,7 @@ function BracketDiagram({
               <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Champion</p>
               <p
                 className="text-lg font-bold leading-tight"
-                style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary)' }}
+                style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary-ink, var(--brand-primary))' }}
               >
                 🏆 {champion}
               </p>
@@ -1381,7 +1381,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
               {/* 3rd place match */}
               {thirdPlaceMatch && (
                 <div className="mt-8 pt-6 border-t border-gray-700">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Third Place</p>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">Third Place</p>
                   <MatchCard
                     match={thirdPlaceMatch}
                     bracketId={bracket.id}
@@ -1403,7 +1403,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
           {champion && isDE && (
             <div className="mt-6 text-center">
               <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Champion</p>
-              <p className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary)' }}>
+              <p className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                 🏆 {champion}
               </p>
             </div>

@@ -1,5 +1,5 @@
 import type { OrgBranding } from '@/types/database'
-import { readableTextOn } from '@/lib/contrast'
+import { readableTextOn, inkOnWhite } from '@/lib/contrast'
 
 interface BrandProviderProps {
   branding: OrgBranding | null
@@ -11,6 +11,7 @@ export function BrandProvider({ branding, children }: BrandProviderProps) {
     :root {
       --brand-primary: ${branding?.primary_color ?? '#FF5C00'};
       --brand-on-primary: ${readableTextOn(branding?.primary_color ?? '#FF5C00')};
+      --brand-primary-ink: ${inkOnWhite(branding?.primary_color ?? '#FF5C00')};
       --brand-secondary: ${branding?.secondary_color ?? '#0F1F3D'};
       --brand-bg: ${branding?.bg_color ?? '#FAFAF8'};
       --brand-text: ${branding?.text_color ?? '#1A1A1A'};

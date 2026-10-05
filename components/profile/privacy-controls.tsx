@@ -146,7 +146,7 @@ export function DeleteAccountSection({ otherOrgNames = [], captainOf = [] }: {
             <label className="block mb-1 text-sm font-medium text-gray-700">
               Reason <span className="font-normal text-gray-500">(optional)</span>
             </label>
-            <input
+            <input aria-label="Reason (optional)"
               type="text"
               value={reason}
               onChange={e => setReason(e.target.value)}
@@ -157,7 +157,7 @@ export function DeleteAccountSection({ otherOrgNames = [], captainOf = [] }: {
             <label className="block mb-1 text-sm font-medium text-gray-700">
               Type <span className="font-mono font-bold">DELETE</span> to confirm
             </label>
-            <input
+            <input aria-label="Type DELETE to confirm"
               type="text"
               value={confirmation}
               onChange={e => setConfirmation(e.target.value)}

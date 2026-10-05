@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { setFiscalYearStart } from '@/actions/finances'
+import { announce } from '@/lib/announce'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
@@ -23,6 +24,7 @@ export function FiscalYearForm({ startMonth }: { startMonth: number }) {
       const res = await setFiscalYearStart(next)
       if (res.error) { setError(res.error); return }
       setSaved(true)
+      announce('Saved')
       router.refresh()
     })
   }
@@ -49,7 +51,7 @@ export function FiscalYearForm({ startMonth }: { startMonth: number }) {
         </select>
         {pending && <span className="text-xs text-gray-400">Saving…</span>}
         {saved && !pending && <span className="fd-fade-in text-xs text-green-600">Saved ✓</span>}
-        {error && <span className="text-xs text-red-600">{error}</span>}
+        {error && <span role="alert" className="text-xs text-red-600">{error}</span>}
       </div>
     </div>
   )

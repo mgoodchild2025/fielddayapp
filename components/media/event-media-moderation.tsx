@@ -59,7 +59,7 @@ export function EventMediaModeration({ items }: { items: EventMediaItem[] }) {
 
   return (
     <div className="space-y-3">
-      {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
+      {error && <div role="alert" className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-gray-500">
           {visible.length} item{visible.length !== 1 ? 's' : ''}

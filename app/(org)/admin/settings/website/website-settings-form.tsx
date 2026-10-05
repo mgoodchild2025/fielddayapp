@@ -361,7 +361,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Headline</label>
-            <input
+            <input aria-label="Headline"
               {...register('hero_headline')}
               type="text"
               placeholder="e.g. Ottawa Summer Volleyball"
@@ -371,7 +371,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sub-headline</label>
-            <input
+            <input aria-label="Sub-headline"
               {...register('hero_subheadline')}
               type="text"
               placeholder="e.g. Competitive and recreational leagues for all levels"
@@ -382,7 +382,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">CTA Button Label</label>
-              <input
+              <input aria-label="CTA Button Label"
                 {...register('hero_cta_label')}
                 type="text"
                 placeholder="View Events"
@@ -391,7 +391,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">CTA Button Link</label>
-              <input
+              <input aria-label="CTA Button Link"
                 {...register('hero_cta_href')}
                 type="text"
                 placeholder="/events"
@@ -414,7 +414,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Section Title</label>
-            <input
+            <input aria-label="Section Title"
               {...register('about_title')}
               type="text"
               placeholder="About Us"
@@ -423,7 +423,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Body Text</label>
-            <textarea
+            <textarea aria-label="Body Text"
               {...register('about_body')}
               rows={5}
               placeholder="Tell players and visitors who you are, what sports you offer, and what makes your league great…"

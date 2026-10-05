@@ -47,7 +47,7 @@ export function DiscountForm({ leagues }: { leagues: League[] }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Code *</label>
-          <input
+          <input aria-label="Code"
             type="text"
             value={code}
             onChange={e => setCode(e.target.value.toUpperCase())}
@@ -58,7 +58,7 @@ export function DiscountForm({ leagues }: { leagues: League[] }) {
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Applies To</label>
-          <select
+          <select aria-label="Applies To"
             value={appliesTo}
             onChange={e => { setAppliesTo(e.target.value as typeof appliesTo); setLeagueId('') }}
             className={`${inputClass} w-full`}
@@ -77,7 +77,7 @@ export function DiscountForm({ leagues }: { leagues: League[] }) {
           <label className="block text-xs font-medium text-gray-600 mb-1">
             Specific Event <span className="text-gray-400 font-normal">(optional — leave blank to apply to all events)</span>
           </label>
-          <select
+          <select aria-label="Specific Event (optional — leave blank to apply to all events)"
             value={leagueId}
             onChange={e => setLeagueId(e.target.value)}
             className={`${inputClass} w-full`}
@@ -93,7 +93,7 @@ export function DiscountForm({ leagues }: { leagues: League[] }) {
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Type *</label>
-          <select
+          <select aria-label="Type"
             value={type}
             onChange={e => setType(e.target.value as 'percent' | 'fixed')}
             className={`${inputClass} w-full`}
@@ -122,7 +122,7 @@ export function DiscountForm({ leagues }: { leagues: League[] }) {
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Max Uses</label>
-          <input
+          <input aria-label="Max Uses"
             type="number" inputMode="numeric"
             min={1}
             value={maxUses}
@@ -135,7 +135,7 @@ export function DiscountForm({ leagues }: { leagues: League[] }) {
 
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Expires At</label>
-        <input type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} className={inputClass} />
+        <input aria-label="Expires At" type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} className={inputClass} />
       </div>
 
       <button

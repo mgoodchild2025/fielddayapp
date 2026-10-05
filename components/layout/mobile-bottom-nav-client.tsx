@@ -91,7 +91,7 @@ export function MobileBottomNavClient({ signedIn }: { signedIn: boolean }) {
               href={href}
               onClick={() => setTapped(href)}
               className="press flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px]"
-              style={{ color: active ? 'var(--brand-primary)' : '#6b7280' }}
+              style={{ color: active ? 'var(--brand-primary-ink, var(--brand-primary))' : '#6b7280' }}
               aria-current={isCurrent(tab) ? 'page' : undefined}
             >
               <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 1.75} />

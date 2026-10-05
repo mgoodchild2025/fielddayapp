@@ -304,6 +304,11 @@ CSS variables set by `BrandProvider` from `org_branding` row:
 - **Programmatic scrolls** use `scrollBehavior()` (`lib/motion.ts`) — smooth unless reduced motion is on.
 - **Every page has a title**: static `export const metadata = { title }` on server pages (the org layout's template adds " — {Org}"); event/team/game pages use `generateMetadata`; client pages get theirs from a small `layout.tsx`.
 - Drag-only interactions always have a button path (photo order: Move earlier / later).
+- **Landmarks**: player pages wrap everything between `<OrgNav>` and `<Footer>` in `<main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">`; `OrgNav` renders a "Skip to content" link to `#main`. `:where(#main) > *` is `width: 100%` (base layer) so `mx-auto max-w-*` children don't shrink inside the flex column. New player pages follow the same shape.
+- **Brand colour as text** uses `text-brand-ink` / `var(--brand-primary-ink)` — `BrandProvider` darkens the primary to ≥4.5:1 on white (`inkOnWhite` in `lib/contrast.ts`, tested). `brand-primary` stays for fills, borders and rings; dark surfaces (TV display, scoreboard) keep the raw colour.
+- **Every field has a name**: a visible `<label>` without `htmlFor` gets a matching `aria-label` on its field; placeholder-only fields get an `aria-label`. Fields that turn the outline off without a ring get a focus outline from an unlayered rule in globals.css.
+- **Inline confirmations are announced**: call `announce('Copied')` (`lib/announce.ts` → the polite `#fd-announcer` region in `app/layout.tsx`) next to `setCopied(true)` / `setSaved(true)`.
+- Logos and avatars (`TeamAvatar`, `PlayerAvatar`, `EventAvatar`) are decorative by default — `labelled` when they stand alone. Status badges are at least `text-xs`; meaningful grey text is gray-500+.
 
 ## Confirmations, Undo & toasts
 - **Never call `window.confirm()` / `alert()`.** Two tools instead, chosen by whether the action can be taken back:

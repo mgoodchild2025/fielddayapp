@@ -123,7 +123,7 @@ export default async function FinancesPage() {
                     <tr key={e.leagueId ?? 'shop'} className="hover:bg-gray-50/50">
                       <td className="px-4 py-3 text-gray-800 max-w-[260px] truncate">
                         {e.leagueId ? (
-                          <Link href={`/admin/events/${e.leagueId}/finances`} className="hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                          <Link href={`/admin/events/${e.leagueId}/finances`} className="hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                             {e.name}
                           </Link>
                         ) : e.name}

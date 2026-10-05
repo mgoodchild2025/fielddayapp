@@ -173,6 +173,7 @@ export default async function RegistrationSuccessPage({
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main id="main" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
       <div className="fd-step-in max-w-lg mx-auto w-full px-6 py-16 text-center flex-1">
         <div className="text-6xl mb-4">{sportEmoji}</div>
         <h1 className="text-3xl font-bold uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
@@ -231,6 +232,7 @@ export default async function RegistrationSuccessPage({
           </Link>
         </div>
       </div>
+      </main>
       <Footer org={org} />
     </div>
   )

@@ -172,7 +172,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                                 ? <span className="text-amber-500 font-medium">Only {spotsLeft} {spots?.unit} spot{spotsLeft !== 1 ? 's' : ''} left</span>
                                 : null}
                           </div>
-                          <p className="mt-3 text-sm font-bold" style={{ color: 'var(--brand-primary)' }}>
+                          <p className="mt-3 text-sm font-bold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                             {atCapacity
                               ? (spots?.unit === 'team' ? 'Join a team →' : 'Full')
                               : formatEventPrice(league)}

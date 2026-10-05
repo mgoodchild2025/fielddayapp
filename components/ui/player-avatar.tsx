@@ -35,9 +35,11 @@ interface PlayerAvatarProps {
   className?: string
   /** Set true for avatars in the first visible viewport to preload them */
   priority?: boolean
+  /** Announce the name (only when the avatar stands alone). */
+  labelled?: boolean
 }
 
-export function PlayerAvatar({ avatarUrl, name, size = 'sm', className = '', priority = false }: PlayerAvatarProps) {
+export function PlayerAvatar({ avatarUrl, name, size = 'sm', className = '', priority = false, labelled = false }: PlayerAvatarProps) {
   const sizeClass = sizeClasses[size]
   const initial = (name || '?')[0].toUpperCase()
   const px = sizePx[size]
@@ -47,7 +49,8 @@ export function PlayerAvatar({ avatarUrl, name, size = 'sm', className = '', pri
       <div className={`${sizeClass} rounded-full overflow-hidden shrink-0 ${className}`}>
         <Image
           src={avatarUrl}
-          alt={name}
+          // Decorative by default: it sits beside the player's name.
+          alt={labelled ? name : ''}
           width={px}
           height={px}
           // Serve a correctly-sized WebP via Next.js image optimisation.
@@ -63,6 +66,7 @@ export function PlayerAvatar({ avatarUrl, name, size = 'sm', className = '', pri
 
   return (
     <div
+      {...(labelled ? { role: 'img', 'aria-label': name } : { 'aria-hidden': true })}
       className={`${sizeClass} rounded-full flex items-center justify-center shrink-0 font-semibold ${avatarColor(name)} ${className}`}
     >
       {initial}

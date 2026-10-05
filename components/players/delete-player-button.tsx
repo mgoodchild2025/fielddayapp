@@ -31,7 +31,7 @@ export function DeletePlayerButton({ userId, name }: { userId: string; name: str
         >
           Cancel
         </button>
-        {error && <span className="text-xs text-red-600">{error}</span>}
+        {error && <span role="alert" className="text-xs text-red-600">{error}</span>}
       </span>
     )
   }

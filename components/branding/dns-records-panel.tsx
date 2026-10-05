@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { refreshDnsStatus } from '@/actions/branding'
 import type { RailwayDnsRecord } from '@/lib/railway'
+import { announce } from '@/lib/announce'
 
 interface Props {
   orgId: string
@@ -15,6 +16,7 @@ function CopyButton({ value }: { value: string }) {
   function copy() {
     navigator.clipboard.writeText(value).then(() => {
       setCopied(true)
+      announce('Copied to clipboard')
       setTimeout(() => setCopied(false), 1500)
     })
   }

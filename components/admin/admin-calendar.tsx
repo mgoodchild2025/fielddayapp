@@ -403,6 +403,12 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                         !inMonth ? 'opacity-25' : '',
                       ].join(' ')}
                       onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                      // Keyboard / screen reader: the cell was a clickable div.
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      aria-label={new Date(`${dateStr}T12:00:00Z`).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDate(isSelected ? null : dateStr) } }}
                     >
                       {/* Day number */}
                       <span
@@ -581,7 +587,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                               : `Until ${fmtTime(l.gameEndTime!)}`}
                         </p>
                       )}
-                      <p className="text-xs font-medium mt-1.5 group-hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                      <p className="text-xs font-medium mt-1.5 group-hover:underline" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
                         {isSession ? 'View sessions →' : 'View schedule →'}
                       </p>
                     </div>

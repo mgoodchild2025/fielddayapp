@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { updateCheckinSound } from '@/actions/branding'
 import { CHECKIN_SOUNDS, unlockAudio, playCheckinSound } from '@/lib/audio'
+import { announce } from '@/lib/announce'
 
 interface Props {
   currentSound: string | null
@@ -34,6 +35,7 @@ export function CheckinSoundPicker({ currentSound, orgId }: Props) {
         setSaveError(result.error)
       } else {
         setSaved(true)
+        announce('Saved')
         setTimeout(() => setSaved(false), 3000)
       }
     })

@@ -146,7 +146,7 @@ export function SelfCheckinClient({
             <Link
               href="/schedule"
               className="inline-block mt-2 text-sm font-medium hover:underline"
-              style={{ color: 'var(--brand-primary)' }}
+              style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}
             >
               Go to My Games →
             </Link>

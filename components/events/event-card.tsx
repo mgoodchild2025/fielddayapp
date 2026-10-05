@@ -73,7 +73,7 @@ export function EventCard({ league, spots }: { league: EventCardLeague; spots: E
   return (
     <Link
       href={`/events/${league.slug}`}
-      className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150"
+      className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md motion-safe:hover:-translate-y-0.5 transition-all duration-150"
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -120,7 +120,7 @@ export function EventCard({ league, spots }: { league: EventCardLeague; spots: E
           )}
         </div>
       )}
-      <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
+      <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary-ink, var(--brand-primary))' }}>
         {atCapacity
           ? 'Players can still join a team'
           : formatEventPrice(league)}
