@@ -1,0 +1,95 @@
+# Fieldday Scoreboard — iPhone + Apple Watch. Generate the Xcode project with:
+#   cd ios && xcodegen
+# The .xcodeproj is generated (git-ignored); this file is the source of truth.
+name: FielddayScoreboard
+options:
+  bundleIdPrefix: ca.fielddayapp
+  deploymentTarget:
+    iOS: "17.0"
+    watchOS: "10.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: LM4G49467Q
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+packages:
+  ScoreboardKit:
+    path: ScoreboardKit
+
+targets:
+  Scoreboard:
+    type: application
+    platform: iOS
+    sources:
+      - path: Scoreboard
+    dependencies:
+      - package: ScoreboardKit
+      - target: ScoreboardWatch
+    settings:
+      base:
+        PRODUCT_NAME: Scoreboard
+        PRODUCT_BUNDLE_IDENTIFIER: ca.fielddayapp.scoreboard
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_FILE: Scoreboard/Info.plist
+    info:
+      path: Scoreboard/Info.plist
+      properties:
+        CFBundleDisplayName: Scoreboard
+        LSApplicationCategoryType: public.app-category.sports
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIStatusBarHidden: true
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIApplicationSupportsIndirectInputEvents: true
+
+  ScoreboardWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: ScoreboardWatch
+    dependencies:
+      - package: ScoreboardKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ca.fielddayapp.scoreboard.watchkitapp
+        TARGETED_DEVICE_FAMILY: "4"
+        INFOPLIST_FILE: ScoreboardWatch/Info.plist
+        SKIP_INSTALL: YES
+    info:
+      path: ScoreboardWatch/Info.plist
+      properties:
+        CFBundleDisplayName: Scoreboard
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: ca.fielddayapp.scoreboard
+        ITSAppUsesNonExemptEncryption: false
+
+schemes:
+  Scoreboard:
+    build:
+      targets:
+        Scoreboard: all
+        ScoreboardWatch: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  ScoreboardWatch:
+    build:
+      targets:
+        ScoreboardWatch: all
+    run:
+      config: Debug
