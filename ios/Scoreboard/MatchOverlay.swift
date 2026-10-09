@@ -11,7 +11,12 @@ struct MatchOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.92).ignoresSafeArea()
+            // Opaque: the board's bar used to show through behind the headline.
+            ZStack {
+                Color.boardBackground
+                LinearGradient(colors: [washColor.opacity(0.55), .clear], startPoint: .top, endPoint: .center)
+            }
+            .ignoresSafeArea()
             VStack(spacing: 10) {
                 Image(systemName: outcome == .tie ? "equal.circle.fill" : "trophy.fill")
                     .font(.system(size: 44))
@@ -50,6 +55,12 @@ struct MatchOverlay: View {
             .padding(24)
         }
         .accessibilityAddTraits(.isModal)
+    }
+
+    /// The winner's colour washes in from the top; a tie stays neutral.
+    private var washColor: Color {
+        if case let .won(side) = outcome { return board.team(side).swiftUIColor }
+        return .clear
     }
 
     private var title: String {

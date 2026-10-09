@@ -39,16 +39,15 @@ struct MiddleBar: View {
                     .font(.footnote.weight(.bold))
                     .foregroundStyle(.white.opacity(0.9))
                 BarButton(title: "Undo", symbol: "arrow.uturn.backward", label: "Undo New game", prominent: true, action: undoReset)
+            } else if vertical {
+                controls(compact: true)
             } else {
-                if board.mode == .sets {
-                    BarButton(title: "End set \(tally.sets.count + 1)", prominent: true, action: endSet)
-                        .disabled(tally.a + tally.b == 0 || tally.over)
+                // Labels never truncate: on narrow phones (SE, mini) the bar
+                // drops Undo's word and keeps the icon instead.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) { controls(compact: false) }
+                    HStack(spacing: 6) { controls(compact: true) }
                 }
-                BarButton(title: vertical ? nil : "Undo", symbol: "arrow.uturn.backward", label: "Undo last score change", action: undo)
-                    .disabled(board.events.isEmpty)
-                BarButton(symbol: "arrow.left.arrow.right", label: "Swap sides", action: swap)
-                BarButton(symbol: "ellipsis", label: "Menu", action: openMenu)
-                BarButton(symbol: "lock.fill", label: "Lock the board", hint: "Ignores taps until you hold to unlock — for a phone in a pocket.", action: lock)
             }
         }
         .padding(.horizontal, vertical ? 6 : 10)
@@ -58,6 +57,19 @@ struct MiddleBar: View {
         .animation(.snappy(duration: 0.2), value: setPrompt?.id)
         .animation(.snappy(duration: 0.2), value: locked)
         .animation(.snappy(duration: 0.2), value: undoReset == nil)
+    }
+
+    @ViewBuilder
+    private func controls(compact: Bool) -> some View {
+        if board.mode == .sets {
+            BarButton(title: "End set \(tally.sets.count + 1)", prominent: true, action: endSet)
+                .disabled(tally.a + tally.b == 0 || tally.over)
+        }
+        BarButton(title: compact ? nil : "Undo", symbol: "arrow.uturn.backward", label: "Undo last score change", action: undo)
+            .disabled(board.events.isEmpty)
+        BarButton(symbol: "arrow.left.arrow.right", label: "Swap sides", action: swap)
+        BarButton(symbol: "ellipsis", label: "Menu", action: openMenu)
+        BarButton(symbol: "lock.fill", label: "Lock the board", hint: "Ignores taps until you hold to unlock — for a phone in a pocket.", action: lock)
     }
 }
 
@@ -75,7 +87,7 @@ struct BarButton: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 if let symbol { Image(systemName: symbol) }
-                if let title { Text(title).lineLimit(1) }
+                if let title { Text(title).lineLimit(1).fixedSize() }
             }
             .font(.footnote.weight(.semibold))
             .foregroundStyle(.white)

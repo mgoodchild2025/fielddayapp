@@ -44,7 +44,10 @@ struct TeamPanel: View {
         GeometryReader { geo in
             let size = min(geo.size.height * 0.62, geo.size.width * 0.5)
             ZStack {
+                // Edge to edge, like the fill: stopping at the safe area left
+                // a lighter band under the Dynamic Island while pressed.
                 Color.black.opacity(touching && !locked ? 0.15 : 0)
+                    .ignoresSafeArea()
                     .animation(.easeOut(duration: 0.1), value: touching)
 
                 VStack(spacing: 6) {

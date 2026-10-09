@@ -131,7 +131,14 @@ struct WatchBoardView: View {
 
     private func matchOver(board: Board, tally: Tally, outcome: Outcome) -> some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            ZStack {
+                Color.black
+                // The winner's colour washes in from the top, like the phone.
+                if case let .won(side) = outcome {
+                    LinearGradient(colors: [board.team(side).swiftUIColor.opacity(0.55), .clear], startPoint: .top, endPoint: .center)
+                }
+            }
+            .ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 6) {
                     Image(systemName: outcome == .tie ? "equal.circle.fill" : "trophy.fill")

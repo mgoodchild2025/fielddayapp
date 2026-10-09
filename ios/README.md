@@ -67,8 +67,8 @@ Bundle IDs: `ca.fielddayapp.scoreboard` (iPhone) and
 3. Archive: Product → Archive (scheme Scoreboard, "Any iOS Device"), then
    Distribute App → App Store Connect. Or from the terminal:
    `xcodebuild -project FielddayScoreboard.xcodeproj -scheme Scoreboard -configuration Release -destination 'generic/platform=iOS' -archivePath build/Scoreboard.xcarchive -allowProvisioningUpdates archive`
-4. In App Store Connect: screenshots (6.9" iPhone + Apple Watch), description,
-   keywords, support URL, privacy policy URL (`https://fielddayapp.ca/privacy`),
-   App Privacy = "Data Not Collected", age rating, category Sports. Submit for review.
+4. In App Store Connect: paste the copy from `AppStore/listing.md` and upload
+   `AppStore/screenshots/` (6.9" iPhone + Apple Watch Ultra). App Privacy =
+   "Data Not Collected", age rating 4+, category Sports. Submit for review.
 
 Bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in `project.yml` for each upload.
