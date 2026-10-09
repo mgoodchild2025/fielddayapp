@@ -53,14 +53,16 @@ struct WatchBoardView: View {
                         .textCase(.uppercase)
                         .lineLimit(1)
                         .foregroundStyle(.white.opacity(0.85))
+                    // Leave room for the set dots when there are any.
+                    let showDots = board.mode == .sets && won > 0
                     Text("\(points)")
-                        .font(.system(size: geo.size.height * 0.62, weight: .bold, design: .rounded))
+                        .font(.system(size: geo.size.height * (showDots ? 0.5 : 0.62), weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                         .foregroundStyle(.white)
                         .contentTransition(.numericText(value: Double(points)))
-                    if board.mode == .sets && won > 0 {
+                    if showDots {
                         HStack(spacing: 4) {
                             ForEach(0..<won, id: \.self) { _ in Circle().fill(.white).frame(width: 6, height: 6) }
                         }
@@ -102,6 +104,7 @@ struct WatchBoardView: View {
                 } label: {
                     Image(systemName: "flag.checkered")
                 }
+                .buttonStyle(.borderedProminent)
                 .tint(.boardAction)
                 .accessibilityLabel("End match")
             } else {
@@ -110,6 +113,7 @@ struct WatchBoardView: View {
                     .accessibilityLabel("Undo")
                 if board.mode == .sets {
                     Button("Set \(tally.sets.count + 1)") { endSet() }
+                        .buttonStyle(.borderedProminent)
                         .tint(.boardAction)
                         .disabled(tally.a + tally.b == 0 || tally.over)
                         .accessibilityLabel("End set \(tally.sets.count + 1)")
@@ -127,7 +131,7 @@ struct WatchBoardView: View {
 
     private func matchOver(board: Board, tally: Tally, outcome: Outcome) -> some View {
         ZStack {
-            Color.black.opacity(0.88).ignoresSafeArea()
+            Color.black.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 6) {
                     Image(systemName: outcome == .tie ? "equal.circle.fill" : "trophy.fill")
@@ -142,7 +146,9 @@ struct WatchBoardView: View {
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                     }
-                    Button("New game", action: newGame).tint(.boardAction)
+                    Button("New game", action: newGame)
+                        .buttonStyle(.borderedProminent)
+                        .tint(.boardAction)
                     Button("Undo", action: undo)
                 }
             }

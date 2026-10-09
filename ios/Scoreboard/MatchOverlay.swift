@@ -11,7 +11,7 @@ struct MatchOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.82).ignoresSafeArea()
+            Color.black.opacity(0.92).ignoresSafeArea()
             VStack(spacing: 10) {
                 Image(systemName: outcome == .tie ? "equal.circle.fill" : "trophy.fill")
                     .font(.system(size: 44))
