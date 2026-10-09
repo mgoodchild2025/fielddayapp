@@ -10,6 +10,7 @@ import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
 import { getPlayerMedals } from '@/lib/medal-queries'
 import { getPlayerCareer } from '@/lib/career'
 import type { BioCardData } from '@/components/bios/player-bio-card'
+import { cardGaps } from '@/lib/player-card-gaps'
 import type {
   DashboardTeam,
   PendingAction,
@@ -206,6 +207,10 @@ export default async function DashboardPage() {
     tagline: myBioRow?.tagline ?? null,
     medalShelf: myShelf,
   }
+  // What the card still needs (number, position, photo). An admin-hidden bio
+  // isn't nudged: the player can't put it back on show.
+  const hasCardBio = !!myBioRow
+  const myCardGaps = myBioRow?.hidden_by_admin ? [] : cardGaps(myCardBio)
 
   // ── If no active teams and no sessions, render the off-season dashboard ───
   if (activeTeams.length === 0 && upcomingSessions.length === 0) {
@@ -220,6 +225,8 @@ export default async function DashboardPage() {
           myCardBio={myCardBio}
           myCareer={myCareer}
           myCardHref={`/players/${user.id}/card`}
+          hasCardBio={hasCardBio}
+          myCardGaps={myCardGaps}
           timezone={timezone}
           nextItem={null}
           sameDayGames={[]}
@@ -790,6 +797,8 @@ export default async function DashboardPage() {
           myCardBio={myCardBio}
           myCareer={myCareer}
           myCardHref={`/players/${user.id}/card`}
+          hasCardBio={hasCardBio}
+          myCardGaps={myCardGaps}
           timezone={timezone}
           nextItem={nextItem}
           callOffs={callOffs}

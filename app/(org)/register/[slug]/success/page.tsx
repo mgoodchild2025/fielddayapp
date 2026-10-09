@@ -9,6 +9,9 @@ import { QRCodeCard } from '@/components/checkin/qr-code-display'
 import { PendingPaymentNotice } from '@/components/payments/pending-payment-notice'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { QuickCardForm } from '@/components/bios/quick-card-form'
+import { getPositionsForSport } from '@/actions/positions'
+import { cardGaps } from '@/lib/player-card-gaps'
 
 export const metadata: Metadata = { title: "You're registered" }
 
@@ -93,7 +96,7 @@ export default async function RegistrationSuccessPage({
   const { data: registration } = user && league
     ? await db
         .from('registrations')
-        .select('checkin_token, status, session_id')
+        .select('checkin_token, status, session_id, position')
         .eq('league_id', league.id)
         .eq('organization_id', org.id)
         .eq('user_id', user.id)
@@ -135,10 +138,24 @@ export default async function RegistrationSuccessPage({
     paymentInstructions = orgPay?.registration_manual_instructions ?? null
   }
 
-  const { data: profile } = user
-
-    ? await db.from('profiles').select('full_name').eq('id', user.id).single()
-    : { data: null }
+  // Profile + the player's card (for the quick-card prompt) + the sport's positions.
+  const [{ data: profile }, { data: myBio }, positions] = await Promise.all([
+    user ? db.from('profiles').select('full_name, avatar_url').eq('id', user.id).single() : Promise.resolve({ data: null }),
+    user
+      ? db.from('player_bios').select('jersey_number, position, hero_photo_url, hidden_by_admin').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    league?.sport ? getPositionsForSport(org.id, league.sport) : Promise.resolve([] as string[]),
+  ])
+  // Offer the quick card only while number or position is missing.
+  const regPosition = (registration as { position?: string | null } | null)?.position ?? null
+  const quickCardGaps = user && !myBio?.hidden_by_admin
+    ? cardGaps({
+        jerseyNumber: myBio?.jersey_number,
+        position: myBio?.position,
+        photoUrl: myBio?.hero_photo_url ?? (profile as { avatar_url?: string | null } | null)?.avatar_url,
+      })
+    : []
+  const showQuickCard = quickCardGaps.includes('number') || quickCardGaps.includes('position')
 
   // A drop-in booking is for ONE session: say which, instead of the season's
   // start date (which was often weeks before the night they booked).
@@ -221,6 +238,15 @@ export default async function RegistrationSuccessPage({
               You can also find this QR code under My Events at any time.
             </p>
           </div>
+        )}
+
+        {showQuickCard && (
+          <QuickCardForm
+            initialNumber={myBio?.jersey_number ?? ''}
+            initialPosition={myBio?.position ?? regPosition ?? ''}
+            positions={positions}
+            needsPhoto={quickCardGaps.includes('photo')}
+          />
         )}
 
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">

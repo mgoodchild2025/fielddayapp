@@ -1,0 +1,538 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		16E30F9AEBAFEA600134BAA2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13CEE8B0B8D99EC441A63114 /* PrivacyInfo.xcprivacy */; };
+		1859D5DAF66DC8EC49166B65 /* TeamPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C9C8BA32ADDB79F12C0158 /* TeamPanel.swift */; };
+		431C502D212DDEC96375A34C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 74733F21502B92BBBA4327D0 /* Assets.xcassets */; };
+		4F211951785427099EFB2D6B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D0C37F83309C27BF4A773657 /* Assets.xcassets */; };
+		5534BB41E791C24DA9C1919F /* ScoreboardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CB6BBF8260C939CC6D7C719 /* ScoreboardApp.swift */; };
+		5AD21CA39F88EBAA1A287504 /* MatchOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F2B8ACBD4C7D48B5D0E8D3 /* MatchOverlay.swift */; };
+		5DDF3F0FE84E589A0705F98E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5584CD26E1DC4EFBCBA70001 /* PrivacyInfo.xcprivacy */; };
+		70406ADB00BD100B6B57C535 /* ScoreboardKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1395D74CF8141593B02B98DA /* ScoreboardKit */; };
+		7C4D4079C5F7FB0C8BB02A4C /* TeamEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB4C480A5D7C4EBDAD8415CF /* TeamEditor.swift */; };
+		9FDFC7D080D4C2ECF1BBAFA7 /* ScoreboardWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 62D0E4B96582462DA7981851 /* ScoreboardWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A644CF4C76BB2B31A1C8D2C5 /* ScoreboardKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C5A00B25D125C6B1F5A42B5 /* ScoreboardKit */; };
+		C87807F6A870DF762AD31CCB /* ScoreboardWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5672F014EA780779016CB0A4 /* ScoreboardWatchApp.swift */; };
+		C9AB925F95E2444D111EA570 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25A37CB1191794B1E8F71E73 /* Haptics.swift */; };
+		E334AB4880FA23BFA2AE58EA /* WatchBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C421A023D2D98BD63BDF7177 /* WatchBoardView.swift */; };
+		E5194DF49AB921FA58F93B93 /* ScoreboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA7CBD806F33D8787B36D2E /* ScoreboardView.swift */; };
+		EA9741673DD9FAC48CA33E1F /* MenuSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DECD55347CB12B37CC0438E8 /* MenuSheet.swift */; };
+		ED3BB5AD6B93F5075DAE264A /* MiddleBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFCA5029CE253020E0F8CB2 /* MiddleBar.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2F6C3B24660F6E55EBD1E653 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9AEC9B3C7EF5D55C3A80BB11 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 598249564861309D2D665DF3;
+			remoteInfo = ScoreboardWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0450F93F0DE0BBA304ADD34E /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				9FDFC7D080D4C2ECF1BBAFA7 /* ScoreboardWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		06F2B8ACBD4C7D48B5D0E8D3 /* MatchOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchOverlay.swift; sourceTree = "<group>"; };
+		13CEE8B0B8D99EC441A63114 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		25A37CB1191794B1E8F71E73 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		2EFCA5029CE253020E0F8CB2 /* MiddleBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiddleBar.swift; sourceTree = "<group>"; };
+		3CB6BBF8260C939CC6D7C719 /* ScoreboardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreboardApp.swift; sourceTree = "<group>"; };
+		42B805D3D4ACD98FE52544FD /* ScoreboardKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ScoreboardKit; path = ScoreboardKit; sourceTree = SOURCE_ROOT; };
+		5584CD26E1DC4EFBCBA70001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		5672F014EA780779016CB0A4 /* ScoreboardWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreboardWatchApp.swift; sourceTree = "<group>"; };
+		602D6B9FFF78AE4FF68B546A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		62D0E4B96582462DA7981851 /* ScoreboardWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ScoreboardWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6DDDAE0BC1ADF93CAF8F1A4E /* Scoreboard.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Scoreboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		74733F21502B92BBBA4327D0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		82C9C8BA32ADDB79F12C0158 /* TeamPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamPanel.swift; sourceTree = "<group>"; };
+		9AA7CBD806F33D8787B36D2E /* ScoreboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreboardView.swift; sourceTree = "<group>"; };
+		BB4C480A5D7C4EBDAD8415CF /* TeamEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamEditor.swift; sourceTree = "<group>"; };
+		C421A023D2D98BD63BDF7177 /* WatchBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBoardView.swift; sourceTree = "<group>"; };
+		C5421C270E98E11C26C09C3C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D0C37F83309C27BF4A773657 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DECD55347CB12B37CC0438E8 /* MenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuSheet.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		69B8A8D851A3896266E58A99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A644CF4C76BB2B31A1C8D2C5 /* ScoreboardKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA6300E08E0806AB4D15BC8C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				70406ADB00BD100B6B57C535 /* ScoreboardKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0E110B289F7C6FDF3E5002E4 /* ScoreboardWatch */ = {
+			isa = PBXGroup;
+			children = (
+				74733F21502B92BBBA4327D0 /* Assets.xcassets */,
+				602D6B9FFF78AE4FF68B546A /* Info.plist */,
+				5584CD26E1DC4EFBCBA70001 /* PrivacyInfo.xcprivacy */,
+				5672F014EA780779016CB0A4 /* ScoreboardWatchApp.swift */,
+				C421A023D2D98BD63BDF7177 /* WatchBoardView.swift */,
+			);
+			path = ScoreboardWatch;
+			sourceTree = "<group>";
+		};
+		2CA38C68FE2AF95D2B4067BF /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				42B805D3D4ACD98FE52544FD /* ScoreboardKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		31371E084942E95861806A36 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6DDDAE0BC1ADF93CAF8F1A4E /* Scoreboard.app */,
+				62D0E4B96582462DA7981851 /* ScoreboardWatch.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		3FB58D683DBBDA1E1151517F = {
+			isa = PBXGroup;
+			children = (
+				2CA38C68FE2AF95D2B4067BF /* Packages */,
+				AC6E923B9D12CDD19B24EA2A /* Scoreboard */,
+				0E110B289F7C6FDF3E5002E4 /* ScoreboardWatch */,
+				31371E084942E95861806A36 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AC6E923B9D12CDD19B24EA2A /* Scoreboard */ = {
+			isa = PBXGroup;
+			children = (
+				D0C37F83309C27BF4A773657 /* Assets.xcassets */,
+				25A37CB1191794B1E8F71E73 /* Haptics.swift */,
+				C5421C270E98E11C26C09C3C /* Info.plist */,
+				06F2B8ACBD4C7D48B5D0E8D3 /* MatchOverlay.swift */,
+				DECD55347CB12B37CC0438E8 /* MenuSheet.swift */,
+				2EFCA5029CE253020E0F8CB2 /* MiddleBar.swift */,
+				13CEE8B0B8D99EC441A63114 /* PrivacyInfo.xcprivacy */,
+				3CB6BBF8260C939CC6D7C719 /* ScoreboardApp.swift */,
+				9AA7CBD806F33D8787B36D2E /* ScoreboardView.swift */,
+				BB4C480A5D7C4EBDAD8415CF /* TeamEditor.swift */,
+				82C9C8BA32ADDB79F12C0158 /* TeamPanel.swift */,
+			);
+			path = Scoreboard;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		598249564861309D2D665DF3 /* ScoreboardWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6376C7A45128DEA6F5F7CE3A /* Build configuration list for PBXNativeTarget "ScoreboardWatch" */;
+			buildPhases = (
+				1C71382C626893133B16DCA6 /* Sources */,
+				643A1B0F90333ED2A558789A /* Resources */,
+				AA6300E08E0806AB4D15BC8C /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ScoreboardWatch;
+			packageProductDependencies = (
+				1395D74CF8141593B02B98DA /* ScoreboardKit */,
+			);
+			productName = ScoreboardWatch;
+			productReference = 62D0E4B96582462DA7981851 /* ScoreboardWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F46D127E56B45D5583DA5BC4 /* Scoreboard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CBDB41EAAE03B7C39CF6CE1B /* Build configuration list for PBXNativeTarget "Scoreboard" */;
+			buildPhases = (
+				9FA7ACE3D4FC5089464011DC /* Sources */,
+				4F2771B442B68E0AF1ABBD0A /* Resources */,
+				69B8A8D851A3896266E58A99 /* Frameworks */,
+				0450F93F0DE0BBA304ADD34E /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A5EFBCE39CBE37E1F9BD2CE1 /* PBXTargetDependency */,
+			);
+			name = Scoreboard;
+			packageProductDependencies = (
+				6C5A00B25D125C6B1F5A42B5 /* ScoreboardKit */,
+			);
+			productName = Scoreboard;
+			productReference = 6DDDAE0BC1ADF93CAF8F1A4E /* Scoreboard.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9AEC9B3C7EF5D55C3A80BB11 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					598249564861309D2D665DF3 = {
+						DevelopmentTeam = LM4G49467Q;
+						ProvisioningStyle = Automatic;
+					};
+					F46D127E56B45D5583DA5BC4 = {
+						DevelopmentTeam = LM4G49467Q;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 9E1BD29B59B313629D994710 /* Build configuration list for PBXProject "FielddayScoreboard" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 3FB58D683DBBDA1E1151517F;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				1CEF23C0D470FAA92B4A935D /* XCLocalSwiftPackageReference "ScoreboardKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 31371E084942E95861806A36 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F46D127E56B45D5583DA5BC4 /* Scoreboard */,
+				598249564861309D2D665DF3 /* ScoreboardWatch */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4F2771B442B68E0AF1ABBD0A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4F211951785427099EFB2D6B /* Assets.xcassets in Resources */,
+				16E30F9AEBAFEA600134BAA2 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		643A1B0F90333ED2A558789A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				431C502D212DDEC96375A34C /* Assets.xcassets in Resources */,
+				5DDF3F0FE84E589A0705F98E /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1C71382C626893133B16DCA6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C87807F6A870DF762AD31CCB /* ScoreboardWatchApp.swift in Sources */,
+				E334AB4880FA23BFA2AE58EA /* WatchBoardView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9FA7ACE3D4FC5089464011DC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C9AB925F95E2444D111EA570 /* Haptics.swift in Sources */,
+				5AD21CA39F88EBAA1A287504 /* MatchOverlay.swift in Sources */,
+				EA9741673DD9FAC48CA33E1F /* MenuSheet.swift in Sources */,
+				ED3BB5AD6B93F5075DAE264A /* MiddleBar.swift in Sources */,
+				5534BB41E791C24DA9C1919F /* ScoreboardApp.swift in Sources */,
+				E5194DF49AB921FA58F93B93 /* ScoreboardView.swift in Sources */,
+				7C4D4079C5F7FB0C8BB02A4C /* TeamEditor.swift in Sources */,
+				1859D5DAF66DC8EC49166B65 /* TeamPanel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A5EFBCE39CBE37E1F9BD2CE1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 598249564861309D2D665DF3 /* ScoreboardWatch */;
+			targetProxy = 2F6C3B24660F6E55EBD1E653 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		50BC8B1027BAECB39491FB25 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Scoreboard/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ca.fielddayapp.scoreboard;
+				PRODUCT_NAME = Scoreboard;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		5353308FD9C2842745AD4402 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = LM4G49467Q;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		674D9004875D498D1A677DAC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				INFOPLIST_FILE = ScoreboardWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = ca.fielddayapp.scoreboard.watchkitapp;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Release;
+		};
+		7144FE2ACC45B41B63502DDC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Scoreboard/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ca.fielddayapp.scoreboard;
+				PRODUCT_NAME = Scoreboard;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		7344C01307993BB8C4EF0BB5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				INFOPLIST_FILE = ScoreboardWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = ca.fielddayapp.scoreboard.watchkitapp;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Debug;
+		};
+		D623384281D97C61B57540F8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = LM4G49467Q;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6376C7A45128DEA6F5F7CE3A /* Build configuration list for PBXNativeTarget "ScoreboardWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7344C01307993BB8C4EF0BB5 /* Debug */,
+				674D9004875D498D1A677DAC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9E1BD29B59B313629D994710 /* Build configuration list for PBXProject "FielddayScoreboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D623384281D97C61B57540F8 /* Debug */,
+				5353308FD9C2842745AD4402 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CBDB41EAAE03B7C39CF6CE1B /* Build configuration list for PBXNativeTarget "Scoreboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7144FE2ACC45B41B63502DDC /* Debug */,
+				50BC8B1027BAECB39491FB25 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		1CEF23C0D470FAA92B4A935D /* XCLocalSwiftPackageReference "ScoreboardKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ScoreboardKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1395D74CF8141593B02B98DA /* ScoreboardKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ScoreboardKit;
+		};
+		6C5A00B25D125C6B1F5A42B5 /* ScoreboardKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ScoreboardKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 9AEC9B3C7EF5D55C3A80BB11 /* Project object */;
+}

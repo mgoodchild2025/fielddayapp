@@ -1,0 +1,56 @@
+{
+  "" : {
+    "const-values" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/Scoreboard-primary.swiftconstvalues",
+    "dependencies" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/Scoreboard-primary.d",
+    "diagnostics" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/Scoreboard-primary.dia",
+    "emit-module-dependencies" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/Scoreboard-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/Scoreboard-primary-emit-module.dia",
+    "pch" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/Scoreboard-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/Scoreboard-primary.swiftdeps"
+  },
+  "/Users/matt/fielddayapp/ios/Scoreboard/Haptics.swift" : {
+    "index-unit-output-path" : "/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/Haptics.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/Haptics.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/Haptics.o"
+  },
+  "/Users/matt/fielddayapp/ios/Scoreboard/MatchOverlay.swift" : {
+    "index-unit-output-path" : "/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/MatchOverlay.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/MatchOverlay.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/MatchOverlay.o"
+  },
+  "/Users/matt/fielddayapp/ios/Scoreboard/MenuSheet.swift" : {
+    "index-unit-output-path" : "/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/MenuSheet.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/MenuSheet.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/MenuSheet.o"
+  },
+  "/Users/matt/fielddayapp/ios/Scoreboard/MiddleBar.swift" : {
+    "index-unit-output-path" : "/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/MiddleBar.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/MiddleBar.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/MiddleBar.o"
+  },
+  "/Users/matt/fielddayapp/ios/Scoreboard/ScoreboardApp.swift" : {
+    "index-unit-output-path" : "/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/ScoreboardApp.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/ScoreboardApp.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/ScoreboardApp.o"
+  },
+  "/Users/matt/fielddayapp/ios/Scoreboard/ScoreboardView.swift" : {
+    "index-unit-output-path" : "/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/ScoreboardView.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/ScoreboardView.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/ScoreboardView.o"
+  },
+  "/Users/matt/fielddayapp/ios/Scoreboard/TeamEditor.swift" : {
+    "index-unit-output-path" : "/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/TeamEditor.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/TeamEditor.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/TeamEditor.o"
+  },
+  "/Users/matt/fielddayapp/ios/Scoreboard/TeamPanel.swift" : {
+    "index-unit-output-path" : "/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/TeamPanel.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/TeamPanel.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/TeamPanel.o"
+  },
+  "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-iphonesimulator/Scoreboard.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  }
+}

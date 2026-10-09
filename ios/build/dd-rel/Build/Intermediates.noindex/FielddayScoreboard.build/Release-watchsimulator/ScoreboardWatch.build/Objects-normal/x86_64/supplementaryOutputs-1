@@ -1,0 +1,12 @@
+{
+  "/Users/matt/fielddayapp/ios/ScoreboardWatch/ScoreboardWatchApp.swift" : {
+    "abi-baseline-json" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-watchsimulator/ScoreboardWatch.build/Objects-normal/x86_64/ScoreboardWatch.abi.json",
+    "const-values" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-watchsimulator/ScoreboardWatch.build/Objects-normal/x86_64/ScoreboardWatch-primary.swiftconstvalues",
+    "dependencies" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-watchsimulator/ScoreboardWatch.build/Objects-normal/x86_64/ScoreboardWatch-primary.d",
+    "diagnostics" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-watchsimulator/ScoreboardWatch.build/Objects-normal/x86_64/ScoreboardWatch-primary.dia",
+    "objc-header" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-watchsimulator/ScoreboardWatch.build/Objects-normal/x86_64/ScoreboardWatch-Swift.h",
+    "swiftdoc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-watchsimulator/ScoreboardWatch.build/Objects-normal/x86_64/ScoreboardWatch.swiftdoc",
+    "swiftmodule" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-watchsimulator/ScoreboardWatch.build/Objects-normal/x86_64/ScoreboardWatch.swiftmodule",
+    "swiftsourceinfo" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/FielddayScoreboard.build/Release-watchsimulator/ScoreboardWatch.build/Objects-normal/x86_64/ScoreboardWatch.swiftsourceinfo"
+  }
+}

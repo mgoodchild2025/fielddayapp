@@ -1,0 +1,12 @@
+{
+  "/Users/matt/fielddayapp/ios/ScoreboardKit/Sources/ScoreboardKit/Board.swift" : {
+    "abi-baseline-json" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-iphonesimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit.abi.json",
+    "const-values" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-iphonesimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-primary.swiftconstvalues",
+    "dependencies" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-iphonesimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-primary.d",
+    "diagnostics" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-iphonesimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-primary.dia",
+    "objc-header" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-iphonesimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-Swift.h",
+    "swiftdoc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-iphonesimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit.swiftdoc",
+    "swiftmodule" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-iphonesimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit.swiftmodule",
+    "swiftsourceinfo" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-iphonesimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit.swiftsourceinfo"
+  }
+}
