@@ -4,6 +4,7 @@ import { useState } from 'react'
 import QRCode from 'react-qr-code'
 import { Printer, Link as LinkIcon, Check } from 'lucide-react'
 import { announce } from '@/lib/announce'
+import { usePrintOrShare } from '@/components/print/use-print-or-share'
 
 interface Props {
   url: string
@@ -16,6 +17,7 @@ interface Props {
  *  registration → waiver → payment flow, so participants self-serve. The same
  *  link can be copied and shared directly (text, email, group chat). */
 export function RegistrationQrPoster({ url, eventName, priceLabel }: Props) {
+  const printer = usePrintOrShare('Print')
   const [copied, setCopied] = useState(false)
 
   async function copyLink() {
@@ -50,11 +52,12 @@ export function RegistrationQrPoster({ url, eventName, priceLabel }: Props) {
         </button>
         <button
           type="button"
-          onClick={() => window.print()}
+          onClick={printer.print}
+          disabled={printer.busy}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-sm font-semibold text-white"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
-          <Printer className="w-4 h-4" /> Print
+          <Printer className="w-4 h-4" /> {printer.label}
         </button>
       </div>
 
