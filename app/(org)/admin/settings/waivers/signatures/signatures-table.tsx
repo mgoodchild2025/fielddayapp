@@ -1,5 +1,6 @@
 'use client'
 
+import { PrintLink } from '@/components/print/print-link'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
@@ -114,15 +115,14 @@ export function SignaturesTable({
                     </td>
                     <td className="px-4 py-3 text-right max-sm:p-0 max-sm:w-full">
                       <div className="flex items-center justify-end max-sm:justify-start gap-2">
-                        <Link
+                        <PrintLink
                           href={`/admin/settings/waivers/signatures/${row.sigId}/print`}
-                          target="_blank"
                           className="press inline-flex items-center justify-center min-h-10 min-w-10 text-sm text-gray-500 hover:text-gray-700"
                           title="Print / Save as PDF"
                           aria-label="Print / Save as PDF"
                         >
                           🖨
-                        </Link>
+                        </PrintLink>
                         <Link
                           href={`/admin/settings/waivers/signatures/${row.sigId}`}
                           className="press inline-flex items-center min-h-10 text-xs font-medium hover:underline"

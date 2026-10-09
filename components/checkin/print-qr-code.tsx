@@ -1,6 +1,7 @@
 'use client'
 
 import QRCode from 'react-qr-code'
+import { usePrintOrShare } from '@/components/print/use-print-or-share'
 
 interface Props {
   checkinUrl: string
@@ -10,21 +11,23 @@ interface Props {
 }
 
 export function PrintQrCode({ checkinUrl, eventName, sessionLabel, orgName }: Props) {
+  const printer = usePrintOrShare()
   return (
     <>
       {/* Print controls — hidden when printing */}
       <div className="flex gap-3 mb-8 print:hidden">
         <button
-          onClick={() => window.print()}
+          onClick={printer.print}
+          disabled={printer.busy}
           className="px-5 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-700 transition-colors"
         >
-          🖨 Print / Save as PDF
+          {printer.label}
         </button>
         <button
-          onClick={() => window.close()}
+          onClick={printer.back}
           className="px-5 py-2.5 rounded-lg border text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
         >
-          ← Close
+          {printer.backLabel}
         </button>
       </div>
 

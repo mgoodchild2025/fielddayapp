@@ -1,5 +1,6 @@
 'use client'
 
+import { PrintLink } from '@/components/print/print-link'
 import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AdminScoreEntry } from '@/components/scores/admin-score-entry'
@@ -125,10 +126,13 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
   const [isClearing, setIsClearing] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<'all' | 'needs' | 'pending' | 'cancelled'>(initialFilter)
-  // "Needs scores" = games that have STARTED with no score. Counting future
-  // games made the badge read 48 in week 3 and buried tonight's few.
+  // "Needs scores" = unscored games from today (org time) or earlier — so on
+  // game night tonight's games are listed before they start. Counting future
+  // weeks made the badge read 48 in week 3 and buried tonight's few; counting
+  // only games already under way made it read "all scored" all afternoon.
   const [nowMs] = useState(() => Date.now())
-  const isDue = (g: Game) => new Date(g.scheduledAt).getTime() <= nowMs
+  const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(nowMs))
+  const isDue = (g: Game) => new Date(g.scheduledAt).getTime() <= nowMs || (!!g.dateKey && g.dateKey <= todayKey)
   const needsNow = (g: Game) => needsScore(g) && g.status === 'scheduled' && isDue(g)
   // Captain-submitted, not yet confirmed by the other captain.
   const awaitingConfirm = (g: Game) => g.result?.status === 'pending' && g.result.homeScore !== null
@@ -249,6 +253,14 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
       return showWeek ? String(g.weekNumber ?? '') === jumpFilter : g.dateKey === jumpFilter
     })
   const needsCount = allVisible.filter(needsNow).length
+  // When nothing needs a score yet, say when the next games are — "all
+  // scored" read as wrong with a whole week of unscored games ahead.
+  const nextToScore = allVisible
+    .filter((g) => needsScore(g) && g.status === 'scheduled' && !isDue(g))
+    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))[0]
+  const needsEmptyText = nextToScore
+    ? `Nothing to score yet — the next games are ${nextToScore.dateLabel} at ${nextToScore.timeLabel}.`
+    : 'All games have scores — nice work! 🎉'
   const pendingCount = allVisible.filter(awaitingConfirm).length
   const cancelledCount = allVisible.filter((g) => g.status === 'cancelled' || g.status === 'postponed').length
 
@@ -263,7 +275,6 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
 
   // Open at today: scroll the first date group from today onward into view
   // (once, on the unfiltered list). Each layout tags its groups with an id.
-  const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(nowMs))
   const scrolledRef = useRef(false)
   useEffect(() => {
     if (scrolledRef.current || filter !== 'all' || jumpFilter !== 'all' || sortOrder !== 'oldest') return
@@ -431,16 +442,13 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
         )}
 
         {isAdmin && allVisible.length > 0 && (
-          <a
+          <PrintLink
             href={`${printBase}?type=full`}
-            target="_blank"
-            rel="noopener noreferrer"
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-            title="Print full schedule"
-          >
+            title="Print full schedule">
             <PrintIcon />
             Print full schedule
-          </a>
+          </PrintLink>
         )}
       </div>
 
@@ -457,15 +465,12 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
             >
               Clear
             </button>
-            <a
+            <PrintLink
               href={`${printBase}?gameIds=${Array.from(selectedIds).join(',')}&type=scoresheet`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="press flex items-center gap-1.5 min-h-10 px-3 rounded-md text-xs font-semibold bg-gray-800 text-white hover:bg-gray-700"
-            >
+              className="press flex items-center gap-1.5 min-h-10 px-3 rounded-md text-xs font-semibold bg-gray-800 text-white hover:bg-gray-700">
               <PrintIcon />
               Print score sheets
-            </a>
+            </PrintLink>
             <button
               onClick={handleBulkDelete}
               disabled={isPending}
@@ -485,15 +490,12 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
             <div className="flex items-center justify-between px-1 mb-2">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{dateLabel}</span>
               {dateKey && dateKey !== 'undated' && (
-                <a
+                <PrintLink
                   href={`${printBase}?date=${dateKey}&type=schedule`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-600"
-                >
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-600">
                   <PrintIcon />
                   Print day
-                </a>
+                </PrintLink>
               )}
             </div>
             <div className="space-y-2">
@@ -596,7 +598,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
           </div>
         )) : (
           <div className="bg-white rounded-lg border px-4 py-12 text-center text-gray-500 text-sm">
-            {hideCompleted ? 'No games awaiting scores in this view. 🎉' : filter === 'needs' ? 'All games have scores — nice work! 🎉' : filter === 'cancelled' ? 'No cancelled or postponed games.' : jumpFilter !== 'all' ? 'No games in this selection.' : 'No games scheduled yet.'}
+            {hideCompleted ? 'No games awaiting scores in this view. 🎉' : filter === 'needs' ? needsEmptyText : filter === 'cancelled' ? 'No cancelled or postponed games.' : jumpFilter !== 'all' ? 'No games in this selection.' : 'No games scheduled yet.'}
           </div>
         )}
       </div>
@@ -638,16 +640,13 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                           </span>
                           {dateKey && dateKey !== 'undated' && (
                             <div className="flex items-center gap-3">
-                              <a
+                              <PrintLink
                                 href={`${printBase}?date=${dateKey}&type=schedule`}
-                                target="_blank"
-                                rel="noopener noreferrer"
                                 className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                                title="Print day schedule"
-                              >
+                                title="Print day schedule">
                                 <PrintIcon />
                                 Print day
-                              </a>
+                              </PrintLink>
                             </div>
                           )}
                         </div>
@@ -706,25 +705,19 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                               Edit
                             </button>
                             {/* Print icons */}
-                            <a
+                            <PrintLink
                               href={`${printBase}?gameId=${game.id}&type=scoresheet`}
-                              target="_blank"
-                              rel="noopener noreferrer"
                               title="Print score sheet"
-                              className="text-gray-300 hover:text-gray-600 transition-colors"
-                            >
+                              className="text-gray-300 hover:text-gray-600 transition-colors">
                               <PrintIcon />
-                            </a>
-                            <a
+                            </PrintLink>
+                            <PrintLink
                               href={`${printBase}?gameId=${game.id}&type=statsheet`}
-                              target="_blank"
-                              rel="noopener noreferrer"
                               title="Print stat sheet"
-                              className="text-gray-300 hover:text-gray-600 transition-colors flex items-center gap-0.5 text-xs"
-                            >
+                              className="text-gray-300 hover:text-gray-600 transition-colors flex items-center gap-0.5 text-xs">
                               <PrintIcon />
                               <span>stats</span>
-                            </a>
+                            </PrintLink>
                             {isAdmin && (
                               <button
                                 onClick={() => handleDeleteGame(game.id)}
@@ -750,7 +743,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
           </div>
         ) : (
           <div className="px-4 py-12 text-center text-gray-500">
-            {hideCompleted ? 'No games awaiting scores in this view. 🎉' : filter === 'needs' ? 'All games have scores — nice work! 🎉' : filter === 'cancelled' ? 'No cancelled or postponed games.' : jumpFilter !== 'all' ? 'No games in this selection.' : 'No games scheduled yet. Add a game or import from CSV.'}
+            {hideCompleted ? 'No games awaiting scores in this view. 🎉' : filter === 'needs' ? needsEmptyText : filter === 'cancelled' ? 'No cancelled or postponed games.' : jumpFilter !== 'all' ? 'No games in this selection.' : 'No games scheduled yet. Add a game or import from CSV.'}
           </div>
         )}
       </div>
