@@ -1,0 +1,12 @@
+Target dependency graph (6 targets)
+Target 'Scoreboard' in project 'FielddayScoreboard'
+➜ Explicit dependency on target 'ScoreboardWatch' in project 'FielddayScoreboard'
+➜ Explicit dependency on target 'ScoreboardKit-product' in project 'ScoreboardKit'
+Target 'ScoreboardKit-product' in project 'ScoreboardKit'
+➜ Explicit dependency on target 'ScoreboardKit' in project 'ScoreboardKit'
+Target 'ScoreboardKit' in project 'ScoreboardKit' (no dependencies)
+Target 'ScoreboardWatch' in project 'FielddayScoreboard'
+➜ Explicit dependency on target 'ScoreboardKit-product' in project 'ScoreboardKit'
+Target 'ScoreboardKit-product' in project 'ScoreboardKit'
+➜ Explicit dependency on target 'ScoreboardKit' in project 'ScoreboardKit'
+Target 'ScoreboardKit' in project 'ScoreboardKit' (no dependencies)

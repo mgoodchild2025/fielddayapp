@@ -1,0 +1,31 @@
+{
+  "" : {
+    "const-values" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-primary.swiftconstvalues",
+    "dependencies" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-primary.d",
+    "diagnostics" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-primary.dia",
+    "emit-module-dependencies" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-primary-emit-module.dia",
+    "pch" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/ScoreboardKit-primary.swiftdeps"
+  },
+  "/Users/matt/fielddayapp/ios/ScoreboardKit/Sources/ScoreboardKit/Board.swift" : {
+    "index-unit-output-path" : "/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/Board.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/Board.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/Board.o"
+  },
+  "/Users/matt/fielddayapp/ios/ScoreboardKit/Sources/ScoreboardKit/BoardStore.swift" : {
+    "index-unit-output-path" : "/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/BoardStore.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/BoardStore.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/BoardStore.o"
+  },
+  "/Users/matt/fielddayapp/ios/ScoreboardKit/Sources/ScoreboardKit/BoardSync.swift" : {
+    "index-unit-output-path" : "/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/BoardSync.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/BoardSync.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/BoardSync.o"
+  },
+  "/Users/matt/fielddayapp/ios/ScoreboardKit/Sources/ScoreboardKit/Color+Hex.swift" : {
+    "index-unit-output-path" : "/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/Color+Hex.o",
+    "llvm-bc" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/Color+Hex.bc",
+    "object" : "/Users/matt/fielddayapp/ios/build/dd-rel/Build/Intermediates.noindex/ScoreboardKit.build/Release-watchsimulator/ScoreboardKit-t.build/Objects-normal/x86_64/Color+Hex.o"
+  }
+}

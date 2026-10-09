@@ -1,0 +1,11 @@
+Target dependency graph (4 targets)
+Target 'AllIncludingTests' in project 'Aggregate'
+➜ Explicit dependency on target 'ScoreboardKitTests-product' in project 'ScoreboardKit'
+➜ Dependency on target 'ScoreboardKitTests-product' in project 'ScoreboardKit' via transitive dependency through 'ScoreboardKitTests-test-runner'
+➜ Explicit dependency on target 'ScoreboardKit-product' in project 'ScoreboardKit'
+➜ Explicit dependency on target 'ScoreboardKit' in project 'ScoreboardKit'
+Target 'ScoreboardKit-product' in project 'ScoreboardKit'
+➜ Explicit dependency on target 'ScoreboardKit' in project 'ScoreboardKit'
+Target 'ScoreboardKitTests-product' in project 'ScoreboardKit'
+➜ Explicit dependency on target 'ScoreboardKit' in project 'ScoreboardKit'
+Target 'ScoreboardKit' in project 'ScoreboardKit' (no dependencies)
