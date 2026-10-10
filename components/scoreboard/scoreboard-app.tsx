@@ -13,7 +13,7 @@ import { isNetworkError, isStaleBuildError, reloadIfStale } from '@/lib/action-e
 import { Overlay, useRetained } from '@/components/ui/overlay'
 
 // ── Fieldday Scoreboard ────────────────────────────────────────────────────────
-// A standalone, offline-capable scoreboard: tap a panel to +1, swipe down to −1.
+// A standalone, offline-capable scoreboard: tap or swipe up on a panel to +1, swipe down to −1.
 // Event-sourced: every score change is an event; scores and completed sets are
 // derived by folding the event list, so undo is a pop and the per-set history
 // falls out for free (matching game_results.sets' {home, away}[] shape).
@@ -415,7 +415,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     [matchWinner, push]
   )
 
-  // ── Panel gestures: tap = +1, swipe down = −1, long-press = edit team ──────
+  // ── Panel gestures: tap / swipe up = +1, swipe down = −1, long-press = edit team ──
   const gesture = useRef<{ id: number; y: number; x: number; ts: number; team: 'A' | 'B'; longPress: ReturnType<typeof setTimeout>; consumed: boolean } | null>(null)
 
   // ── Live feedback while a finger is down (visual only — scoring is still
@@ -423,13 +423,17 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   // track continuously, hint where the gesture is going. Written straight to
   // the DOM through refs so a drag doesn't re-render the whole board.
   //   shade — the panel darkens the instant it's touched
-  //   num   — the score follows a downward swipe (1:1 to the threshold, then
+  //   num   — the score follows a vertical swipe (1:1 to the threshold, then
   //           rubber-bands), springing back if released short
-  //   hint  — "−1" fades in with the pull and firms up once it will count
+  //   hint  — "−1" (pull down) / "+1" (push up) fades in and firms up once it
+  //           will count
   //   ring  — fills at the finger during a hold, completing at the long-press
   const SWIPE_COMMIT = 40
-  type Fx = { shade: HTMLDivElement | null; num: HTMLParagraphElement | null; hint: HTMLDivElement | null; ring: HTMLDivElement | null; ringTimer?: ReturnType<typeof setTimeout>; armed?: boolean }
-  const fx = useRef<Record<'A' | 'B', Fx>>({ A: { shade: null, num: null, hint: null, ring: null }, B: { shade: null, num: null, hint: null, ring: null } })
+  // An upward move past the tap slop already counts (+1): a tap that drifted
+  // up used to score nothing. Down needs the full SWIPE_COMMIT (−1 is costly).
+  const TAP_SLOP = 14
+  type Fx = { shade: HTMLDivElement | null; num: HTMLParagraphElement | null; hint: HTMLDivElement | null; hintUp: HTMLDivElement | null; ring: HTMLDivElement | null; ringTimer?: ReturnType<typeof setTimeout>; armed?: boolean }
+  const fx = useRef<Record<'A' | 'B', Fx>>({ A: { shade: null, num: null, hint: null, hintUp: null, ring: null }, B: { shade: null, num: null, hint: null, hintUp: null, ring: null } })
   const reduceMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   const pressFx = (team: 'A' | 'B', e: React.PointerEvent) => {
@@ -455,15 +459,22 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       if (f.ring) f.ring.dataset.state = 'idle'
     }
     const pulling = dy > 0 && dy > dx
-    const pull = pulling ? (dy <= SWIPE_COMMIT ? dy : SWIPE_COMMIT + rubberband(dy - SWIPE_COMMIT, 240)) : 0
+    const pushing = dy < 0 && -dy > dx
+    const dist = Math.abs(dy)
+    const follow = dist <= SWIPE_COMMIT ? dist : SWIPE_COMMIT + rubberband(dist - SWIPE_COMMIT, 240)
+    const offset = pulling ? follow : pushing ? -follow : 0
     if (f.num && !reduceMotion()) {
       f.num.style.transition = 'none'
-      f.num.style.transform = `translateY(${pull}px)`
+      f.num.style.transform = `translateY(${offset}px)`
     }
-    const willCount = pulling && dy > SWIPE_COMMIT
+    const willCount = (pulling && dy > SWIPE_COMMIT) || (pushing && -dy > TAP_SLOP)
     if (f.hint) {
       f.hint.style.opacity = String(pulling ? Math.min(1, dy / SWIPE_COMMIT) : 0)
-      f.hint.dataset.armed = willCount ? 'true' : 'false'
+      f.hint.dataset.armed = pulling && willCount ? 'true' : 'false'
+    }
+    if (f.hintUp) {
+      f.hintUp.style.opacity = String(pushing ? Math.min(1, -dy / SWIPE_COMMIT + 0.4) : 0)
+      f.hintUp.dataset.armed = pushing && willCount ? 'true' : 'false'
     }
     if (willCount && !f.armed) {
       try { navigator.vibrate?.(8) } catch {}
@@ -481,6 +492,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       f.num.style.transform = ''
     }
     if (f.hint) { f.hint.style.opacity = '0'; f.hint.dataset.armed = 'false' }
+    if (f.hintUp) { f.hintUp.style.opacity = '0'; f.hintUp.dataset.armed = 'false' }
     f.armed = false
   }
 
@@ -523,9 +535,11 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     if (g.consumed) return
     const dy = e.clientY - g.y
     const dx = Math.abs(e.clientX - g.x)
-    if (dy > 40 && dy > dx) {
+    if (dy > SWIPE_COMMIT && dy > dx) {
       score(g.team, -1) // swipe down
-    } else if (Math.abs(dy) < 14 && dx < 14 && Date.now() - g.ts < 500) {
+    } else if (dy < -TAP_SLOP && -dy > dx) {
+      score(g.team, 1) // swipe up
+    } else if (Math.abs(dy) < TAP_SLOP && dx < TAP_SLOP && Date.now() - g.ts < 500) {
       score(g.team, 1) // tap
     }
   }
@@ -807,6 +821,9 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
         <div ref={(el) => { fx.current[team].shade = el }} aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black/15 opacity-0" />
         <div ref={(el) => { fx.current[team].hint = el }} aria-hidden="true" data-armed="false" className="sb-swipe-hint pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 opacity-0 rounded-full px-4 py-1.5 text-lg font-bold tabular-nums text-white">
           −1
+        </div>
+        <div ref={(el) => { fx.current[team].hintUp = el }} aria-hidden="true" data-armed="false" className="sb-swipe-hint pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 opacity-0 rounded-full px-4 py-1.5 text-lg font-bold tabular-nums text-white">
+          +1
         </div>
         <div ref={(el) => { fx.current[team].ring = el }} aria-hidden="true" data-state="idle" className="sb-hold-ring pointer-events-none absolute w-20 h-20 -ml-10 -mt-10">
           <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
@@ -1150,7 +1167,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
             )}
 
             <p className="text-center text-xs text-white/40 pt-2">
-              Tap a side to score · swipe down to take one back · hold to edit
+              Tap or swipe up to score · swipe down to take one back · hold to edit
               <br />
               <a href="https://fielddayapp.ca" className="underline underline-offset-2 text-white/50">
                 Powered by Fieldday
