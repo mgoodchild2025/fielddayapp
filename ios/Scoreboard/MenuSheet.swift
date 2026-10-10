@@ -70,7 +70,7 @@ struct MenuSheet: View {
                         HStack(spacing: 6) {
                             Link("Run your league on Fieldday", destination: URL(string: "https://fielddayapp.ca")!)
                             Text("·")
-                            Link("Privacy", destination: URL(string: "https://fielddayapp.ca/privacy")!)
+                            Link("Privacy", destination: URL(string: "https://fielddayapp.ca/privacy/scoreboard")!)
                         }
                         Text("Version \(Bundle.main.versionString)")
                     }
