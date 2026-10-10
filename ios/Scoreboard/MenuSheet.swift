@@ -11,19 +11,6 @@ struct MenuSheet: View {
         let board = store.board
         NavigationStack {
             List {
-                Section("Teams") {
-                    ForEach(Side.allCases) { side in
-                        NavigationLink {
-                            TeamEditor(store: store, side: side)
-                        } label: {
-                            HStack(spacing: 12) {
-                                Circle().fill(board.team(side).swiftUIColor).frame(width: 22, height: 22)
-                                Text(board.team(side).name)
-                            }
-                        }
-                    }
-                }
-
                 Section {
                     Picker("Scoring", selection: Binding(
                         get: { store.board.mode },
@@ -53,14 +40,31 @@ struct MenuSheet: View {
                     Text("New game clears the score and keeps the teams. You can undo it for a few seconds.")
                 }
 
-                Section("About") {
-                    Link(destination: URL(string: "https://fielddayapp.ca")!) {
-                        Label("Run your league on Fieldday", systemImage: "sportscourt")
+                // Teams last; the About links ride in its footer so Teams
+                // stays the bottom section.
+                Section {
+                    ForEach(Side.allCases) { side in
+                        NavigationLink {
+                            TeamEditor(store: store, side: side)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Circle().fill(board.team(side).swiftUIColor).frame(width: 22, height: 22)
+                                Text(board.team(side).name)
+                            }
+                        }
                     }
-                    Link(destination: URL(string: "https://fielddayapp.ca/privacy")!) {
-                        Label("Privacy", systemImage: "hand.raised")
+                } header: {
+                    Text("Teams")
+                } footer: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Link("Run your league on Fieldday", destination: URL(string: "https://fielddayapp.ca")!)
+                            Text("·")
+                            Link("Privacy", destination: URL(string: "https://fielddayapp.ca/privacy")!)
+                        }
+                        Text("Version \(Bundle.main.versionString)")
                     }
-                    LabeledContent("Version", value: Bundle.main.versionString)
+                    .padding(.top, 6)
                 }
             }
             .navigationTitle("Scoreboard")
