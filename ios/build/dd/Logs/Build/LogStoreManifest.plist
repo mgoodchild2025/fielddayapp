@@ -48,48 +48,6 @@
 			<key>uniqueIdentifier</key>
 			<string>A1E3A482-573B-4B58-BCFC-3359D7A72FA9</string>
 		</dict>
-		<key>A9F521AB-286E-459A-8F98-D0C8A6115EBA</key>
-		<dict>
-			<key>className</key>
-			<string>IDECommandLineBuildLog</string>
-			<key>documentTypeString</key>
-			<string>&lt;nil&gt;</string>
-			<key>domainType</key>
-			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
-			<key>fileName</key>
-			<string>A9F521AB-286E-459A-8F98-D0C8A6115EBA.xcactivitylog</string>
-			<key>hasPrimaryLog</key>
-			<true/>
-			<key>primaryObservable</key>
-			<dict>
-				<key>highLevelStatus</key>
-				<string>S</string>
-				<key>totalNumberOfAnalyzerIssues</key>
-				<integer>0</integer>
-				<key>totalNumberOfErrors</key>
-				<integer>0</integer>
-				<key>totalNumberOfTestFailures</key>
-				<integer>0</integer>
-				<key>totalNumberOfWarnings</key>
-				<integer>0</integer>
-			</dict>
-			<key>schemeIdentifier-containerName</key>
-			<string>FielddayScoreboard project</string>
-			<key>schemeIdentifier-schemeName</key>
-			<string>Scoreboard</string>
-			<key>schemeIdentifier-sharedScheme</key>
-			<integer>1</integer>
-			<key>signature</key>
-			<string>Building project FielddayScoreboard with scheme Scoreboard</string>
-			<key>timeStartedRecording</key>
-			<real>813196886.34558797</real>
-			<key>timeStoppedRecording</key>
-			<real>813196891.222224</real>
-			<key>title</key>
-			<string>Building project FielddayScoreboard with scheme Scoreboard</string>
-			<key>uniqueIdentifier</key>
-			<string>A9F521AB-286E-459A-8F98-D0C8A6115EBA</string>
-		</dict>
 	</dict>
 </dict>
 </plist>
