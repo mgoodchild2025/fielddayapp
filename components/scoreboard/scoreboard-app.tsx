@@ -11,6 +11,11 @@ import { rubberband } from '@/lib/drag-physics'
 import { toast } from 'sonner'
 import { isNetworkError, isStaleBuildError, reloadIfStale } from '@/lib/action-errors'
 import { Overlay, useRetained } from '@/components/ui/overlay'
+import {
+  CLOCK_LENGTH_PRESETS, displayMs, endTimeout, formatClock, freshClock, isClockOn, isExpired, isRunning,
+  newPeriod, nextAlarm, readClock, resetClock, setLength, setMode, startTimeout, stopClock, timeoutRemaining,
+  toggle as toggleClock, type ClockMode, type GameClock,
+} from '@/lib/scoreboard-clock'
 
 // ── Fieldday Scoreboard ────────────────────────────────────────────────────────
 // A standalone, offline-capable scoreboard: tap or swipe up on a panel to +1, swipe down to −1.
@@ -38,6 +43,8 @@ type SavedGame = {
   config: Config
   swapped: boolean
   updatedAt: number
+  /** Game clock + timeouts (lib/scoreboard-clock). Absent on older boards. */
+  clock?: GameClock
 }
 
 // Attached mode: the board is scoring a real Fieldday game (kind 'game') or a
@@ -348,6 +355,56 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     ? setsWonA > setsWonB ? 'A' : setsWonB > setsWonA ? 'B' : 'tie'
     : null
 
+  // ── Game clock + timeouts (lib/scoreboard-clock — the native app's twin) ──
+  // Off by default. Nothing ends on its own at 0:00: the bar offers
+  // "Time · End set / End match". Undo never touches the clock.
+  const clock = readClock(game.clock)
+  const changeClock = useCallback((fn: (c: GameClock, now: number) => GameClock) => {
+    setGame((g) => ({ ...g, clock: fn(readClock(g.clock), Date.now()) }))
+  }, [])
+  const [now, setNow] = useState(() => Date.now())
+  const ticking = clock.runningSince != null || !!clock.timeout
+  useEffect(() => {
+    if (!ticking) return
+    const id = setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(id)
+  }, [ticking])
+  const [clockSheet, setClockSheet] = useState(false)
+  const [timeUpDismissedFor, setTimeUpDismissedFor] = useState<number | null>(null)
+  const horn = useRef<HTMLAudioElement | null>(null)
+  const playHorn = () => {
+    try {
+      const a = horn.current ?? (horn.current = new Audio('/scoreboard-horn.wav'))
+      a.muted = false
+      a.currentTime = 0
+      void a.play().catch(() => {})
+    } catch {}
+  }
+  // iOS lets a page play sound only after it has played from a tap: prime
+  // the horn, muted, on the tap that starts the clock or a timeout.
+  const primeHorn = () => {
+    if (!clock.sound) return
+    try {
+      const a = horn.current ?? (horn.current = new Audio('/scoreboard-horn.wav'))
+      a.muted = true
+      void a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false }).catch(() => { a.muted = false })
+    } catch {}
+  }
+  // The buzzer: wait for the next zero (countdown or timeout) and fire.
+  const alarmAt = nextAlarm(clock, now)
+  useEffect(() => {
+    if (alarmAt == null) return
+    const id = setTimeout(() => {
+      setNow(Date.now())
+      try { navigator.vibrate?.([300, 150, 300, 150, 300]) } catch {}
+      if (readClock(gameRef.current.clock).sound) playHorn()
+    }, Math.max(0, alarmAt - Date.now()) + 30)
+    return () => clearTimeout(id)
+  }, [alarmAt])
+  const clockOn = isClockOn(clock)
+  const timeUp = clock.mode === 'countdown' && clock.runningSince != null && isExpired(clock, now)
+    && clock.runningSince !== timeUpDismissedFor && !clock.timeout && !over
+
   // Send the board state on every change plus a 15s heartbeat, so a TV that
   // joins mid-game picks the board up within one beat. TVs expire boards that
   // go quiet, so closing the scoreboard takes it off the wall by itself.
@@ -553,7 +610,8 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   }
 
   const reset = () => {
-    setGame((g) => ({ ...g, events: [] }))
+    // A new game starts with a fresh clock; its settings stay.
+    setGame((g) => ({ ...g, events: [], clock: freshClock(readClock(g.clock)) }))
     setSaveState('idle')
     setMenuOpen(false)
   }
@@ -578,6 +636,8 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     if (a + b === 0 || over) return
     const recorded = { n: sets.length + 1, home: a, away: b }
     push({ t: 'set' })
+    // The next set or half starts with a fresh countdown and no timeouts.
+    changeClock((c) => newPeriod(c))
     try {
       navigator.vibrate?.(20)
     } catch {}
@@ -595,7 +655,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       const folded = cur.a + cur.b > 0
       if (folded) events.push({ t: 'set' }) // fold the in-progress set
       events.push(folded ? { t: 'end', folded: true } : { t: 'end' })
-      return { ...g, events }
+      return { ...g, events, clock: stopClock(readClock(g.clock), Date.now()) }
     })
     setSetPrompt(null)
     setJustEnded(true)
@@ -834,6 +894,14 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
         <p className="text-white/85 font-bold uppercase tracking-[0.14em] text-sm sm:text-base px-4 text-center truncate max-w-full">
           {meta.name}
         </p>
+        {clockOn && clock.timeoutsUsed[team] > 0 && (
+          <p className="flex items-center gap-1 text-[11px] font-extrabold text-white/80" aria-label={`${clock.timeoutsUsed[team]} timeout${clock.timeoutsUsed[team] === 1 ? '' : 's'} taken`}>
+            T/O
+            {Array.from({ length: clock.timeoutsUsed[team] }, (_, i) => (
+              <span key={i} aria-hidden="true" className="w-[7px] h-[7px] rounded-full border-[1.5px] border-white" />
+            ))}
+          </p>
+        )}
         {/* The outer <p> carries the swipe offset (direct style writes); the
             inner span keeps the +1 pulse, so the two transforms never fight. */}
         <p ref={(el) => { fx.current[team].num = el }} className="text-white font-bold leading-none tabular-nums" style={{ fontSize: 'min(34vh, 38vw)' }}>
@@ -894,6 +962,30 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       </p>
       {panel(first)}
 
+      {/* Clock row (when the clock is on) + the middle bar, between the panels. */}
+      <div className="shrink-0 flex flex-col landscape:justify-center bg-[#0B1210]">
+      {clockOn && (
+        <ClockRow
+          clock={clock}
+          now={now}
+          teamA={game.teamA}
+          teamB={game.teamB}
+          order={[first, second]}
+          locked={locked}
+          over={over}
+          timeUp={timeUp}
+          setsMode={game.config.mode === 'sets'}
+          canEndSet={a + b > 0}
+          nextSet={sets.length + 1}
+          onToggle={() => { primeHorn(); changeClock((c, t) => toggleClock(c, t)) }}
+          onTimeout={(side) => { primeHorn(); changeClock((c, t) => startTimeout(c, side, t)) }}
+          onResume={() => changeClock((c, t) => endTimeout(c, t))}
+          onOpenSettings={() => setClockSheet(true)}
+          onEndSet={endSet}
+          onEndMatch={endMatch}
+          onDismissTimeUp={() => setTimeUpDismissedFor(clock.runningSince ?? null)}
+        />
+      )}
       {/* Middle bar — one row at 375px with the lock (gap-1, px-2.5); wraps
           only on narrower phones. */}
       <div className="flex flex-wrap landscape:flex-col items-center justify-center gap-1 px-2 py-1.5 landscape:px-1.5 landscape:py-2 bg-[#0B1210] text-[#9db3a9] shrink-0" style={{ touchAction: 'manipulation' }}>
@@ -983,6 +1075,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           </>
         )}
       </div>
+      </div>
 
       {panel(second)}
 
@@ -1058,6 +1151,10 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       </Sheet>
 
       {/* Menu sheet */}
+      <Sheet open={clockSheet} onClose={() => setClockSheet(false)} title="Clock">
+        <ClockSettings clock={clock} onChange={changeClock} />
+      </Sheet>
+
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Scoreboard">
           <div className="space-y-4">
             {attached && (
@@ -1098,6 +1195,11 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
                 </div>
               </div>
             )}
+
+            <div>
+              <label className="block text-xs text-white/60 mb-1.5">Clock</label>
+              <ClockSettings clock={clock} onChange={changeClock} />
+            </div>
 
             {game.config.mode === 'sets' && (
               <button
@@ -1371,5 +1473,192 @@ function Sheet({ open, title, onClose, children, align = 'bottom' }: { open: boo
       </div>
       {children}
     </Overlay>
+  )
+}
+
+// ── Clock row ─────────────────────────────────────────────────────────────────
+// `[● T/O]  12:34  [T/O ●]` above the middle bar while the clock is on. Tap the
+// clock to start/pause, hold it for settings. During a timeout it shows the
+// timeout countdown + Resume; at 0:00 it offers Time · End set / End match.
+
+const clockBtn = 'inline-flex items-center justify-center gap-1.5 min-h-10 min-w-10 px-3 rounded-lg text-xs font-semibold text-white'
+
+function ClockRow({
+  clock, now, teamA, teamB, order, locked, over, timeUp, setsMode, canEndSet, nextSet,
+  onToggle, onTimeout, onResume, onOpenSettings, onEndSet, onEndMatch, onDismissTimeUp,
+}: {
+  clock: GameClock
+  now: number
+  teamA: TeamMeta
+  teamB: TeamMeta
+  order: ['A' | 'B', 'A' | 'B']
+  locked: boolean
+  over: boolean
+  timeUp: boolean
+  setsMode: boolean
+  canEndSet: boolean
+  nextSet: number
+  onToggle: () => void
+  onTimeout: (side: 'A' | 'B') => void
+  onResume: () => void
+  onOpenSettings: () => void
+  onEndSet: () => void
+  onEndMatch: () => void
+  onDismissTimeUp: () => void
+}) {
+  const team = (side: 'A' | 'B') => (side === 'A' ? teamA : teamB)
+  const hold = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({ timer: null, fired: false })
+  const reduceMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const flashOff = !reduceMotion && Math.floor(now / 500) % 2 === 0
+
+  const timeoutLeft = timeoutRemaining(clock, now)
+  const expired = isExpired(clock, now)
+  const running = isRunning(clock, now)
+  const face = formatClock(displayMs(clock, now), clock.mode === 'countdown')
+
+  const cancelHold = () => { if (hold.current.timer) clearTimeout(hold.current.timer); hold.current.timer = null }
+
+  return (
+    <div
+      className={`flex items-center justify-between landscape:flex-col landscape:justify-center gap-2 px-2 pt-1.5 landscape:px-1.5 landscape:pt-2 ${locked ? 'pointer-events-none' : ''}`}
+      style={{ touchAction: 'manipulation' }}
+    >
+      {timeUp ? (
+        <div className="flex flex-wrap items-center justify-center gap-1.5 w-full" role="status">
+          <span className="text-xs font-extrabold uppercase tracking-wide text-red-400">Time</span>
+          {setsMode && canEndSet && (
+            <button onClick={onEndSet} className={`${clockBtn} bg-emerald-600 hover:bg-emerald-700`}>End set {nextSet}</button>
+          )}
+          <button onClick={onEndMatch} className={`${clockBtn} ${setsMode ? 'bg-white/10 hover:bg-white/15' : 'bg-emerald-600 hover:bg-emerald-700'}`}>🏁 End match</button>
+          <button onClick={onDismissTimeUp} aria-label="Keep playing" className={`${clockBtn} bg-white/10 hover:bg-white/15`}>✕</button>
+        </div>
+      ) : clock.timeout && timeoutLeft != null ? (
+        <div className="flex items-center justify-center gap-2 w-full">
+          <span className="flex items-center gap-1.5 min-w-0 text-xs font-bold text-white/90">
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: team(clock.timeout.side).color }} aria-hidden="true" />
+            <span className="truncate">{team(clock.timeout.side).name} · T/O</span>
+          </span>
+          <span
+            className={`text-2xl font-bold tabular-nums ${timeoutLeft <= 0 ? 'text-red-400' : 'text-white'}`}
+            style={{ opacity: timeoutLeft <= 0 && flashOff ? 0.35 : 1 }}
+            aria-label={`Timeout, ${formatClock(timeoutLeft, true)} left`}
+          >
+            {formatClock(timeoutLeft, true)}
+          </span>
+          <button onClick={onResume} className={`${clockBtn} ${timeoutLeft <= 0 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-white/10 hover:bg-white/15'}`}>▶ Resume</button>
+        </div>
+      ) : (
+        <>
+          {[order[0], order[1]].map((side, i) => {
+            const button = (
+              <button
+                key={side}
+                onClick={() => onTimeout(side)}
+                disabled={over}
+                aria-label={`Timeout, ${team(side).name}`}
+                className={`${clockBtn} bg-white/10 hover:bg-white/15 disabled:opacity-40`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: team(side).color }} aria-hidden="true" />
+                T/O
+              </button>
+            )
+            if (i === 0) return button
+            return [
+              <button
+                key="clock"
+                onPointerDown={() => {
+                  hold.current.fired = false
+                  cancelHold()
+                  hold.current.timer = setTimeout(() => {
+                    hold.current.fired = true
+                    try { navigator.vibrate?.(15) } catch {}
+                    onOpenSettings()
+                  }, 500)
+                }}
+                onPointerUp={cancelHold}
+                onPointerLeave={cancelHold}
+                onPointerCancel={cancelHold}
+                onContextMenu={(e) => e.preventDefault()}
+                onClick={() => { if (!hold.current.fired) onToggle() }}
+                aria-label={`${clock.mode === 'countdown' ? 'Countdown' : 'Stopwatch'}, ${face}, ${expired ? "time's up" : running ? 'running' : 'paused'}. Tap to start or pause, hold for settings.`}
+                className={`select-none px-3 min-h-11 text-3xl landscape:text-2xl font-bold tabular-nums ${expired ? 'text-red-400' : running ? 'text-white' : 'text-white/55'}`}
+                style={{ opacity: expired && flashOff ? 0.35 : 1 }}
+              >
+                {face}
+              </button>,
+              button,
+            ]
+          })}
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Clock settings: in the menu and behind a hold on the clock. */
+function ClockSettings({ clock, onChange }: { clock: GameClock; onChange: (fn: (c: GameClock, now: number) => GameClock) => void }) {
+  const minutes = Math.round(clock.lengthMs / 60_000)
+  const pill = (active: boolean) => `py-2.5 rounded-lg text-sm font-semibold ${active ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/70'}`
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        {(['off', 'stopwatch', 'countdown'] as ClockMode[]).map((m) => (
+          <button key={m} onClick={() => onChange((c) => setMode(c, m))} aria-pressed={clock.mode === m} className={`flex-1 ${pill(clock.mode === m)}`}>
+            {m === 'off' ? 'Off' : m === 'stopwatch' ? 'Stopwatch' : 'Countdown'}
+          </button>
+        ))}
+      </div>
+      {clock.mode === 'countdown' && (
+        <div>
+          <p className="text-xs text-white/60 mb-1.5">Length (minutes)</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {CLOCK_LENGTH_PRESETS.map((m) => (
+              <button key={m} onClick={() => onChange((c) => setLength(c, m))} aria-pressed={minutes === m} className={`w-12 ${pill(minutes === m)}`}>{m}</button>
+            ))}
+            <span className="flex items-center gap-1 ml-auto">
+              <button onClick={() => onChange((c) => setLength(c, minutes - 1))} aria-label="One minute shorter" className="w-10 h-10 rounded-lg bg-white/10 text-white text-lg">−</button>
+              <span className="w-10 text-center text-sm font-semibold text-white tabular-nums">{minutes}</span>
+              <button onClick={() => onChange((c) => setLength(c, minutes + 1))} aria-label="One minute longer" className="w-10 h-10 rounded-lg bg-white/10 text-white text-lg">+</button>
+            </span>
+          </div>
+        </div>
+      )}
+      {isClockOn(clock) && (
+        <>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-white/60 mr-auto">Timeout length</span>
+            {[30_000, 60_000].map((ms) => (
+              <button key={ms} onClick={() => onChange((c) => ({ ...c, timeoutLengthMs: ms }))} aria-pressed={clock.timeoutLengthMs === ms} className={`w-16 ${pill(clock.timeoutLengthMs === ms)}`}>
+                {ms / 1000} s
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center justify-between gap-3 text-sm text-white/80">
+            <span id="sb-horn-label">Horn at zero</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={clock.sound}
+              aria-labelledby="sb-horn-label"
+              onClick={() => onChange((c) => ({ ...c, sound: !c.sound }))}
+              className={`relative w-12 h-7 rounded-full transition-colors ${clock.sound ? 'bg-emerald-500' : 'bg-white/20'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${clock.sound ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
+          <button
+            onClick={() => onChange((c) => resetClock(c))}
+            disabled={clock.runningSince == null && clock.accumulatedMs === 0}
+            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80 disabled:opacity-40"
+          >
+            Reset clock
+          </button>
+          <p className="text-[11px] text-white/45 leading-relaxed">
+            Tap the clock to start or pause, hold it for these settings. At 0:00 it buzzes and offers End set / End match.
+            Keep this screen open: a web page can&rsquo;t sound the buzzer from a locked phone.
+          </p>
+        </>
+      )}
+    </div>
   )
 }
