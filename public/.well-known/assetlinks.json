@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ca.fielddayapp.scoreboard",
+      "sha256_cert_fingerprints": [
+        "8A:34:C2:40:A7:1D:F4:F6:97:9F:0B:7B:8A:67:8B:FE:19:3A:E2:10:01:ED:10:FB:90:93:6E:81:9C:E8:E7:A2"
+      ]
+    }
+  }
+]

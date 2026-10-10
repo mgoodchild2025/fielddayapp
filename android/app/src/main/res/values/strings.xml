@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appName">Fieldday Scoreboard</string>
+    <string name="launcherName">Scoreboard</string>
+    <string name="launchUrl">https://fielddayapp.ca/scoreboard</string>
+    <string name="providerAuthority">ca.fielddayapp.scoreboard.fileprovider</string>
+    <!-- This app's half of Digital Asset Links; the site's half is public/.well-known/assetlinks.json. -->
+    <string name="assetStatements" translatable="false">
+        [{ \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+           \"target\": {\"namespace\": \"web\", \"site\": \"https://fielddayapp.ca\"}}]
+    </string>
+</resources>
