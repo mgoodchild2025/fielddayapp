@@ -1,4 +1,0 @@
-module ScoreboardKit {
-header "ScoreboardKit-Swift.h"
-export *
-}

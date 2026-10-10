@@ -1,7 +1,0 @@
-Target dependency graph (3 targets)
-Target 'AllExcludingTests' in project 'Aggregate'
-➜ Explicit dependency on target 'ScoreboardKit-product' in project 'ScoreboardKit'
-➜ Explicit dependency on target 'ScoreboardKit' in project 'ScoreboardKit'
-Target 'ScoreboardKit-product' in project 'ScoreboardKit'
-➜ Explicit dependency on target 'ScoreboardKit' in project 'ScoreboardKit'
-Target 'ScoreboardKit' in project 'ScoreboardKit' (no dependencies)
