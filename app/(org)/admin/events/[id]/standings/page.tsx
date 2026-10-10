@@ -48,17 +48,17 @@ function StandingsTable({
 
   if (isVolleyball && mode === 'set_based') {
     return (
-      <div className="sm:overflow-x-auto">
-        <table className="w-full text-sm sm:min-w-[460px]">
+      <div className="overflow-x-auto overscroll-x-contain">
+        <table className="w-full text-sm whitespace-nowrap">
           <thead>
             <tr className="border-b bg-gray-50 text-xs text-gray-500 font-medium">
               {showRank && <th className="px-3 py-2 text-center w-8">#</th>}
               <th className="px-3 py-2 text-left">Team</th>
-              <th className="px-3 py-2 text-center max-sm:hidden">MP</th>
+              <th className="px-3 py-2 text-center">MP</th>
               <th className="px-3 py-2 text-center">SW</th>
               <th className="px-3 py-2 text-center">SL</th>
-              <th className="px-3 py-2 text-center max-sm:hidden">SPF</th>
-              <th className="px-3 py-2 text-center max-sm:hidden">SPA</th>
+              <th className="px-3 py-2 text-center">SPF</th>
+              <th className="px-3 py-2 text-center">SPA</th>
               <th className="px-3 py-2 text-center">PD</th>
             </tr>
           </thead>
@@ -66,17 +66,17 @@ function StandingsTable({
             {sorted.map((t, i) => (
               <tr key={t.id} className="hover:bg-gray-50">
                 {showRank && <td className="px-3 py-2 text-center text-xs font-bold text-gray-500">{rankOffset + i + 1}</td>}
-                <td className="px-3 py-2 font-medium">
-                  <span className="flex items-center gap-2 min-w-0">
-                    <TeamAvatar logoUrl={t.logoUrl ?? null} color={t.color ?? null} name={t.name} size="sm" />
-                    <span className="truncate">{t.name}</span>
+                <td className="px-3 py-2 font-medium whitespace-normal min-w-[10rem] max-sm:max-w-[11.5rem]">
+                  <span className="flex items-center gap-2">
+                    <TeamAvatar logoUrl={t.logoUrl ?? null} color={t.color ?? null} name={t.name} size="sm" className="shrink-0" />
+                    <span className="leading-snug">{t.name}</span>
                   </span>
                 </td>
-                <td className="px-3 py-2 text-center tabular-nums max-sm:hidden">{t.matchesPlayed}</td>
+                <td className="px-3 py-2 text-center tabular-nums">{t.matchesPlayed}</td>
                 <td className="px-3 py-2 text-center tabular-nums font-semibold">{t.setWins}</td>
                 <td className="px-3 py-2 text-center tabular-nums">{t.setLosses}</td>
-                <td className="px-3 py-2 text-center tabular-nums max-sm:hidden">{t.pointsFor}</td>
-                <td className="px-3 py-2 text-center tabular-nums max-sm:hidden">{t.pointsAgainst}</td>
+                <td className="px-3 py-2 text-center tabular-nums">{t.pointsFor}</td>
+                <td className="px-3 py-2 text-center tabular-nums">{t.pointsAgainst}</td>
                 <td className="px-3 py-2 text-center tabular-nums">{t.pointsFor - t.pointsAgainst > 0 ? '+' : ''}{t.pointsFor - t.pointsAgainst}</td>
               </tr>
             ))}
@@ -87,20 +87,20 @@ function StandingsTable({
   }
 
   return (
-    // Phones keep only the columns that decide the order (like the public
-    // standings) — GP/PF/PA hide below sm instead of scrolling sideways.
-    <div className="sm:overflow-x-auto">
-      <table className="w-full text-sm sm:min-w-[400px]">
+    // Every column at every width, one row per team; on phones the table
+    // scrolls sideways inside its card (same as the public standings).
+    <div className="overflow-x-auto overscroll-x-contain">
+      <table className="w-full text-sm whitespace-nowrap">
         <thead>
           <tr className="border-b bg-gray-50 text-xs text-gray-500 font-medium">
             {showRank && <th className="px-3 py-2 text-center w-8">#</th>}
             <th className="px-3 py-2 text-left">Team</th>
-            <th className="px-3 py-2 text-center max-sm:hidden">GP</th>
+            <th className="px-3 py-2 text-center">GP</th>
             <th className="px-3 py-2 text-center">W</th>
             <th className="px-3 py-2 text-center">L</th>
             <th className="px-3 py-2 text-center">T</th>
-            <th className="px-3 py-2 text-center max-sm:hidden">PF</th>
-            <th className="px-3 py-2 text-center max-sm:hidden">PA</th>
+            <th className="px-3 py-2 text-center">PF</th>
+            <th className="px-3 py-2 text-center">PA</th>
             <th className="px-3 py-2 text-center">Diff</th>
           </tr>
         </thead>
@@ -110,18 +110,18 @@ function StandingsTable({
             return (
               <tr key={t.id} className="hover:bg-gray-50">
                 {showRank && <td className="px-3 py-2 text-center text-xs font-bold text-gray-500">{rankOffset + i + 1}</td>}
-                <td className="px-3 py-2 font-medium">
-                  <span className="flex items-center gap-2 min-w-0">
-                    <TeamAvatar logoUrl={t.logoUrl ?? null} color={t.color ?? null} name={t.name} size="sm" />
-                    <span className="truncate">{t.name}</span>
+                <td className="px-3 py-2 font-medium whitespace-normal min-w-[10rem] max-sm:max-w-[11.5rem]">
+                  <span className="flex items-center gap-2">
+                    <TeamAvatar logoUrl={t.logoUrl ?? null} color={t.color ?? null} name={t.name} size="sm" className="shrink-0" />
+                    <span className="leading-snug">{t.name}</span>
                   </span>
                 </td>
-                <td className="px-3 py-2 text-center tabular-nums max-sm:hidden">{t.matchesPlayed}</td>
+                <td className="px-3 py-2 text-center tabular-nums">{t.matchesPlayed}</td>
                 <td className="px-3 py-2 text-center tabular-nums font-semibold">{t.wins}</td>
                 <td className="px-3 py-2 text-center tabular-nums">{t.losses}</td>
                 <td className="px-3 py-2 text-center tabular-nums">{t.ties}</td>
-                <td className="px-3 py-2 text-center tabular-nums max-sm:hidden">{t.pointsFor}</td>
-                <td className="px-3 py-2 text-center tabular-nums max-sm:hidden">{t.pointsAgainst}</td>
+                <td className="px-3 py-2 text-center tabular-nums">{t.pointsFor}</td>
+                <td className="px-3 py-2 text-center tabular-nums">{t.pointsAgainst}</td>
                 <td className="px-3 py-2 text-center tabular-nums">{diff > 0 ? '+' : ''}{diff}</td>
               </tr>
             )
@@ -299,7 +299,7 @@ export default async function AdminStandingsPage({
                 const thisPoolTeams = poolTeams.filter((t) => t.pool_id === pool.id)
                 if (thisPoolTeams.length === 0) return null
                 return (
-                  <div key={pool.id} className="bg-white rounded-lg border overflow-hidden">
+                  <div key={pool.id} className="min-w-0 bg-white rounded-lg border overflow-hidden">
                     <div className="px-4 py-3 border-b bg-gray-50">
                       <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">{pool.name}</p>
                     </div>
