@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import { PrintLink } from '@/components/print/print-link'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
@@ -196,18 +197,15 @@ export default async function TeamSchedulePage({
           <Link href={`/teams/${teamId}`} className="text-sm text-gray-500 hover:underline">
             ← {team.name}
           </Link>
-          <a
+          <PrintLink
             href={`/teams/${teamId}/schedule/print`}
-            target="_blank"
-            rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            title="Print team schedule"
-          >
+            title="Print team schedule">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
               <path fillRule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.552c.377.046.752.097 1.126.153A2.212 2.212 0 0118 8.653v4.097A2.25 2.25 0 0115.75 15h-.241l.305 1.984A1.75 1.75 0 0114.084 19H5.915a1.75 1.75 0 01-1.73-2.016L4.492 15H4.25A2.25 2.25 0 012 12.75V8.653c0-1.082.775-2.034 1.874-2.198.374-.056.75-.107 1.126-.153V2.75zM6.5 4.25v2.09a41.38 41.38 0 017 0V4.25a.25.25 0 00-.25-.25h-6.5a.25.25 0 00-.25.25zM5.14 8.572a39.895 39.895 0 019.72 0l.328 2.132A39.903 39.903 0 0110 10.5a39.903 39.903 0 01-5.188-.796L5.14 8.572zm.912 8.678a.25.25 0 01-.247-.292L6.816 12.5h6.368l1.011 4.458a.25.25 0 01-.247.292H6.052z" clipRule="evenodd" />
             </svg>
             Print
-          </a>
+          </PrintLink>
         </div>
 
         <TeamPageNav teamId={teamId} active="schedule" />

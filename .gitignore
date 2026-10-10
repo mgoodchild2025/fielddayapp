@@ -37,3 +37,14 @@ next-env.d.ts
 .pnpm-store/
 package-lock.json
 supabase/.temp/
+
+# Native app build output (ios/ lives on its own branch; these leftovers
+# survive branch switches and must never be committed from main)
+ios/build/
+ios/**/.build/
+ios/**/.swiftpm/
+ios/*.xcodeproj/
+*.xcarchive
+*.ipa
+*.xcactivitylog
+*.xcuserstate

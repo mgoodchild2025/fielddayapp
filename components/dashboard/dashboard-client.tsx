@@ -4,6 +4,8 @@ import { useState, useTransition } from 'react'
 import { MedalCase, type MedalView } from '@/components/medals/medal-case'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { BioFlipCard } from '@/components/bios/bio-flip-card'
+import { CardNudge } from '@/components/bios/card-nudge'
+import { describeGaps, type CardGap } from '@/lib/player-card-gaps'
 import { AlertsNudge } from '@/components/pwa/alerts-nudge'
 import type { BioCardData } from '@/components/bios/player-bio-card'
 import type { PlayerCareer } from '@/lib/career'
@@ -157,6 +159,10 @@ interface Props {
   myCareer?: PlayerCareer | null
   /** Shareable card page for the signed-in player. */
   myCardHref?: string | null
+  /** The player has a player_bios row (else the card is only name + avatar). */
+  hasCardBio?: boolean
+  /** What the card is missing (lib/player-card-gaps); empty when complete or admin-hidden. */
+  myCardGaps?: CardGap[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -520,26 +526,27 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
 // ── Main component ────────────────────────────────────────────────────────────
 
 /** The dashboard's "My card" strip: the flip card with Edit / View & share
- *  links, or — when the player has no bio yet — a dashed setup prompt so the
- *  card feature is discoverable in the first place. */
-function MyCardSection({ myCardBio, myCareer, myCardHref }: {
+ *  links, or — when the player has no bio yet — a setup prompt naming what
+ *  to add. An incomplete card gets one line saying what's missing. Both can
+ *  be waved off ("Not now", 60 days on this device). */
+function MyCardSection({ myCardBio, myCareer, myCardHref, hasCardBio, myCardGaps }: {
   myCardBio: Props['myCardBio']
   myCareer: Props['myCareer']
   myCardHref: Props['myCardHref']
+  hasCardBio: boolean
+  myCardGaps: CardGap[]
 }) {
-  if (!myCardBio) {
+  if (!myCardBio) return null
+  if (!hasCardBio) {
     return (
-      <div className="mt-4 max-w-md">
-        <Link
-          href="/profile#bio"
-          className="block rounded-xl border-2 border-dashed border-gray-300 px-5 py-6 text-center hover:border-gray-400 transition-colors"
-        >
-          <p className="text-sm font-semibold text-gray-600">Set up your player card →</p>
+      <CardNudge storageKey="fd-card-setup-dismissed" className="mt-4 max-w-md rounded-xl border-2 border-dashed border-gray-300 bg-white/60 px-5 py-4">
+        <Link href="/profile#bio" className="block">
+          <p className="text-sm font-semibold text-gray-700">Set up your player card →</p>
           <p className="mt-1 text-xs text-gray-500">
-            Add your number, position, and a photo — it shows on your team page and can rotate on event displays.
+            Add {describeGaps(myCardGaps) || 'your number and position'}. It takes about 30 seconds, and teammates see it when they tap your name.
           </p>
         </Link>
-      </div>
+      </CardNudge>
     )
   }
   return (
@@ -557,12 +564,23 @@ function MyCardSection({ myCardBio, myCareer, myCardHref }: {
           )}
         </span>
       </div>
+      {myCardGaps.length > 0 && (
+        <CardNudge storageKey="fd-card-finish-dismissed" className="mb-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-1.5">
+          <Link href="/profile#bio" className="inline-flex items-center min-h-8 text-xs font-medium text-amber-900 hover:underline">
+            Your card is missing {describeGaps(myCardGaps)}. Finish it →
+          </Link>
+        </CardNudge>
+      )}
       <BioFlipCard bio={myCardBio} career={myCareer ?? null} />
     </div>
   )
 }
 
-export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, showShop = false }: Props) {
+export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, hasCardBio = false, myCardGaps = [], showShop = false }: Props) {
+  // The medal celebration nudges a photo onto the card the medal now sits on.
+  const medalCardNudge = myCardGaps.includes('photo')
+    ? { text: "It's on your player card now. Add a photo?", href: '/profile#bio' }
+    : null
   const [activeIdx, setActiveIdx] = useState(0)
   // Which event's next session is showing. Defaults to the soonest (index 0);
   // clamped so a refresh that drops an event can't leave it pointing past the end.
@@ -653,10 +671,10 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           </h1>
           {medals.length > 0 && (
             <div className="mt-3">
-              <MedalCase medals={medals} isOwner title="Your trophy case" />
+              <MedalCase medals={medals} isOwner title="Your trophy case" cardNudge={medalCardNudge} />
             </div>
           )}
-          <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} />
+          <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} hasCardBio={hasCardBio} myCardGaps={myCardGaps} />
         </div>
 
         <div className="rounded-xl border bg-white px-6 py-12 text-center">
@@ -1023,8 +1041,8 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
 
       {/* ── Trophy case + player card ── */}
       <section>
-        {medals.length > 0 && <MedalCase medals={medals} isOwner title="Your trophy case" />}
-        <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} />
+        {medals.length > 0 && <MedalCase medals={medals} isOwner title="Your trophy case" cardNudge={medalCardNudge} />}
+        <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} hasCardBio={hasCardBio} myCardGaps={myCardGaps} />
       </section>
 
       {/* ── Quick links for session-only players (no active team) ── */}

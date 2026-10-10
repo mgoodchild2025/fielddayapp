@@ -1,6 +1,7 @@
 'use client'
 
 import QRCode from 'react-qr-code'
+import { usePrintOrShare } from '@/components/print/use-print-or-share'
 
 interface Props {
   waiverUrl: string
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function WaiverQrPoster({ waiverUrl, leagueName, orgName, waiverTitle }: Props) {
+  const printer = usePrintOrShare()
   return (
     <>
       {/* Print CSS */}
@@ -24,16 +26,17 @@ export function WaiverQrPoster({ waiverUrl, leagueName, orgName, waiverTitle }: 
       {/* Controls — hidden when printing */}
       <div className="print-hidden fixed top-4 left-1/2 -translate-x-1/2 flex gap-3 z-10">
         <button
-          onClick={() => window.print()}
+          onClick={printer.print}
+          disabled={printer.busy}
           className="px-4 py-2 rounded-lg bg-gray-800 text-white text-sm font-medium shadow-lg hover:bg-gray-700 transition-colors"
         >
-          🖨 Print / Save as PDF
+          {printer.label}
         </button>
         <button
-          onClick={() => window.close()}
+          onClick={printer.back}
           className="px-4 py-2 rounded-lg border bg-white text-sm text-gray-600 shadow-lg hover:bg-gray-50 transition-colors"
         >
-          ← Close
+          {printer.backLabel}
         </button>
       </div>
 

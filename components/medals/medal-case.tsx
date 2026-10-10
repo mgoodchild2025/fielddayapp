@@ -83,7 +83,7 @@ function ConfettiBurst({ pieces }: { pieces: ConfettiPiece[] }) {
 
 /** The celebration card's content — shown in the shared Overlay (scroll lock,
  *  Escape, focus trap; it was a hand-rolled fixed div). */
-function MedalCard({ medal, onClose }: { medal: MedalView; onClose: () => void }) {
+function MedalCard({ medal, onClose, cardNudge }: { medal: MedalView; onClose: () => void; cardNudge?: CardNudgeLink | null }) {
   return (
     <>
         <button
@@ -124,15 +124,29 @@ function MedalCard({ medal, onClose }: { medal: MedalView; onClose: () => void }
             View the event →
           </Link>
         )}
+
+        {cardNudge && (
+          <Link
+            href={cardNudge.href}
+            onClick={onClose}
+            className="press mt-3 flex items-center justify-center min-h-10 rounded-lg bg-gray-50 border px-3 text-sm font-medium text-gray-700 hover:bg-gray-100"
+          >
+            {cardNudge.text} →
+          </Link>
+        )}
     </>
   )
 }
+
+/** A one-line link under the celebration ("It's on your card now. Add a photo?"). */
+export interface CardNudgeLink { text: string; href: string }
 
 export function MedalCase({
   medals,
   isOwner = false,
   size = 'md',
   title,
+  cardNudge = null,
 }: {
   medals: MedalView[]
   /** True when the viewer owns these medals — enables first-open confetti. */
@@ -140,6 +154,8 @@ export function MedalCase({
   size?: 'sm' | 'md'
   /** Optional heading; omit to render just the strip. */
   title?: string
+  /** Owner only: nudge toward the player card the medal now sits on. */
+  cardNudge?: CardNudgeLink | null
 }) {
   const [open, setOpen] = useState<{ medal: MedalView; confetti: ConfettiPiece[] | null } | null>(null)
   // Keep the card on screen while the overlay fades out.
@@ -189,7 +205,7 @@ export function MedalCase({
         label={shown ? `${shown.medal.label} — ${shown.medal.leagueName}` : 'Medal'}
         panelClassName="relative w-full max-w-sm rounded-2xl bg-white p-7 pt-9 text-center shadow-2xl max-h-[90dvh] overflow-y-auto"
       >
-        {shown && <MedalCard medal={shown.medal} onClose={() => setOpen(null)} />}
+        {shown && <MedalCard medal={shown.medal} onClose={() => setOpen(null)} cardNudge={isOwner ? cardNudge : null} />}
       </Overlay>
       {/* Confetti in its own full-screen layer above the overlay: inside the
           panel, its entrance transform would trap the falling pieces. */}

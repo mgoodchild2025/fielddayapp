@@ -8,6 +8,8 @@ import { MedalCase } from '@/components/medals/medal-case'
 import { TeamPageNav } from '@/components/teams/team-page-nav'
 import { getTeamMedals, getMedalCountsForUsers } from '@/lib/medal-queries'
 import { BioNameButton } from '@/components/bios/bio-name-button'
+import { TeamCardsProgress } from '@/components/bios/team-cards-progress'
+import { cardGaps, describeGaps } from '@/lib/player-card-gaps'
 import type { BioCardData } from '@/components/bios/player-bio-card'
 import { Footer } from '@/components/layout/footer'
 import { TeamMessageForm } from '@/components/teams/team-message-form'
@@ -351,6 +353,25 @@ export default async function TeamDetailPage({
       hometown: string | null; years_playing: number | null; tagline: string | null; hidden_by_admin: boolean
     }[]).filter((b) => !b.hidden_by_admin).map((b) => [b.user_id, b])
   )
+  // Player cards done (lib/player-card-gaps): a card needs a number, a
+  // position (the roster position counts) and a photo (the avatar counts).
+  // Admin-hidden bios are left out — those players can't fix them.
+  const hiddenBio = new Set(((rosterBios ?? []) as { user_id: string; hidden_by_admin: boolean }[]).filter((b) => b.hidden_by_admin).map((b) => b.user_id))
+  const cardStatus = activeMembers
+    .filter((m): m is typeof m & { user_id: string } => !!m.user_id && !hiddenBio.has(m.user_id))
+    .map((m) => {
+      const b = bioByUser.get(m.user_id)
+      const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
+      return {
+        userId: m.user_id,
+        gaps: cardGaps({ jerseyNumber: b?.jersey_number, position: b?.position ?? m.position, photoUrl: b?.hero_photo_url ?? profile?.avatar_url }),
+      }
+    })
+  const cardsDone = cardStatus.filter((c) => c.gaps.length === 0).length
+  const myCardStatus = cardStatus.find((c) => c.userId === user.id)
+  const othersMissingCards = cardStatus.filter((c) => c.userId !== user.id && c.gaps.length > 0).length
+  const canNudgeCards = ['captain', 'coach'].includes(myMembership?.role ?? '')
+
   const cardFor = (userId: string | null, name: string, avatarUrl: string | null, memberPosition: string | null): BioCardData => {
     const b = userId ? bioByUser.get(userId) : undefined
     return {
@@ -451,6 +472,15 @@ export default async function TeamDetailPage({
             host={headersList.get('host') ?? ''}
           />
         )}
+
+        <TeamCardsProgress
+          teamId={team.id}
+          done={cardsDone}
+          total={cardStatus.length}
+          myGapText={myCardStatus && myCardStatus.gaps.length > 0 ? describeGaps(myCardStatus.gaps) : null}
+          canNudge={canNudgeCards}
+          othersMissing={othersMissingCards}
+        />
 
         {/* Roster — editable for managers, read-only for players */}
         {isManager ? (

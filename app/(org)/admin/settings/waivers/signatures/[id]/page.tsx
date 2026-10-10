@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import { PrintLink } from '@/components/print/print-link'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
@@ -68,14 +69,13 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
           </Link>
           <h1 className="text-2xl font-bold mt-1">{waiver?.title ?? 'Waiver'}</h1>
         </div>
-        <Link
+        <PrintLink
           href={`/admin/settings/waivers/signatures/${id}/print`}
-          target="_blank"
           className="shrink-0 flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md border hover:bg-gray-50 transition-colors mt-6"
           style={{ color: 'var(--brand-primary-ink, var(--brand-primary))', borderColor: 'var(--brand-primary)' }}
         >
           🖨 Print / Save as PDF
-        </Link>
+        </PrintLink>
       </div>
 
       {/* Guardian notice banner */}

@@ -7,6 +7,8 @@ import { getSeasonPassQuote, type SeasonPassQuote } from '@/lib/season-pass'
 import { taxSuffix } from '@/lib/tax'
 import { getOrgBrandingCached, getOrgTaxRatesCached } from '@/lib/org-cache'
 import { EventPodium, type PodiumMedal } from '@/components/medals/event-podium'
+import { CardNudge } from '@/components/bios/card-nudge'
+import { displayShowsBios } from '@/lib/player-card-gaps'
 import { PendingPaymentNotice } from '@/components/payments/pending-payment-notice'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
@@ -553,6 +555,14 @@ export default async function EventDetailPage({
       ? db.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]))
+  // Player-card TV prompt: does any enabled screen for this event rotate
+  // player cards, and is the viewer's card already on? Only while the event runs.
+  const displayCardsP = early(user && ['registration_open', 'active'].includes(league.status ?? '')
+    ? Promise.all([
+        db.from('event_display_configs').select('config').eq('league_id', league.id).eq('organization_id', org.id).eq('enabled', true),
+        db.from('player_bios').select('show_on_displays, hidden_by_admin').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
+      ])
+    : Promise.resolve(null))
   const myTeamLinksP = early(teamsAndRegP.then(([{ data: teams }]) => Promise.all([
     (user && teams)
       ? db.from('team_members').select('team_id').eq('user_id', user.id).in('team_id', teams.map((t: { id: string }) => t.id))
@@ -1076,6 +1086,14 @@ export default async function EventDetailPage({
   const isParticipant = isOrgAdmin || !!myRegistration || myTeamIds.size > 0 || !!mySeasonRegistration || mySessionIds.size > 0
 
   const eventOrganizers = await organizersP
+
+  // Players (not admins just looking) whose card isn't on the event's screens yet.
+  const displayCards = await displayCardsP
+  const isPlayerHere = !!myRegistration || myTeamIds.size > 0 || !!mySeasonRegistration || mySessionIds.size > 0
+  const myDisplayBio = displayCards?.[1].data ?? null
+  const showDisplayCardNudge = !!displayCards && isPlayerHere
+    && (displayCards[0].data ?? []).some((r) => displayShowsBios(r.config))
+    && !myDisplayBio?.show_on_displays && !myDisplayBio?.hidden_by_admin
 
   // Filter tabs by visibility — restricted tabs are hidden from non-participants
   const tabs = isInSeasonOrCompleted
@@ -1713,6 +1731,21 @@ export default async function EventDetailPage({
 
       {/* ── Tab content ── (dims while another tab loads — see event-tabs.tsx) */}
       <div data-tab-panel="" className={`max-w-3xl mx-auto px-4 sm:px-6 py-8 ${stickyBar ? 'pb-28 md:pb-8' : ''}`}>
+
+        {showDisplayCardNudge && (
+          <CardNudge storageKey={`fd-display-card-${league.id}`} className="mb-5 rounded-xl border bg-white px-4 py-3">
+            <Link href="/profile#bio" className="block">
+              <p className="text-sm font-semibold text-gray-900">
+                📺 Player cards play on the screens{league.venue_name ? ` at ${league.venue_name}` : ' at this event'}
+              </p>
+              <p className="mt-0.5 text-sm text-gray-600">
+                {myDisplayBio
+                  ? 'Yours isn’t on yet. Turn on “Show my card on event screens” →'
+                  : 'Want yours up? Set up your card and turn on “Show my card on event screens” →'}
+              </p>
+            </Link>
+          </CardNudge>
+        )}
 
         {/* ──────────────── MEDIA TAB ──────────────── */}
         {activeTab === 'media' && (
