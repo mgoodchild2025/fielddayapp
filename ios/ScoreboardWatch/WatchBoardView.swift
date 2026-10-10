@@ -2,7 +2,7 @@ import SwiftUI
 import WatchKit
 import ScoreboardKit
 
-/// The wrist board: two halves (tap = +1, swipe down = −1) with a strip of
+/// The wrist board: two halves (tap or swipe up = +1, swipe down = −1) with a strip of
 /// controls between them. Every change syncs to the iPhone app.
 struct WatchBoardView: View {
     let store: BoardStore
@@ -76,7 +76,8 @@ struct WatchBoardView: View {
                     let t = value.translation
                     if t.height >= 30 && abs(t.width) < t.height {
                         score(side, -1)
-                    } else if hypot(t.width, t.height) < 10 {
+                    } else if hypot(t.width, t.height) < 10 || (t.height < 0 && abs(t.width) < -t.height) {
+                        // A tap, or a mostly-upward swipe (same as the phone).
                         score(side, 1)
                     }
                 },

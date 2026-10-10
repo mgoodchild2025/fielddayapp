@@ -26,8 +26,10 @@ cd ios/ScoreboardKit && swift test
 
 ## How it behaves (parity with the web board)
 
-- Tap a panel = +1, swipe down ≥ 40pt = −1, hold = edit the team. −/+ buttons in
-  the panel corners and VoiceOver adjustable actions (swipe up/down) do the same.
+- Tap or swipe up = +1, swipe down ≥ 40pt = −1, hold = edit the team. The −/+
+  circles in the panel corners are handled by the panel's own gesture (as
+  separate Buttons, the touch went to the panel and "−" scored +1). VoiceOver
+  gets real buttons and adjustable panels (swipe up/down).
 - Set formats are deliberately not modelled: "End set N" (sets mode) and "End match"
   (menu, or the post-set chooser) — End match folds an in-progress set, and Undo
   takes both back.
