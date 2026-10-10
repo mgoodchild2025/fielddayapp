@@ -1,33 +1,24 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { TeamAvatar } from '@/components/ui/team-avatar'
-import { StandingsRow } from '@/components/events/standings-row'
 import { computePts, sortStandings, VOLLEYBALL_SPORTS, type PtsMethod, type VolleyballMode, type TeamStat } from '@/lib/standings'
 
 /**
  * Public event standings table (sets table for set-based volleyball, match
- * table otherwise). Phones show only the columns that decide the order —
- * rank rides in the team cell and a row tap (StandingsRow) opens the rest —
- * so nothing scrolls sideways; from sm up it's the full table with Rank +
- * Team pinned.
+ * table otherwise). Every column at every width, one line per team: on a
+ * phone the table scrolls sideways inside its card. Nothing is pinned — the
+ * whole row moves together.
  */
 
-function Legend({ items }: { items: { abbr: string; label: string; wide?: boolean }[] }) {
+function Legend({ items }: { items: { abbr: string; label: string }[] }) {
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 px-1">
-      {items.map(({ abbr, label, wide }) => (
-        <span key={abbr} className={`text-xs text-gray-500 ${wide ? 'hidden sm:inline' : ''}`}>
+      {items.map(({ abbr, label }) => (
+        <span key={abbr} className="text-xs text-gray-500">
           <span className="font-semibold text-gray-500">{abbr}</span> = {label}
         </span>
       ))}
     </div>
-  )
-}
-
-// Standings cells shared by both tables. Rank is its own pinned column from
-// sm up; on phones it rides inside the team cell to save a column.
-function RankCell({ rank }: { rank: number }) {
-  return (
-    <td className={`hidden sm:table-cell sm:sticky sm:left-0 sm:z-[1] bg-inherit px-4 py-3 text-xs tabular-nums ${rank <= 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{rank}</td>
   )
 }
 
@@ -42,21 +33,47 @@ function StreakBadge({ streak }: { streak: string }) {
   )
 }
 
-function TeamCell({ team, rank, streak }: { team: { id: string; name: string; logoUrl?: string | null; color?: string | null }; rank: number; streak?: string | null }) {
+function RankCell({ rank }: { rank: number }) {
   return (
-    // w-full + max-w-0 on phones: the team column takes what's left and the
-    // name truncates, instead of pushing the numbers off-screen.
-    <td className="w-full max-w-0 sm:w-auto sm:max-w-none sm:sticky sm:left-14 sm:z-[1] bg-inherit sm:shadow-[1px_0_0_rgb(0_0_0/0.06)] pl-2.5 pr-1.5 sm:px-4 py-3 font-medium">
-      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-        <span className={`sm:hidden w-3.5 shrink-0 text-xs tabular-nums ${rank <= 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{rank}</span>
-        <Link href={`/teams/${team.id}/stats`} prefetch={false} className="flex items-center gap-1.5 sm:gap-2 min-w-0 hover:underline">
-          {/* 24px logo on phones, 32px from sm — every pixel goes to the name. */}
-          <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" className="max-sm:w-6 max-sm:h-6 max-sm:text-xs" />
-          <span className="truncate">{team.name}</span>
+    <td className={`pl-3 pr-1 sm:px-4 py-3 text-xs tabular-nums ${rank <= 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{rank}</td>
+  )
+}
+
+function TeamCell({ team, streak }: { team: { id: string; name: string; logoUrl?: string | null; color?: string | null }; streak?: string | null }) {
+  return (
+    // The one cell allowed to wrap: a long name takes a second line (capped
+    // on phones) instead of pushing every stat off-screen.
+    <td className="px-2 sm:px-4 py-3 font-medium whitespace-normal min-w-[10.5rem] max-sm:max-w-[11.5rem]">
+      <div className="flex items-center gap-2">
+        <Link href={`/teams/${team.id}/stats`} prefetch={false} className="flex items-center gap-2 min-w-0 hover:underline">
+          <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" className="shrink-0 max-sm:w-6 max-sm:h-6 max-sm:text-xs" />
+          <span className="leading-snug">{team.name}</span>
         </Link>
-        {streak && <span className="hidden sm:inline-flex shrink-0"><StreakBadge streak={streak} /></span>}
+        {streak && <span className="shrink-0"><StreakBadge streak={streak} /></span>}
       </div>
     </td>
+  )
+}
+
+const TH = 'px-2.5 sm:px-3 py-3 font-medium text-gray-500 text-center'
+const TD = 'px-2.5 sm:px-3 py-3 text-center tabular-nums'
+
+function rowClass(i: number) {
+  // Striped by index, like the rest of the app's tables.
+  return `border-b last:border-0 ${i % 2 === 1 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100 transition-colors`
+}
+
+/** The card + sideways scroller both tables share. `whitespace-nowrap` keeps each team on one line. */
+function TableFrame({ children, legend }: { children: ReactNode; legend: { abbr: string; label: string }[] }) {
+  return (
+    <div className="space-y-3">
+      <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="overflow-x-auto overscroll-x-contain">
+          <table className="text-sm w-full whitespace-nowrap">{children}</table>
+        </div>
+      </div>
+      <Legend items={legend} />
+    </div>
   )
 }
 
@@ -84,64 +101,48 @@ export function StandingsTable({
   // ── Set-based table ────────────────────────────────────────────────────────
   if (isVolleyball && mode === 'set_based') {
     const legend = [
-      { abbr: 'MP', label: 'Matches Played', wide: true },
+      { abbr: 'MP', label: 'Matches Played' },
       { abbr: 'SW', label: 'Sets Won' },
       { abbr: 'SL', label: 'Sets Lost' },
-      { abbr: 'SPF', label: 'Set Points For (total points scored)', wide: true },
-      { abbr: 'SPA', label: 'Set Points Against (total points allowed)', wide: true },
+      { abbr: 'SPF', label: 'Set Points For (total points scored)' },
+      { abbr: 'SPA', label: 'Set Points Against (total points allowed)' },
       { abbr: 'PD', label: 'Point Differential (SPF − SPA)' },
     ]
     return (
-      <div className="space-y-3">
-        <div className="bg-white rounded-lg border overflow-hidden">
-          <div className="overflow-x-auto">
-            {/* Phones: the deciding columns only (tap a row for the rest); sm+: everything. */}
-            <table className="text-sm w-full sm:w-auto sm:min-w-[480px]">
-              <thead>
-                <tr className="border-b bg-gray-50 text-left">
-                  <th className="hidden sm:table-cell sm:sticky sm:left-0 sm:z-[1] bg-inherit px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
-                  <th className="w-full max-w-0 sm:w-auto sm:max-w-none sm:sticky sm:left-14 sm:z-[1] bg-inherit sm:shadow-[1px_0_0_rgb(0_0_0/0.06)] pl-2.5 pr-1.5 sm:px-4 py-3 font-medium text-gray-500 sm:min-w-[120px]">Team</th>
-                  <th className="hidden sm:table-cell px-3 py-3 font-medium text-gray-500 text-center">MP</th>
-                  <th className="px-1.5 sm:px-3 py-3 font-medium text-gray-500 text-center">SW</th>
-                  <th className="px-1.5 sm:px-3 py-3 font-medium text-gray-500 text-center">SL</th>
-                  <th className="hidden sm:table-cell px-3 py-3 font-medium text-gray-500 text-center">SPF</th>
-                  <th className="hidden sm:table-cell px-3 py-3 font-medium text-gray-500 text-center">SPA</th>
-                  <th className="px-1.5 sm:px-3 py-3 font-medium text-gray-500 text-center">PD</th>
-                  <th className="sm:hidden w-7" aria-label="Details" />
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((team, i) => {
-                  const pd = team.pointsFor - team.pointsAgainst
-                  return (
-                    <StandingsRow
-                      key={team.id}
-                      striped={i % 2 === 1}
-                      teamHref={`/teams/${team.id}/stats`}
-                    teamName={team.name}
-                      details={[
-                        { label: 'Played', value: team.matchesPlayed },
-                        { label: 'Set pts for', value: team.pointsFor },
-                        { label: 'Set pts against', value: team.pointsAgainst },
-                      ]}
-                    >
-                      <RankCell rank={i + 1} />
-                      <TeamCell team={team} rank={i + 1} />
-                      <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
-                      <td className="px-1.5 sm:px-3 py-3 text-center font-semibold text-brand-ink tabular-nums">{team.setWins}</td>
-                      <td className="px-1.5 sm:px-3 py-3 text-center text-gray-500 tabular-nums">{team.setLosses}</td>
-                      <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
-                      <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
-                      <td className="px-1.5 sm:px-3 py-3 text-center text-gray-500 tabular-nums">{pd > 0 ? '+' : ''}{pd}</td>
-                    </StandingsRow>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <Legend items={legend} />
-      </div>
+      <TableFrame legend={legend}>
+        <thead>
+          <tr className="border-b bg-gray-50 text-left">
+            <th className="pl-3 pr-1 sm:px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+              <span className="sm:hidden" aria-hidden="true">#</span>
+              <span className="max-sm:sr-only">Rank</span>
+            </th>
+            <th className="px-2 sm:px-4 py-3 font-medium text-gray-500">Team</th>
+            <th className={TH}>MP</th>
+            <th className={TH}>SW</th>
+            <th className={TH}>SL</th>
+            <th className={TH}>SPF</th>
+            <th className={TH}>SPA</th>
+            <th className={TH}>PD</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((team, i) => {
+            const pd = team.pointsFor - team.pointsAgainst
+            return (
+              <tr key={team.id} className={rowClass(i)}>
+                <RankCell rank={i + 1} />
+                <TeamCell team={team} />
+                <td className={`${TD} text-gray-500`}>{team.matchesPlayed}</td>
+                <td className={`${TD} font-semibold text-brand-ink`}>{team.setWins}</td>
+                <td className={`${TD} text-gray-500`}>{team.setLosses}</td>
+                <td className={`${TD} text-gray-500`}>{team.pointsFor}</td>
+                <td className={`${TD} text-gray-500`}>{team.pointsAgainst}</td>
+                <td className={`${TD} text-gray-500`}>{pd > 0 ? '+' : ''}{pd}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </TableFrame>
     )
   }
 
@@ -153,91 +154,64 @@ export function StandingsTable({
     points_for: 'Points For (PF)',
   }[method]
 
-  const legend: { abbr: string; label: string; wide?: boolean }[] = [
-    { abbr: 'MP', label: 'Matches Played', wide: true },
+  const legend = [
+    { abbr: 'MP', label: 'Matches Played' },
     { abbr: 'W', label: 'Match Wins' },
     { abbr: 'L', label: 'Match Losses' },
     ...(isVolleyball ? [
-      { abbr: 'SW', label: 'Sets Won', wide: true },
-      { abbr: 'SL', label: 'Sets Lost', wide: true },
+      { abbr: 'SW', label: 'Sets Won' },
+      { abbr: 'SL', label: 'Sets Lost' },
     ] : []),
-    { abbr: 'PF', label: isVolleyball ? 'Points For (set-level)' : 'Points For', wide: true },
-    { abbr: 'PA', label: isVolleyball ? 'Points Against (set-level)' : 'Points Against', wide: true },
+    { abbr: 'PF', label: isVolleyball ? 'Points For (set-level)' : 'Points For' },
+    { abbr: 'PA', label: isVolleyball ? 'Points Against (set-level)' : 'Points Against' },
     { abbr: 'PD', label: 'Point Differential (PF − PA)' },
     ...(isVolleyball ? [{ abbr: 'PTS', label: `Standings Points — ${ptsLabel}` }] : []),
   ]
 
-
   return (
-    <div className="space-y-3">
-      <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-          {/* Phones: the deciding columns only (tap a row for the rest); sm+: everything. */}
-          <table className={`text-sm w-full sm:w-auto ${isVolleyball ? 'sm:min-w-[620px]' : 'sm:min-w-[420px]'}`}>
-            <thead>
-              <tr className="border-b bg-gray-50 text-left">
-                <th className="hidden sm:table-cell sm:sticky sm:left-0 sm:z-[1] bg-inherit px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
-                <th className="w-full max-w-0 sm:w-auto sm:max-w-none sm:sticky sm:left-14 sm:z-[1] bg-inherit sm:shadow-[1px_0_0_rgb(0_0_0/0.06)] pl-2.5 pr-1.5 sm:px-4 py-3 font-medium text-gray-500 sm:min-w-[120px]">Team</th>
-                <th className="hidden sm:table-cell px-3 py-3 font-medium text-gray-500 text-center">MP</th>
-                <th className="px-1.5 sm:px-3 py-3 font-medium text-gray-500 text-center">W</th>
-                <th className="px-1.5 sm:px-3 py-3 font-medium text-gray-500 text-center">L</th>
-                {isVolleyball && <>
-                  <th className="hidden sm:table-cell px-3 py-3 font-medium text-gray-500 text-center">SW</th>
-                  <th className="hidden sm:table-cell px-3 py-3 font-medium text-gray-500 text-center">SL</th>
-                </>}
-                <th className="hidden sm:table-cell px-3 py-3 font-medium text-gray-500 text-center">PF</th>
-                <th className="hidden sm:table-cell px-3 py-3 font-medium text-gray-500 text-center">PA</th>
-                <th className="px-1.5 sm:px-3 py-3 font-medium text-gray-500 text-center">PD</th>
-                {isVolleyball && <th className="px-1.5 sm:px-3 py-3 font-medium text-gray-500 text-center">PTS</th>}
-                <th className="sm:hidden w-7" aria-label="Details" />
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((team, i) => {
-                const pd = team.pointsFor - team.pointsAgainst
-                const pts = computePts(team, method)
-                return (
-                  <StandingsRow
-                    key={team.id}
-                    striped={i % 2 === 1}
-                    teamHref={`/teams/${team.id}/stats`}
-                    teamName={team.name}
-                    details={[
-                      { label: 'Played', value: team.matchesPlayed },
-                      ...(isVolleyball ? [
-                        { label: 'Sets won', value: team.setWins },
-                        { label: 'Sets lost', value: team.setLosses },
-                      ] : []),
-                      { label: 'Points for', value: team.pointsFor },
-                      { label: 'Points against', value: team.pointsAgainst },
-                      ...(team.streak ? [{ label: 'Streak', value: <StreakBadge streak={team.streak} /> }] : []),
-                    ]}
-                  >
-                    <RankCell rank={i + 1} />
-                    <TeamCell team={team} rank={i + 1} streak={team.streak} />
-                    <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
-                    <td className="px-1.5 sm:px-3 py-3 text-center font-semibold text-brand-ink tabular-nums">{team.wins}</td>
-                    <td className="px-1.5 sm:px-3 py-3 text-center text-gray-500 tabular-nums">{team.losses}</td>
-                    {isVolleyball && <>
-                      <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.setWins}</td>
-                      <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.setLosses}</td>
-                    </>}
-                    <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
-                    <td className="hidden sm:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
-                    <td className="px-1.5 sm:px-3 py-3 text-center tabular-nums text-gray-500">{pd > 0 ? '+' : ''}{pd}</td>
-                    {isVolleyball && (
-                      <td className="px-1.5 sm:px-3 py-3 text-center font-bold text-brand-ink tabular-nums">
-                        {pts}
-                      </td>
-                    )}
-                  </StandingsRow>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <Legend items={legend} />
-    </div>
+    <TableFrame legend={legend}>
+      <thead>
+        <tr className="border-b bg-gray-50 text-left">
+          <th className="pl-3 pr-1 sm:px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+            <span className="sm:hidden" aria-hidden="true">#</span>
+            <span className="max-sm:sr-only">Rank</span>
+          </th>
+          <th className="px-2 sm:px-4 py-3 font-medium text-gray-500">Team</th>
+          <th className={TH}>MP</th>
+          <th className={TH}>W</th>
+          <th className={TH}>L</th>
+          {isVolleyball && <>
+            <th className={TH}>SW</th>
+            <th className={TH}>SL</th>
+          </>}
+          <th className={TH}>PF</th>
+          <th className={TH}>PA</th>
+          <th className={TH}>PD</th>
+          {isVolleyball && <th className={TH}>PTS</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((team, i) => {
+          const pd = team.pointsFor - team.pointsAgainst
+          return (
+            <tr key={team.id} className={rowClass(i)}>
+              <RankCell rank={i + 1} />
+              <TeamCell team={team} streak={team.streak} />
+              <td className={`${TD} text-gray-500`}>{team.matchesPlayed}</td>
+              <td className={`${TD} font-semibold text-brand-ink`}>{team.wins}</td>
+              <td className={`${TD} text-gray-500`}>{team.losses}</td>
+              {isVolleyball && <>
+                <td className={`${TD} text-gray-500`}>{team.setWins}</td>
+                <td className={`${TD} text-gray-500`}>{team.setLosses}</td>
+              </>}
+              <td className={`${TD} text-gray-500`}>{team.pointsFor}</td>
+              <td className={`${TD} text-gray-500`}>{team.pointsAgainst}</td>
+              <td className={`${TD} text-gray-500`}>{pd > 0 ? '+' : ''}{pd}</td>
+              {isVolleyball && <td className={`${TD} font-bold text-brand-ink`}>{computePts(team, method)}</td>}
+            </tr>
+          )
+        })}
+      </tbody>
+    </TableFrame>
   )
 }
