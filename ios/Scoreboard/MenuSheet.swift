@@ -11,6 +11,22 @@ struct MenuSheet: View {
         let board = store.board
         NavigationStack {
             List {
+                // What people open the menu for mid-game comes first; setup
+                // (scoring mode, teams) is usually done once, before play.
+                Section {
+                    if !board.tally.over {
+                        Button(action: endMatch) {
+                            Label("End match", systemImage: "flag.checkered")
+                        }
+                    }
+                    Button(role: .destructive, action: newGame) {
+                        Label("New game", systemImage: "arrow.counterclockwise")
+                    }
+                    .disabled(board.events.isEmpty)
+                } footer: {
+                    Text("New game clears the score and keeps the teams. You can undo it for a few seconds.")
+                }
+
                 Section {
                     Picker("Scoring", selection: Binding(
                         get: { store.board.mode },
@@ -24,20 +40,6 @@ struct MenuSheet: View {
                     Text("Scoring")
                 } footer: {
                     Text("Sets adds an End set button. There are no targets to set up: you end a set or the match when it's over, so any format works.")
-                }
-
-                Section {
-                    if !board.tally.over {
-                        Button(action: endMatch) {
-                            Label("End match", systemImage: "flag.checkered")
-                        }
-                    }
-                    Button(role: .destructive, action: newGame) {
-                        Label("New game", systemImage: "arrow.counterclockwise")
-                    }
-                    .disabled(board.events.isEmpty)
-                } footer: {
-                    Text("New game clears the score and keeps the teams. You can undo it for a few seconds.")
                 }
 
                 // Teams last; the About links ride in its footer so Teams
