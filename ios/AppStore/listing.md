@@ -86,7 +86,9 @@ Suggested upload order (the first three show in search results):
 | 3 | watch-2-final.png | Apple Watch (Ultra) | 422 × 514 |
 | 4 | watch-3-free.png | Apple Watch (Ultra) | 422 × 514 |
 
-App Store Connect scales the 6.9" set down for smaller iPhones, so no other iPhone sizes are needed.
+**The required iPhone set is now "iPhone with Dynamic Island (medium display)", 6.1"/6.3" (1206 × 2622).** Those
+copies are in `screenshots/iphone-6.3/` (the 6.9" shots resized; the aspect ratios match to under 0.1%) and are
+uploaded in the order above. The 6.9" set goes in the optional "large display" slot. Both were uploaded on 2026-10-10.
 All are opaque PNGs (no alpha), with fictional team names.
 
 To regenerate: build the app into a simulator, then
