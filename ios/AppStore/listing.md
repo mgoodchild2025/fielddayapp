@@ -13,7 +13,7 @@ Character counts are checked against Apple's limits.
 | Secondary category | Utilities |
 | Content rights | Does not contain, show, or access third-party content |
 | Age rating | 4+ (answer "None" to every question) |
-| Privacy policy URL | https://fielddayapp.ca/privacy |
+| Privacy policy URL | https://fielddayapp.ca/privacy/scoreboard (set under App Privacy, not App Information) |
 
 ## Version 1.0
 
