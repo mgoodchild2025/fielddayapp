@@ -131,7 +131,8 @@ struct TeamPanel: View {
 
     /// "−1" above the number while pulling down, "+1" below it while pushing up.
     private func swipeHint(_ text: String, active: Bool) -> some View {
-        let armed = active && abs(dragY) >= Self.swipeThreshold
+        // Up counts from the tap slop (+1 is cheap); down needs the full threshold.
+        let armed = active && abs(dragY) >= (dragY < 0 ? Self.tapSlop : Self.swipeThreshold)
         return Text(text)
             .font(.title3.weight(.bold))
             .monospacedDigit()
