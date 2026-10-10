@@ -91,7 +91,7 @@ export default async function PrivacyPage() {
         )}
 
         <p className="mt-12 text-sm text-gray-600">
-          Using the Fieldday Scoreboard app for iPhone or Apple Watch? It collects no personal data —{' '}
+          Using the Fieldday Scoreboard app for iPhone, Apple Watch or Android? It collects no personal data —{' '}
           <Link href="/privacy/scoreboard" className="text-gray-900 underline underline-offset-2 hover:no-underline">
             see the Scoreboard app privacy notice
           </Link>

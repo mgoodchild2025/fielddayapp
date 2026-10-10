@@ -11,7 +11,7 @@ import { CONTACT_EMAILS } from '@/lib/org-schema'
 export const metadata: Metadata = {
   title: 'Fieldday Scoreboard app — Privacy',
   description:
-    'The Fieldday Scoreboard app for iPhone and Apple Watch collects no personal data. Scores stay on your devices.',
+    'Fieldday Scoreboard for iPhone, Apple Watch and Android collects no personal data. Scores stay on your devices.',
 }
 
 export default function ScoreboardAppPrivacyPage() {
@@ -31,21 +31,31 @@ export default function ScoreboardAppPrivacyPage() {
       <main className="max-w-4xl mx-auto px-6 py-12">
         <div className="mb-8 pb-8 border-b border-gray-100">
           <h1 className="text-3xl font-bold text-gray-900 mb-3">Fieldday Scoreboard app — Privacy</h1>
-          <p className="text-sm text-gray-500">For the Fieldday Scoreboard app for iPhone and Apple Watch · Last updated: October 10, 2026</p>
+          <p className="text-sm text-gray-500">For the Fieldday Scoreboard apps for iPhone, Apple Watch and Android · Last updated: October 10, 2026</p>
         </div>
 
         <div className="space-y-8 text-gray-700 leading-relaxed">
           <section className="space-y-3">
             <h2 className="text-xl font-semibold text-gray-900">The short version</h2>
             <p>
-              The Fieldday Scoreboard app does not collect, store or share any personal information.
-              There is no account, no sign-in, no advertising, no analytics and no tracking. The app
-              does not send anything to Fieldday or to anyone else.
+              Fieldday Scoreboard does not collect any personal information. There is no account, no
+              sign-in, no advertising and no tracking.
             </p>
+            <ul className="list-disc pl-6 space-y-2">
+              <li>
+                <strong>iPhone and Apple Watch:</strong> the app sends nothing to Fieldday or to anyone
+                else.
+              </li>
+              <li>
+                <strong>Android:</strong> the app runs the web scoreboard in its own window, so it counts
+                launches anonymously the way the web scoreboard does (see below). Nothing it records
+                identifies you.
+              </li>
+            </ul>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-semibold text-gray-900">What stays on your devices</h2>
+            <h2 className="text-xl font-semibold text-gray-900">What stays on your devices (iPhone and Apple Watch)</h2>
             <ul className="list-disc pl-6 space-y-2">
               <li>
                 <strong>The current game</strong> — team names, colours, scores, sets and clock settings —
@@ -77,14 +87,14 @@ export default function ScoreboardAppPrivacyPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-semibold text-gray-900">The web scoreboard</h2>
+            <h2 className="text-xl font-semibold text-gray-900">The web scoreboard and the Android app</h2>
             <p>
               The free web version at{' '}
               <Link href="/scoreboard" className="text-gray-900 underline underline-offset-2 hover:no-underline">
                 fielddayapp.ca/scoreboard
               </Link>{' '}
-              is separate from the app. To count how many devices use it, it keeps a random ID in your
-              browser and records, for each day it&apos;s opened: how many times, whether it was opened as an
+              is separate from the iPhone app; the Android app runs it. To count how many devices use it, it
+              keeps a random ID on your device and records, for each day it&apos;s opened: how many times, whether it was opened as an
               installed home-screen app, a coarse platform type (such as &ldquo;iOS&rdquo; or
               &ldquo;Android&rdquo;) and, on a league&apos;s own site, which league site it was. It records no
               name, account, IP address or browser details.

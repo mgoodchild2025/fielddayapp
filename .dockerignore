@@ -7,3 +7,4 @@ npm-debug.log*
 
 # Native apps are built in Xcode, not in the web image
 ios
+android

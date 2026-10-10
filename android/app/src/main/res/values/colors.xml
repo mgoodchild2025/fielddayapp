@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- theme_color / background_color of the web manifest (/scoreboard/manifest). -->
+    <color name="themeColor">#0B1210</color>
+    <!-- The icon's navy, behind the adaptive icon's foreground. -->
+    <color name="iconBackground">#0B2144</color>
+</resources>

@@ -48,3 +48,12 @@ ios/*.xcodeproj/
 *.ipa
 *.xcactivitylog
 *.xcuserstate
+
+# Android (Scoreboard TWA) — build output and local SDK path; signing keys never live in the repo
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.kotlin/
+*.jks
+*.keystore
