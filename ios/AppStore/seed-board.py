@@ -27,6 +27,14 @@ SCENARIOS = {
     "clock": dict(teamA=("SAND SHARKS", "#0891B2"), teamB=("BLOCK PARTY", "#EA580C"), mode="sets", events=sets((25, 21), live=(18, 16)),
                   clock={"mode": "countdown", "lengthMs": 20000, "accumulatedMs": 0, "timeoutLengthMs": 30000,
                          "timeoutsUsed": {"A": 1, "B": 0}, "resumeAfterTimeout": False, "sound": True, "start": True}),
+    # Screenshots: a 20-minute countdown at 14:27, running, mid-set…
+    "clockshot": dict(teamA=("SAND SHARKS", "#0891B2"), teamB=("BLOCK PARTY", "#EA580C"), mode="sets", events=sets((25, 21), live=(18, 16)),
+                      clock={"mode": "countdown", "lengthMs": 1200000, "accumulatedMs": 0, "timeoutLengthMs": 30000,
+                             "timeoutsUsed": {"A": 1, "B": 0}, "resumeAfterTimeout": False, "sound": True, "startedAgoMs": 333000}),
+    # …and the same game during a BLOCK PARTY timeout (0:18 left, clock paused at 14:27).
+    "timeoutshot": dict(teamA=("SAND SHARKS", "#0891B2"), teamB=("BLOCK PARTY", "#EA580C"), mode="sets", events=sets((25, 21), live=(18, 16)),
+                        clock={"mode": "countdown", "lengthMs": 1200000, "accumulatedMs": 333000, "timeoutLengthMs": 30000,
+                               "timeoutsUsed": {"A": 1, "B": 1}, "resumeAfterTimeout": True, "sound": True, "timeoutAgoMs": ["B", 12000]}),
     "dinks": dict(teamA=("DINK DYNASTY", "#7C3AED"), teamB=("NET GAINS", "#0E9F6E"), mode="sets", events=sets((11, 7), live=(9, 6))),
 }
 
@@ -34,11 +42,17 @@ dev, bundle, name = sys.argv[1:4]
 s = SCENARIOS[name]
 board = {"v": 1, "events": s["events"], "teamA": {"name": s["teamA"][0], "color": s["teamA"][1]},
          "teamB": {"name": s["teamB"][0], "color": s["teamB"][1]}, "config": {"mode": s["mode"]},
-         "swapped": False, "updatedAt": 1e15, "rev": 100000}
+         "swapped": False, "updatedAt": 1e15, "rev": 1000000000}
 if "clock" in s:
     c = dict(s["clock"])
     if c.pop("start", False):
         c["runningSince"] = time.time() * 1000
+    ago = c.pop("startedAgoMs", None)
+    if ago is not None:
+        c["runningSince"] = time.time() * 1000 - ago
+    tmo = c.pop("timeoutAgoMs", None)
+    if tmo is not None:
+        c["timeout"] = {"side": tmo[0], "startedAt": time.time() * 1000 - tmo[1]}
     board["clock"] = c
 hexdata = json.dumps(board, separators=(",", ":")).encode().hex()
 subprocess.run(["xcrun", "simctl", "terminate", dev, bundle], capture_output=True)
