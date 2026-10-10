@@ -24,6 +24,9 @@ SCENARIOS = {
     "setpoint": dict(teamA=("SAND SHARKS", "#0891B2"), teamB=("BLOCK PARTY", "#EA580C"), mode="sets", events=sets((25, 21), live=(24, 23))),
     "final": dict(teamA=("SAND SHARKS", "#0891B2"), teamB=("BLOCK PARTY", "#EA580C"), mode="sets", events=sets((25, 21), (23, 25), (15, 12), end=True)),
     "free": dict(teamA=("FALCONS", "#DC2626"), teamB=("RIVERHAWKS", "#2563EB"), mode="free", events=rally(42, 39)),
+    "clock": dict(teamA=("SAND SHARKS", "#0891B2"), teamB=("BLOCK PARTY", "#EA580C"), mode="sets", events=sets((25, 21), live=(18, 16)),
+                  clock={"mode": "countdown", "lengthMs": 20000, "accumulatedMs": 0, "timeoutLengthMs": 30000,
+                         "timeoutsUsed": {"A": 1, "B": 0}, "resumeAfterTimeout": False, "sound": True, "start": True}),
     "dinks": dict(teamA=("DINK DYNASTY", "#7C3AED"), teamB=("NET GAINS", "#0E9F6E"), mode="sets", events=sets((11, 7), live=(9, 6))),
 }
 
@@ -32,6 +35,11 @@ s = SCENARIOS[name]
 board = {"v": 1, "events": s["events"], "teamA": {"name": s["teamA"][0], "color": s["teamA"][1]},
          "teamB": {"name": s["teamB"][0], "color": s["teamB"][1]}, "config": {"mode": s["mode"]},
          "swapped": False, "updatedAt": 1e15, "rev": 100000}
+if "clock" in s:
+    c = dict(s["clock"])
+    if c.pop("start", False):
+        c["runningSince"] = time.time() * 1000
+    board["clock"] = c
 hexdata = json.dumps(board, separators=(",", ":")).encode().hex()
 subprocess.run(["xcrun", "simctl", "terminate", dev, bundle], capture_output=True)
 time.sleep(1)

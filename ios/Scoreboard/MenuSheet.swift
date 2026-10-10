@@ -42,6 +42,14 @@ struct MenuSheet: View {
                     Text("Sets adds an End set button. There are no targets to set up: you end a set or the match when it's over, so any format works.")
                 }
 
+                Section {
+                    ClockSettings(store: store)
+                } header: {
+                    Text("Clock")
+                } footer: {
+                    Text("Tap the clock to start or pause, hold it to change the length. At 0:00 it buzzes and offers End set / End match. Timeouts pause a running clock.")
+                }
+
                 // Teams last; the About links ride in its footer so Teams
                 // stays the bottom section.
                 Section {

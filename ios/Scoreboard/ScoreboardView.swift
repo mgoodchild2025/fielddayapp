@@ -22,6 +22,11 @@ struct ScoreboardView: View {
     /// Events cleared by New game, kept briefly for Undo.
     @State private var clearedEvents: [ScoreEvent]?
     @State private var flash: Side?
+    @State private var clockSheetOpen = false
+    /// The countdown run (its start time) whose "Time · End set / End match"
+    /// chooser was dismissed — so it doesn't come back until the next run.
+    @State private var timeUpDismissedFor: Double?
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         let board = store.board
@@ -45,6 +50,22 @@ struct ScoreboardView: View {
             try? await Task.sleep(for: .seconds(6))
             if !Task.isCancelled { setPrompt = nil }
         }
+        // The buzzer: wait for the next zero (countdown or timeout) and fire.
+        // Re-keyed whenever the clock changes, here or from the watch.
+        .task(id: board.clock.nextAlarm(at: Self.nowMs())) {
+            guard let at = store.board.clock.nextAlarm(at: Self.nowMs()) else { return }
+            try? await Task.sleep(for: .milliseconds(Int(max(0, at - Self.nowMs())) + 30))
+            guard !Task.isCancelled else { return }
+            ClockAlarm.fire(sound: store.board.clock.sound)
+        }
+        // Locked phone / app in the background: a scheduled notification buzzes.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                ClockNotifications.schedule(for: store.board, now: Self.nowMs())
+            } else if phase == .active {
+                ClockNotifications.cancel()
+            }
+        }
         .task(id: clearedEvents == nil) {
             guard clearedEvents != nil else { return }
             try? await Task.sleep(for: .seconds(8))
@@ -59,6 +80,11 @@ struct ScoreboardView: View {
             }
             .presentationDetents([.medium, .large])
             .presentationBackground(Color(.systemGroupedBackground))
+        }
+        .sheet(isPresented: $clockSheetOpen) {
+            ClockSheet(store: store, close: { clockSheetOpen = false })
+                .presentationDetents([.medium, .large])
+                .presentationBackground(Color(.systemGroupedBackground))
         }
         .sheet(isPresented: $menuOpen) {
             MenuSheet(store: store, endMatch: endMatch, newGame: newGame, close: { menuOpen = false })
@@ -75,11 +101,35 @@ struct ScoreboardView: View {
             let layout = landscape ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
             layout {
                 panel(order.first, board: board, tally: tally)
-                middleBar(board: board, tally: tally, vertical: landscape)
+                middleRegion(board: board, tally: tally, vertical: landscape)
                 panel(order.second, board: board, tally: tally)
             }
         }
     }
+
+    /// The clock row (while the clock is on) above the middle bar.
+    private func middleRegion(board: Board, tally: Tally, vertical: Bool) -> some View {
+        VStack(spacing: 0) {
+            if board.clock.isOn {
+                ClockRow(
+                    store: store,
+                    vertical: vertical,
+                    timeUpDismissedFor: timeUpDismissedFor,
+                    endSet: endSet,
+                    endMatch: endMatch,
+                    dismissTimeUp: { timeUpDismissedFor = store.board.clock.runningSince },
+                    openSettings: { clockSheetOpen = true }
+                )
+                // A locked board still shows the clock; it just can't be changed.
+                .allowsHitTesting(!locked)
+            }
+            middleBar(board: board, tally: tally, vertical: vertical)
+        }
+        .frame(maxWidth: vertical ? nil : .infinity, maxHeight: vertical ? .infinity : nil)
+        .background(Color.boardBackground)
+    }
+
+    static func nowMs() -> Double { Date().timeIntervalSince1970 * 1000 }
 
     private func middleBar(board: Board, tally: Tally, vertical: Bool) -> MiddleBar {
         MiddleBar(
@@ -115,6 +165,7 @@ struct ScoreboardView: View {
             showSets: board.mode == .sets,
             locked: locked || tally.over,
             flash: flash == side,
+            timeoutsUsed: board.clock.isOn ? board.clock.timeoutsUsed[side] : 0,
             onScore: { score(side, $0) },
             onEdit: { editing = side }
         )

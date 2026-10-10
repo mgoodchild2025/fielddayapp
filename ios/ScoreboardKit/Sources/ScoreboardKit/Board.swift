@@ -153,11 +153,13 @@ public struct Board: Codable, Equatable, Sendable {
     /// Lamport clock for phone ↔ watch sync: bumped on every local change,
     /// raised past any board adopted from the other device.
     public var rev = 0
+    /// Game clock + timeouts (off by default). Not part of the score history.
+    public var clock = GameClock()
 
     public init() {}
 
     // Tolerant decode: missing keys (the web shape has no `rev`) keep defaults.
-    private enum CodingKeys: String, CodingKey { case v, events, teamA, teamB, config, swapped, updatedAt, rev }
+    private enum CodingKeys: String, CodingKey { case v, events, teamA, teamB, config, swapped, updatedAt, rev, clock }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -169,6 +171,7 @@ public struct Board: Codable, Equatable, Sendable {
         swapped = try c.decodeIfPresent(Bool.self, forKey: .swapped) ?? false
         updatedAt = try c.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0
         rev = try c.decodeIfPresent(Int.self, forKey: .rev) ?? 0
+        clock = (try? c.decodeIfPresent(GameClock.self, forKey: .clock)) ?? GameClock()
     }
 
     public var tally: Tally { derive(events) }
@@ -207,14 +210,16 @@ public struct Board: Codable, Equatable, Sendable {
         let t = tally
         guard t.a + t.b > 0, !t.over else { return nil }
         events.append(.endSet)
+        clock.newPeriod()
         return (t.sets.count + 1, SetScore(home: t.a, away: t.b))
     }
 
     /// Ends the match, folding any in-progress set into the set line.
     @discardableResult
-    public mutating func endMatch() -> Bool {
+    public mutating func endMatch(at now: Double = Date().timeIntervalSince1970 * 1000) -> Bool {
         let t = tally
         guard !t.over else { return false }
+        clock.stop(at: now)
         let folded = t.a + t.b > 0
         if folded { events.append(.endSet) }
         events.append(.endMatch(folded: folded))
@@ -235,6 +240,9 @@ public struct Board: Codable, Equatable, Sendable {
     public mutating func reset() -> [ScoreEvent] {
         let previous = events
         events = []
+        // A new game starts with a fresh clock; its settings stay.
+        clock.newPeriod()
+        clock.reset()
         return previous
     }
 

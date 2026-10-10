@@ -44,6 +44,16 @@ public final class BoardStore {
         return result
     }
 
+    /// The store's clock (ms since 1970) — injectable for tests.
+    public func currentTime() -> Double { now() }
+
+    /// A clock control (start, pause, timeout…): stamped with the store's time
+    /// and saved + synced like any other change.
+    public func changeClock(_ body: (inout GameClock, Double) -> Void) {
+        let t = now()
+        change { body(&$0.clock, t) }
+    }
+
     /// A board from the other device. Adopted only when it's newer; the
     /// Lamport clock then moves past it so the next local change wins.
     @discardableResult

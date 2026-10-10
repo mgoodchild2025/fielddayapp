@@ -18,6 +18,7 @@ struct WatchBoardView: View {
 
         VStack(spacing: 4) {
             half(order.first, board: board, tally: tally)
+            if board.clock.isOn && !dimmed { clockRow(board.clock) }
             controls(board: board, tally: tally)
             half(order.second, board: board, tally: tally)
         }
@@ -25,6 +26,16 @@ struct WatchBoardView: View {
         .overlay {
             if let outcome = tally.outcome, !dimmed {
                 matchOver(board: board, tally: tally, outcome: outcome)
+            }
+        }
+        // Buzz at the countdown's or a timeout's zero (the clock syncs from the phone).
+        .task(id: board.clock.nextAlarm(at: Self.nowMs())) {
+            guard let at = store.board.clock.nextAlarm(at: Self.nowMs()) else { return }
+            try? await Task.sleep(for: .milliseconds(Int(max(0, at - Self.nowMs())) + 30))
+            guard !Task.isCancelled else { return }
+            for _ in 0..<3 {
+                WKInterfaceDevice.current().play(.notification)
+                try? await Task.sleep(for: .milliseconds(600))
             }
         }
         .task(id: setPrompt?.id) {
@@ -89,6 +100,46 @@ struct WatchBoardView: View {
         .accessibilityValue("\(points) \(points == 1 ? "point" : "points")")
         .accessibilityAdjustableAction { direction in
             score(side, direction == .increment ? 1 : -1)
+        }
+    }
+
+    static func nowMs() -> Double { Date().timeIntervalSince1970 * 1000 }
+
+    // ── Clock ────────────────────────────────────────────────────────────────
+
+    /// The game clock (tap to start/pause), or a running timeout (tap to resume).
+    /// Timeouts are called and the clock is set up on the iPhone.
+    private func clockRow(_ clock: GameClock) -> some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { context in
+            let now = context.date.timeIntervalSince1970 * 1000
+            if let left = clock.timeoutRemaining(at: now) {
+                Button {
+                    store.changeClock { $0.endTimeout(at: $1) }
+                    WKInterfaceDevice.current().play(.click)
+                } label: {
+                    Text("T/O \(formatClock(left, roundingUp: true)) · Resume")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(left <= 0 ? Color(hex: "#F87171") : .white)
+                }
+                .buttonStyle(.plain)
+                .frame(height: 20)
+            } else {
+                let expired = clock.isExpired(at: now)
+                Button {
+                    store.changeClock { $0.toggle(at: $1) }
+                    WKInterfaceDevice.current().play(.click)
+                } label: {
+                    Text(formatClock(clock.displayMs(at: now), roundingUp: clock.mode == .countdown))
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(expired ? Color(hex: "#F87171") : .white.opacity(clock.isRunning(at: now) ? 1 : 0.55))
+                }
+                .buttonStyle(.plain)
+                .frame(height: 20)
+                .accessibilityLabel("Clock")
+                .accessibilityHint("Starts or pauses the clock")
+            }
         }
     }
 

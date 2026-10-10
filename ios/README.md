@@ -39,6 +39,25 @@ cd ios/ScoreboardKit && swift test
 - The screen never dims while the app is open (`isIdleTimerDisabled`); status bar
   hidden; system edge gestures deferred so a swipe on the top panel isn't Notification Centre.
 
+## Clock & timeouts
+
+Off by default; Menu → Clock: Off · Stopwatch · Countdown (10/12/15/20/25 min or
+the stepper), timeout length 30/60 s, "Horn at zero" (off by default).
+- `GameClock` (ScoreboardKit) lives beside the score events — Undo never touches
+  it. Time comes from timestamps (`runningSince` + `accumulatedMs`), so it stays
+  exact through a lock, a relaunch or a phone ↔ watch hand-off. Same JSON as the
+  web board (`lib/scoreboard-clock.ts`).
+- Middle bar row `[● T/O]  12:34  [T/O ●]`: tap the clock = start/pause, hold =
+  settings. A timeout pauses a running clock and Resume carries it on; timeouts
+  taken this set show under the team name. End set resets a countdown and the
+  timeout marks; New game resets the clock but keeps its settings.
+- At 0:00: triple haptic (+ horn if on), the clock flashes, and the bar offers
+  **Time · End set / End match / ✕** — nothing ends on its own.
+- Locked phone: going to the background schedules a notification at the next
+  zero (`ClockNotifications`); permission is asked when the clock is turned on
+  in the menu, never mid-game. The watch shows the clock (tap = start/pause,
+  or Resume a timeout) and buzzes at zero; timeouts and setup are on the phone.
+
 ## Phone ↔ watch sync
 
 Each change bumps a Lamport clock (`Board.rev`) and is sent with `sendMessage`

@@ -18,6 +18,8 @@ struct TeamPanel: View {
     let showSets: Bool
     let locked: Bool
     let flash: Bool
+    /// Timeouts this team has taken this set (shown while the clock is on).
+    var timeoutsUsed = 0
     let onScore: (Int) -> Void
     let onEdit: () -> Void
 
@@ -70,6 +72,15 @@ struct TeamPanel: View {
                         .foregroundStyle(.white.opacity(0.85))
                         .lineLimit(1)
                         .padding(.horizontal, 16)
+                    if timeoutsUsed > 0 {
+                        HStack(spacing: 4) {
+                            Text("T/O").font(.caption2.weight(.heavy))
+                            ForEach(0..<timeoutsUsed, id: \.self) { _ in
+                                Circle().stroke(.white, lineWidth: 1.5).frame(width: 7, height: 7)
+                            }
+                        }
+                        .foregroundStyle(.white.opacity(0.8))
+                    }
                     Text("\(points)")
                         .font(.system(size: size, weight: .bold, design: .rounded))
                         .monospacedDigit()
@@ -120,6 +131,7 @@ struct TeamPanel: View {
     private var accessibilityValue: String {
         var v = "\(points) \(points == 1 ? "point" : "points")"
         if showSets { v += ", \(setsWon) \(setsWon == 1 ? "set" : "sets") won" }
+        if timeoutsUsed > 0 { v += ", \(timeoutsUsed) \(timeoutsUsed == 1 ? "timeout" : "timeouts") taken" }
         return v
     }
 
