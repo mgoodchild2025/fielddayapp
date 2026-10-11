@@ -1,6 +1,6 @@
 import {
   Palette, CreditCard, Bell, ScrollText, Globe, Menu, Plug, Banknote, TicketPercent,
-  BookOpen, Shirt, ScanLine, FileSignature, ShieldCheck, Scale,
+  BookOpen, Shirt, ScanLine, BellRing, FileSignature, ShieldCheck, Scale,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -47,6 +47,7 @@ export const SETTINGS_GROUPS: { title: string; items: SettingsCategory[] }[] = [
       { href: '/admin/settings/event-rules',   label: 'Event Rules',      Icon: BookOpen,      description: 'Reusable rule templates selectable per event.' },
       { href: '/admin/settings/positions',     label: 'Positions',        Icon: Shirt,         description: 'Customise player positions available per sport.' },
       { href: '/admin/settings/checkin',       label: 'Check-In',         Icon: ScanLine,      description: 'Check-in sound and kiosk settings for game day.' },
+      { href: '/admin/settings/door-alert',    label: 'Door Alert',       Icon: BellRing,      description: 'Visitors scan a QR at a locked door to alert staff inside.' },
     ],
   },
   {

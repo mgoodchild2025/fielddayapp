@@ -771,6 +771,247 @@ export type Database = {
         }
         Relationships: []
       }
+      door_displays: {
+        Row: {
+          id: string
+          station_id: string
+          organization_id: string
+          label: string
+          token_hash: string
+          paired_ip_hash: string | null
+          screen_armed_at: string | null
+          last_seen_at: string | null
+          revoked_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          station_id: string
+          organization_id: string
+          label: string
+          token_hash: string
+          paired_ip_hash?: string | null
+          screen_armed_at?: string | null
+          last_seen_at?: string | null
+          revoked_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          station_id?: string
+          organization_id?: string
+          label?: string
+          token_hash?: string
+          paired_ip_hash?: string | null
+          screen_armed_at?: string | null
+          last_seen_at?: string | null
+          revoked_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "door_displays_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "door_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      door_join_attempts: {
+        Row: {
+          id: string
+          ip_hash: string
+          station_id: string | null
+          success: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ip_hash: string
+          station_id?: string | null
+          success: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ip_hash?: string
+          station_id?: string | null
+          success?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "door_join_attempts_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "door_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      door_push_subscriptions: {
+        Row: {
+          id: string
+          display_id: string
+          station_id: string
+          organization_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent: string | null
+          created_at: string
+          last_success_at: string | null
+          last_failure_at: string | null
+        }
+        Insert: {
+          id?: string
+          display_id: string
+          station_id: string
+          organization_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent?: string | null
+          created_at?: string
+          last_success_at?: string | null
+          last_failure_at?: string | null
+        }
+        Update: {
+          id?: string
+          display_id?: string
+          station_id?: string
+          organization_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          user_agent?: string | null
+          created_at?: string
+          last_success_at?: string | null
+          last_failure_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "door_push_subscriptions_display_id_fkey"
+            columns: ["display_id"]
+            isOneToOne: false
+            referencedRelation: "door_displays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "door_push_subscriptions_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "door_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      door_rings: {
+        Row: {
+          id: string
+          station_id: string
+          organization_id: string
+          location_label: string | null
+          visitor_name: string | null
+          visitor_key_hash: string
+          ip_hash: string | null
+          created_at: string
+          acknowledged_at: string | null
+          acknowledged_by_display_id: string | null
+          renotify_count: number
+        }
+        Insert: {
+          id?: string
+          station_id: string
+          organization_id: string
+          location_label?: string | null
+          visitor_name?: string | null
+          visitor_key_hash: string
+          ip_hash?: string | null
+          created_at?: string
+          acknowledged_at?: string | null
+          acknowledged_by_display_id?: string | null
+          renotify_count?: number
+        }
+        Update: {
+          id?: string
+          station_id?: string
+          organization_id?: string
+          location_label?: string | null
+          visitor_name?: string | null
+          visitor_key_hash?: string
+          ip_hash?: string | null
+          created_at?: string
+          acknowledged_at?: string | null
+          acknowledged_by_display_id?: string | null
+          renotify_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "door_rings_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "door_stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "door_rings_acknowledged_by_display_id_fkey"
+            columns: ["acknowledged_by_display_id"]
+            isOneToOne: false
+            referencedRelation: "door_displays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      door_stations: {
+        Row: {
+          id: string
+          organization_id: string
+          name: string
+          location_label: string | null
+          public_token: string
+          join_token: string
+          join_code: string
+          channel_key: string
+          is_armed: boolean
+          cooldown_seconds: number
+          fallback_message: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          name: string
+          location_label?: string | null
+          public_token: string
+          join_token: string
+          join_code: string
+          channel_key: string
+          is_armed?: boolean
+          cooldown_seconds?: number
+          fallback_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          name?: string
+          location_label?: string | null
+          public_token?: string
+          join_token?: string
+          join_code?: string
+          channel_key?: string
+          is_armed?: boolean
+          cooldown_seconds?: number
+          fallback_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       scoreboard_launch_logs: {
         Row: {
           day: string
@@ -5866,6 +6107,20 @@ export type Database = {
         Returns: undefined
       }
       current_org_id: { Args: never; Returns: string }
+      door_try_ring: {
+        Args: {
+          p_ip_hash: string | null
+          p_name: string | null
+          p_station_id: string
+          p_visitor_key_hash: string
+        }
+        Returns: {
+          created_at: string | null
+          reason: string | null
+          retry_after: number
+          ring_id: string | null
+        }[]
+      }
       increment_discount_use: {
         Args: { discount_id: string }
         Returns: undefined

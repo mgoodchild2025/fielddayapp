@@ -26,6 +26,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
+import { purgeDoorData } from '@/lib/door/retention'
 
 const EXPORT_WINDOW_DAYS = 30
 const DEIDENTIFY_AFTER_DAYS = 90  // 30 (export) + 60 (de-id window)
@@ -48,6 +49,9 @@ export async function GET(req: NextRequest) {
   const now = new Date()
 
   try {
+    // Door Alert retention runs every night, whatever happens below.
+    results.push(await purgeDoorData(db))
+
     // Find canceled subscriptions that are past the 90-day de-identification deadline
     const deidentifyBefore = new Date(now.getTime() - DEIDENTIFY_AFTER_DAYS * 24 * 60 * 60 * 1000)
 
@@ -68,7 +72,7 @@ export async function GET(req: NextRequest) {
     )
 
     if (candidateOrgIds.length === 0) {
-      return NextResponse.json({ message: 'No orgs require de-identification', results: [] })
+      return NextResponse.json({ message: 'No orgs require de-identification', results })
     }
 
     // Filter out orgs already de-identified
@@ -80,7 +84,7 @@ export async function GET(req: NextRequest) {
       .is('data_deidentified_at', null)
 
     if (!orgs || orgs.length === 0) {
-      return NextResponse.json({ message: 'All candidate orgs already de-identified', results: [] })
+      return NextResponse.json({ message: 'All candidate orgs already de-identified', results })
     }
 
     for (const orgRow of orgs) {
