@@ -171,7 +171,7 @@ export async function acknowledgeRing(display: DoorDisplay, station: DoorStation
     .select('id, acknowledged_at')
   if (updated && updated.length > 0) {
     await broadcastDoor(station.channel_key, { event: 'ack', payload: { ringId, acknowledgedAt: now, displayLabel: display.label } })
-    void sendDoorPush({ stationId: station.id }, { type: 'ack', ringId })
+    void sendDoorPush({ stationId: station.id }, { type: 'ack', ringId, displayLabel: display.label })
     return { acknowledgedAt: now, first: true }
   }
   const { data: existing } = await db().from('door_rings').select('acknowledged_at')

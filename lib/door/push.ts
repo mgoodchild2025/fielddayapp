@@ -11,7 +11,7 @@ import { shouldDropSubscription } from '@/lib/push-payload'
 
 export type DoorPushPayload =
   | { type: 'ring'; ringId: string; stationName: string; visitorName: string | null; createdAt: string; renotify?: number }
-  | { type: 'ack'; ringId: string }
+  | { type: 'ack'; ringId: string; displayLabel: string | null }
   | { type: 'test'; stationName: string }
 
 interface Target { stationId?: string; displayId?: string }
