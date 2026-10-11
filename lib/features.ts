@@ -27,6 +27,7 @@ export type BooleanFeature =
   | 'media_gallery'
   | 'social_integration'
   | 'financial_tools'
+  | 'door_alert'
 
 export type LimitFeature =
   | 'max_leagues'   // null = unlimited
@@ -81,6 +82,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       { key: 'drop_in_sessions',   label: 'Drop-in events',       description: 'Create single-session drop-in events with per-session pricing', type: 'boolean' },
       { key: 'recurring_sessions', label: 'Recurring sessions',   description: 'Create repeating game sessions', type: 'boolean' },
       { key: 'player_check_in',    label: 'QR code check-in',     description: 'Scan player QR codes at the venue for event and drop-in check-in', type: 'boolean' },
+      { key: 'door_alert',         label: 'Door Alert',           description: 'Visitors scan a QR at a locked venue door to alert staff inside on paired screens and phones', type: 'boolean' },
     ],
   },
   {
