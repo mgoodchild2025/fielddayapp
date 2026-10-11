@@ -28,7 +28,7 @@ export default async function DoorAlertSettingsPage() {
   const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? ''
   const origin = `${host.startsWith('localhost') ? 'http' : 'https'}://${host}`
   const { stations, rings, timezone } = await loadDoorAdmin(org.id, origin)
-  return <DoorAlertAdmin stations={stations} rings={rings} timezone={timezone} />
+  return <DoorAlertAdmin stations={stations} rings={rings} timezone={timezone} vapidKey={process.env.VAPID_PUBLIC_KEY ?? null} />
 }
 
 /** Everything the page shows, in one round of parallel reads. */

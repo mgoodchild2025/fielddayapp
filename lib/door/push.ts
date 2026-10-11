@@ -9,10 +9,16 @@ import { shouldDropSubscription } from '@/lib/push-payload'
  * existing subscription. Never throws.
  */
 
+/**
+ * Every payload names its station: the app's root worker (/sw.js), which
+ * delivers door alerts to admins who turned them on from the Fieldday app,
+ * keeps one display token per station. `door: true` is added on send so that
+ * worker can tell door pushes from player notifications.
+ */
 export type DoorPushPayload =
-  | { type: 'ring'; ringId: string; stationName: string; visitorName: string | null; createdAt: string; renotify?: number }
-  | { type: 'ack'; ringId: string; displayLabel: string | null }
-  | { type: 'test'; stationName: string }
+  | { type: 'ring'; stationId: string; ringId: string; stationName: string; visitorName: string | null; createdAt: string; renotify?: number }
+  | { type: 'ack'; stationId: string; ringId: string; displayLabel: string | null }
+  | { type: 'test'; stationId: string; stationName: string }
 
 interface Target { stationId?: string; displayId?: string }
 
@@ -27,7 +33,7 @@ export async function sendDoorPush(target: Target, payload: DoorPushPayload): Pr
     const { data: subs } = await q
     if (!subs || subs.length === 0) return
 
-    const body = JSON.stringify(payload)
+    const body = JSON.stringify({ door: true, ...payload })
     // A ring is worthless once the visitor has left; an ack must arrive fast
     // enough to close the notification while it still matters.
     const options = { TTL: payload.type === 'ring' ? 120 : 60, urgency: 'high' as const }

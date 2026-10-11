@@ -5,7 +5,7 @@ import { sendDoorPush } from '@/lib/door/push'
 export async function POST(_request: Request, { params }: { params: Promise<{ displayToken: string }> }) {
   const { displayToken } = await params
   return withDisplay(displayToken, async ({ display, station }) => {
-    await sendDoorPush({ displayId: display.id }, { type: 'test', stationName: station.name })
+    await sendDoorPush({ displayId: display.id }, { type: 'test', stationId: station.id, stationName: station.name })
     return doorJson({ ok: true })
   })
 }
