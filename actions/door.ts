@@ -8,7 +8,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { assertOrgAdmin } from '@/lib/auth'
 import { canAccess } from '@/lib/features'
 import { broadcastDoor } from '@/lib/door/broadcast'
-import { newStationSecrets, revokeDisplay } from '@/lib/door/service'
+import { ipHashFromHeaders, newStationSecrets, pairDisplay, revokeDisplay } from '@/lib/door/service'
 import { generateJoinCode, randomToken, sanitizeText } from '@/lib/door/tokens'
 
 /**
@@ -21,12 +21,12 @@ const PATH = '/admin/settings/door-alert'
 
 type Result<T = object> = ({ error?: undefined } & T) | { error: string }
 
-async function guard(): Promise<{ orgId: string } | { error: string }> {
+async function guard(): Promise<{ orgId: string; userId: string } | { error: string }> {
   const org = await getCurrentOrg(await headers())
   const auth = await assertOrgAdmin(org)
-  if (auth.error) return { error: auth.error }
+  if (auth.error !== undefined) return { error: auth.error }
   if (!(await canAccess(org.id, 'door_alert'))) return { error: 'Door Alert isn’t included in your plan.' }
-  return { orgId: org.id }
+  return { orgId: org.id, userId: auth.userId }
 }
 
 async function ownStation(orgId: string, stationId: string) {
@@ -155,4 +155,34 @@ export async function deleteDoorStation(stationId: string): Promise<Result> {
   if (error) return { error: 'Couldn’t delete the door.' }
   revalidatePath(PATH)
   return {}
+}
+
+const DEVICE_KINDS = ['iPhone', 'iPad', 'Android phone', 'Android tablet', 'phone', 'tablet', 'computer'] as const
+
+/**
+ * "Alert me on this phone": pair the signed-in admin's own device as a display
+ * for this door — no staff QR or code needed. Door alerts then reach them
+ * through the Fieldday app's existing notifications (the root worker). The
+ * token is returned once, like a normal pairing; the browser keeps it.
+ */
+export async function alertMeOnThisDevice(stationId: string, deviceKind: string): Promise<Result<{ displayToken: string; displayId: string; label: string }>> {
+  const g = await guard()
+  if ('error' in g) return g
+  if (!z.string().uuid().safeParse(stationId).success) return { error: 'Door not found.' }
+  const db = createServiceRoleClient()
+  const [{ data: station }, { data: profile }] = await Promise.all([
+    db.from('door_stations').select('*').eq('id', stationId).eq('organization_id', g.orgId).maybeSingle(),
+    db.from('profiles').select('full_name').eq('id', g.userId).maybeSingle(),
+  ])
+  if (!station) return { error: 'Door not found.' }
+  const first = sanitizeText(profile?.full_name ?? '', 40).split(' ')[0] || 'Admin'
+  const kind = (DEVICE_KINDS as readonly string[]).includes(deviceKind) ? deviceKind : 'phone'
+  const label = sanitizeText(`${first}’s ${kind}`, 40)
+  try {
+    const { displayToken, displayId } = await pairDisplay(station, label, ipHashFromHeaders(await headers()))
+    revalidatePath(PATH)
+    return { displayToken, displayId, label }
+  } catch {
+    return { error: 'Couldn’t turn on door alerts. Try again.' }
+  }
 }

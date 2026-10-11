@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { BellRing, Check, Copy, Printer } from 'lucide-react'
+import { BellRing, Check, Copy, Printer, Smartphone } from 'lucide-react'
 import { Overlay } from '@/components/ui/overlay'
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -14,6 +14,8 @@ import {
   createDoorStation, deleteDoorStation, regenerateDoorVisitorLink, revokeDoorDisplay,
   rotateDoorJoinCredentials, setDoorStationArmed, updateDoorStation,
 } from '@/actions/door'
+import { appAlertEligibility, sendAppAlertTest, turnOffAppAlerts, turnOnAppAlerts, type AppAlertEligibility } from '@/components/door/app-alerts'
+import { readMyDoors, writeMyDoor } from '@/components/door/door-push'
 
 export type AdminStation = {
   id: string
@@ -40,7 +42,7 @@ export type AdminRing = {
 
 type Editing = { mode: 'new' } | { mode: 'edit'; station: AdminStation } | null
 
-export function DoorAlertAdmin({ stations, rings, timezone }: { stations: AdminStation[]; rings: AdminRing[]; timezone: string }) {
+export function DoorAlertAdmin({ stations, rings, timezone, vapidKey }: { stations: AdminStation[]; rings: AdminRing[]; timezone: string; vapidKey: string | null }) {
   const router = useRouter()
   const [editing, setEditing] = useState<Editing>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -179,6 +181,8 @@ export function DoorAlertAdmin({ stations, rings, timezone }: { stations: AdminS
                   <p className="text-sm text-gray-600">Join code <span className="font-mono font-semibold text-gray-900">{s.joinCode}</span> at <span className="font-medium">/door/join</span></p>
                 </div>
               </div>
+
+              <MyDevice station={s} vapidKey={vapidKey} onChange={() => router.refresh()} />
 
               <div className="border-t px-5 py-4">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Paired devices</h3>
@@ -357,5 +361,96 @@ function StationForm({ station, onDone, onCancel }: { station: AdminStation | nu
         </button>
       </div>
     </form>
+  )
+}
+
+/**
+ * "Alert me on this phone": the signed-in admin pairs this device in one tap;
+ * alerts arrive through the Fieldday app's notifications. Shown after mount
+ * (it depends on this browser's storage and notification permission).
+ */
+function MyDevice({ station, vapidKey, onChange }: { station: AdminStation; vapidKey: string | null; onChange: () => void }) {
+  const [ready, setReady] = useState(false)
+  const [eligibility, setEligibility] = useState<AppAlertEligibility>('ok')
+  const [mine, setMine] = useState<{ displayId: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const saved = readMyDoors()[station.id]
+      // Disconnected by an admin, expired, or the door was recreated: forget it.
+      if (saved && !station.displays.some((d) => d.id === saved.displayId)) writeMyDoor(station.id, null)
+      setMine(saved && station.displays.some((d) => d.id === saved.displayId) ? saved : null)
+      setEligibility(appAlertEligibility())
+      setReady(true)
+    }, 0)
+    return () => clearTimeout(t)
+  }, [station.id, station.displays])
+
+  async function turnOn() {
+    setBusy(true)
+    const res = await turnOnAppAlerts(station.id, vapidKey)
+    setBusy(false)
+    if (!res.ok) {
+      toast.error(res.error)
+      setEligibility(appAlertEligibility())
+      return
+    }
+    setMine(readMyDoors()[station.id] ?? null)
+    toast.success(`Door alerts on for ${res.label}`)
+    onChange()
+  }
+
+  async function turnOff() {
+    setBusy(true)
+    const res = await turnOffAppAlerts(station.id)
+    setBusy(false)
+    if (!res.ok) {
+      toast.error('Couldn’t reach the server. Try again.')
+      return
+    }
+    setMine(null)
+    toast.success('Door alerts off for this device')
+    onChange()
+  }
+
+  async function test() {
+    if (await sendAppAlertTest(station.id)) toast('Test alert sent to this device')
+    else toast.error('Couldn’t send a test. Check your connection.')
+  }
+
+  if (!ready) return null
+  return (
+    <div className="border-t px-5 py-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">This device</h3>
+      {mine ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="mr-auto text-sm text-gray-700">
+            <Check className="inline h-4 w-4 text-green-600 -mt-0.5 mr-1" aria-hidden="true" />
+            Door alerts come to this device through your Fieldday app.
+          </p>
+          <button type="button" onClick={() => void test()} className="press min-h-10 rounded-md border px-3 text-sm font-semibold">Send a test</button>
+          <button type="button" disabled={busy} onClick={() => void turnOff()} className="press min-h-10 rounded-md border px-3 text-sm font-semibold disabled:opacity-60">Stop alerting me</button>
+        </div>
+      ) : eligibility === 'ios-browser' ? (
+        <p className="text-sm text-gray-700">To get door alerts on this iPhone or iPad, open Fieldday from your Home Screen, come back to this page and tap <strong>Alert me on this device</strong>.</p>
+      ) : eligibility === 'unsupported' ? (
+        <p className="text-sm text-gray-700">This browser can’t show notifications. Use the staff card on a phone, or open this page in Chrome or Safari.</p>
+      ) : eligibility === 'denied' ? (
+        <p className="text-sm text-gray-700">Notifications are blocked for Fieldday on this device. Allow them in your browser or phone settings, then reload this page.</p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void turnOn()}
+            className="press inline-flex min-h-10 items-center gap-2 rounded-md bg-brand-primary text-on-brand px-4 text-sm font-semibold disabled:opacity-60"
+          >
+            <Smartphone className="h-4 w-4" aria-hidden="true" /> {busy ? 'Turning on…' : 'Alert me on this device'}
+          </button>
+          <p className="text-sm text-gray-600">No code or QR needed. Alerts arrive as Fieldday notifications, on a paired watch too.</p>
+        </div>
+      )}
+    </div>
   )
 }

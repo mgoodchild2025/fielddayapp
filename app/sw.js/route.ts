@@ -60,9 +60,72 @@ function setBadge(count) {
   return (count > 0 ? self.navigator.setAppBadge(count) : self.navigator.clearAppBadge()).catch(() => {});
 }
 
+// ── Door Alert (admins who turned alerts on from this app) ───────────────────
+// Door pushes carry door: true and their station; the display token for that
+// station is in IndexedDB (written by the admin page). Same behaviour as the
+// door's own worker (/door/sw.js): On my way acknowledges without opening the
+// app; on Apple an "answered" push replaces the alert (Safari revokes
+// subscriptions whose pushes show nothing).
+const DOOR_APPLE = /iPhone|iPad|iPod|Macintosh/.test(self.navigator.userAgent) && !/Chrome|Android/.test(self.navigator.userAgent);
+
+function doorToken(stationId) {
+  return new Promise((resolve) => {
+    try {
+      const open = indexedDB.open('fieldday-door', 1);
+      open.onupgradeneeded = () => open.result.createObjectStore('kv');
+      open.onsuccess = () => {
+        const req = open.result.transaction('kv').objectStore('kv').get('display:' + stationId);
+        req.onsuccess = () => { open.result.close(); resolve(req.result || null); };
+        req.onerror = () => resolve(null);
+      };
+      open.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+
+function doorPush(p) {
+  const tag = 'door-' + p.ringId;
+  if (p.type === 'ring') {
+    return self.registration.showNotification(p.visitorName ? p.visitorName + ' is at the door' : 'Someone is at the door', {
+      body: p.stationName + (p.renotify ? ' · still waiting' : '') + ' — tap On my way',
+      tag: tag,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [400, 150, 400, 150, 800],
+      actions: [{ action: 'door-ack', title: 'On my way' }],
+      data: { door: true, ringId: p.ringId, stationId: p.stationId },
+      icon: '/Fieldday-Icon.png',
+      badge: '/Fieldday-Icon.png',
+    });
+  }
+  if (p.type === 'ack') {
+    return self.registration.getNotifications({ tag: tag }).then((list) => {
+      list.forEach((n) => n.close());
+      if (!DOOR_APPLE) return;
+      return self.registration.showNotification('Someone’s on the way', {
+        body: p.displayLabel ? p.displayLabel + ' is going to the door.' : 'The door has been answered.',
+        tag: tag,
+        silent: true,
+        data: { door: true, stationId: p.stationId },
+        icon: '/Fieldday-Icon.png',
+      });
+    });
+  }
+  return self.registration.showNotification('Test alert', {
+    body: (p.stationName || 'Door alert') + ': door alerts are working on this device.',
+    tag: 'door-test',
+    data: { door: true, stationId: p.stationId },
+    icon: '/Fieldday-Icon.png',
+  });
+}
+
 self.addEventListener('push', (event) => {
   let p = {};
   try { p = event.data ? event.data.json() : {}; } catch (e) { p = { title: event.data ? event.data.text() : '' }; }
+  if (p.door) {
+    event.waitUntil(doorPush(p).catch(() => {}));
+    return;
+  }
   const title = p.title || 'Fieldday';
   const options = {
     body: p.body || '',
@@ -77,12 +140,9 @@ self.addEventListener('push', (event) => {
   ]).catch(() => {}));
 });
 
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const href = (event.notification.data && event.notification.data.href) || '/dashboard';
-  const target = new URL(href, self.location.origin).href;
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+// Focus a tab this worker controls and take it to target, else open a window.
+function openOrFocus(target) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       // Prefer a tab this worker controls, outside the scoreboard (which has
       // its own worker — navigate() rejects for clients we don't control, and
       // taking a game-night board somewhere else would be rude anyway).
@@ -95,8 +155,26 @@ self.addEventListener('notificationclick', (event) => {
           .catch(() => self.clients.openWindow(target));
       }
       return self.clients.openWindow(target);
-    })
-  );
+    });
+}
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const data = event.notification.data || {};
+  if (data.door) {
+    event.waitUntil(doorToken(data.stationId).then((token) => {
+      if (event.action === 'door-ack' && token && data.ringId) {
+        return fetch('/api/door/display/' + token + '/rings/' + data.ringId + '/ack', { method: 'POST' })
+          .then((res) => (res.ok ? null : openOrFocus(new URL('/door/display/' + token, self.location.origin).href)))
+          .catch(() => openOrFocus(new URL('/door/display/' + token, self.location.origin).href));
+      }
+      const path = token ? '/door/display/' + token : '/admin/settings/door-alert';
+      return openOrFocus(new URL(path, self.location.origin).href);
+    }));
+    return;
+  }
+  const href = data.href || '/dashboard';
+  event.waitUntil(openOrFocus(new URL(href, self.location.origin).href));
 });
 
 self.addEventListener('pushsubscriptionchange', (event) => {

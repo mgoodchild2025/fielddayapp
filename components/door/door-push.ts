@@ -10,6 +10,7 @@ import { isIOS, isStandalone, pushSupported } from '@/lib/push-client'
  */
 
 export type DoorPushState =
+  | 'on-app'           // alerts come through the Fieldday app (an admin's "Alert me on this phone")
   | 'unsupported'      // no Push API at all
   | 'ios-install'      // iPhone/iPad outside a home-screen web app
   | 'default'          // never asked
@@ -20,7 +21,8 @@ export type DoorPushState =
 const SW_URL = '/door/sw.js'
 const SCOPE = '/door/'
 
-export async function doorPushState(): Promise<DoorPushState> {
+export async function doorPushState(displayToken?: string): Promise<DoorPushState> {
+  if (displayToken && Object.values(readMyDoors()).some((d) => d.displayToken === displayToken)) return 'on-app'
   if (isIOS() && !isStandalone()) return 'ios-install'
   if (!pushSupported()) return 'unsupported'
   if (Notification.permission === 'denied') return 'denied'
@@ -30,20 +32,21 @@ export async function doorPushState(): Promise<DoorPushState> {
   return sub ? 'on' : 'off'
 }
 
-function base64UrlToBytes(base64: string): Uint8Array {
+export function base64UrlToBytes(base64: string): Uint8Array {
   const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/')
   const raw = atob(padded)
   return Uint8Array.from(raw, (c) => c.charCodeAt(0))
 }
 
-function idbPut(key: string, value: string): Promise<void> {
+export function idbPut(key: string, value: string | null): Promise<void> {
   return new Promise((resolve) => {
     try {
       const open = indexedDB.open('fieldday-door', 1)
       open.onupgradeneeded = () => open.result.createObjectStore('kv')
       open.onsuccess = () => {
         const tx = open.result.transaction('kv', 'readwrite')
-        tx.objectStore('kv').put(value, key)
+        if (value === null) tx.objectStore('kv').delete(key)
+        else tx.objectStore('kv').put(value, key)
         tx.oncomplete = () => { open.result.close(); resolve() }
         tx.onerror = () => resolve()
       }
@@ -114,4 +117,29 @@ export async function disableDoorPush(displayToken: string): Promise<void> {
 /** Keeps the worker's copy of the token current when a paired page opens. */
 export async function rememberDisplayForWorker(displayToken: string) {
   if (typeof indexedDB !== 'undefined') await idbPut('displayToken', displayToken)
+}
+
+// ── Doors this browser gets alerts for through the Fieldday app ──────────────
+// (Admin → Settings → Door Alert → "Alert me on this phone".) One display per
+// station; the root worker looks tokens up as IndexedDB 'display:<stationId>'.
+
+const MY_DOORS_KEY = 'fieldday-door-mine'
+export type MyDoors = Record<string, { displayToken: string; displayId: string }>
+
+export function readMyDoors(): MyDoors {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MY_DOORS_KEY) ?? '{}')
+    return parsed && typeof parsed === 'object' ? parsed as MyDoors : {}
+  } catch {
+    return {}
+  }
+}
+
+export function writeMyDoor(stationId: string, value: MyDoors[string] | null) {
+  try {
+    const all = readMyDoors()
+    if (value) all[stationId] = value
+    else delete all[stationId]
+    localStorage.setItem(MY_DOORS_KEY, JSON.stringify(all))
+  } catch { /* storage blocked: the server-side pairing still works */ }
 }

@@ -14,7 +14,8 @@ import { DISPLAY_TYPE, DoorStripes } from './door-stripes'
 import { useChime } from './use-chime'
 import { useWakeLock } from './use-wake-lock'
 import {
-  disableDoorPush, doorPushState, enableDoorPush, registerDoorWorker, rememberDisplayForWorker, type DoorPushState,
+  disableDoorPush, doorPushState, enableDoorPush, idbPut, readMyDoors, registerDoorWorker, rememberDisplayForWorker,
+  writeMyDoor, type DoorPushState,
 } from './door-push'
 import { forgetSavedDisplay } from './join-form'
 
@@ -146,7 +147,7 @@ export function DisplayBoard({
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const s = await doorPushState()
+      const s = await doorPushState(displayToken)
       if (cancelled) return
       setPush(s)
       if (s === 'on') {
@@ -239,7 +240,7 @@ export function DisplayBoard({
     setPushBusy(true)
     const result = await enableDoorPush(displayToken, vapidKey)
     setPushBusy(false)
-    setPush(await doorPushState())
+    setPush(await doorPushState(displayToken))
     if (result.ok) toast.success('Notifications are on for this device')
     else toast.error(result.error ?? 'Couldn’t turn notifications on.')
     void refresh()
@@ -249,14 +250,14 @@ export function DisplayBoard({
     setPushBusy(true)
     await disableDoorPush(displayToken)
     setPushBusy(false)
-    setPush(await doorPushState())
+    setPush(await doorPushState(displayToken))
     void refresh()
   }
 
   async function sendTest() {
     setSheet(null)
     setTestAlert(Date.now())
-    if (push === 'on') {
+    if (push === 'on' || push === 'on-app') {
       try {
         await fetch(`/api/door/display/${displayToken}/test`, { method: 'POST' })
         toast('Test notification sent to this device')
@@ -294,6 +295,12 @@ export function DisplayBoard({
     await disableDoorPush(displayToken).catch(() => {})
     try { await fetch(`/api/door/display/${displayToken}`, { method: 'DELETE' }) } catch { /* revoked on next admin look */ }
     forgetSavedDisplay(displayToken)
+    for (const [stationId, d] of Object.entries(readMyDoors())) {
+      if (d.displayToken === displayToken) {
+        writeMyDoor(stationId, null)
+        await idbPut(`display:${stationId}`, null)
+      }
+    }
     window.location.replace('/door/join')
   }
 
@@ -355,8 +362,8 @@ export function DisplayBoard({
           <ModeCard
             title="Notifications"
             body={pushBody(push)}
-            on={push === 'on'}
-            action={push === 'on'
+            on={push === 'on' || push === 'on-app'}
+            action={push === 'on-app' ? null : push === 'on'
               ? <button type="button" disabled={pushBusy} onClick={() => void turnOffNotifications()} className="press min-h-12 rounded-xl border border-white/30 px-5 font-semibold disabled:opacity-50">Turn off</button>
               : push === 'loading' ? null
               : <BigButton disabled={pushBusy} onClick={() => void turnOnNotifications()}>
@@ -455,6 +462,7 @@ export function DisplayBoard({
 function pushBody(push: DoorPushState | 'loading'): string {
   switch (push) {
     case 'on': return 'On. Rings show on this device’s lock screen and on a paired watch.'
+    case 'on-app': return 'On, through your Fieldday app. Turn it off from Admin → Settings → Door Alert.'
     case 'ios-install': return 'On iPhone and iPad, add this page to your Home Screen first; Apple only allows notifications there.'
     case 'denied': return 'Blocked in this browser’s settings. See how to allow them.'
     case 'unsupported': return 'This browser can’t receive notifications. Use screen mode, or open this page in Chrome or Safari.'

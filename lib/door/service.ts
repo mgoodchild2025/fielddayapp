@@ -32,8 +32,13 @@ export async function doorOrgId(): Promise<string | null> {
 }
 
 export function ipHashOf(request: Request): string {
+  return ipHashFromHeaders(request.headers)
+}
+
+/** Same as ipHashOf, for server actions (headers() instead of a Request). */
+export function ipHashFromHeaders(h: Headers): string {
   const salt = process.env.DOOR_IP_SALT ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'fieldday-door'
-  return hashIp(getClientIp(request), salt)
+  return hashIp(getClientIp({ headers: h } as Request), salt)
 }
 
 /** Absolute origin of this request (the org's own host), for links shown on displays. */
@@ -110,7 +115,7 @@ export async function ringStation(station: DoorStation, ipHash: string, visitorN
   // Displays first (fast path), then phones. The visitor's response waits at
   // most 2 s for push delivery; the rest finishes in the background.
   await broadcastDoor(station.channel_key, { event: 'ring', payload: { ringId, visitorName: name, createdAt } })
-  const push = sendDoorPush({ stationId: station.id }, { type: 'ring', ringId, stationName: station.name, visitorName: name, createdAt })
+  const push = sendDoorPush({ stationId: station.id }, { type: 'ring', stationId: station.id, ringId, stationName: station.name, visitorName: name, createdAt })
   await Promise.race([push, new Promise((r) => setTimeout(r, 2_000))])
   scheduleRenotify(ringId)
 
@@ -139,7 +144,7 @@ async function renotifyIfDue(ring: Pick<DoorRing, 'id' | 'station_id' | 'created
     .eq('id', ring.id).is('acknowledged_at', null).lt('renotify_count', stage).select('id')
   if (!claimed || claimed.length === 0) return // acknowledged, or someone else sent it
   await sendDoorPush({ stationId: station.id }, {
-    type: 'ring', ringId: ring.id, stationName: station.name, visitorName: ring.visitor_name, createdAt: ring.created_at, renotify: stage,
+    type: 'ring', stationId: station.id, ringId: ring.id, stationName: station.name, visitorName: ring.visitor_name, createdAt: ring.created_at, renotify: stage,
   })
 }
 
@@ -171,7 +176,7 @@ export async function acknowledgeRing(display: DoorDisplay, station: DoorStation
     .select('id, acknowledged_at')
   if (updated && updated.length > 0) {
     await broadcastDoor(station.channel_key, { event: 'ack', payload: { ringId, acknowledgedAt: now, displayLabel: display.label } })
-    void sendDoorPush({ stationId: station.id }, { type: 'ack', ringId, displayLabel: display.label })
+    void sendDoorPush({ stationId: station.id }, { type: 'ack', stationId: station.id, ringId, displayLabel: display.label })
     return { acknowledgedAt: now, first: true }
   }
   const { data: existing } = await db().from('door_rings').select('acknowledged_at')
