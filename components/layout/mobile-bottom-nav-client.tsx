@@ -96,15 +96,15 @@ export function MobileBottomNavClient({ signedIn, area = 'site' }: { signedIn: b
     </button>
   )
 
-  // Raised centre button: a bell poking ~28px above the bar on a transparent
-  // background (no white disc, no brand fill — on request). Not a "current
-  // page" tab.
+  // Raised centre button: a white circle poking ~28px above the bar, lifted by
+  // its shadow (no brand fill — it shouldn't shout; a transparent bell was
+  // tried and looked worse). Not a "current page" tab.
   const alertsButton = (
     <div key="alerts" className="flex-1 flex flex-col items-center justify-end pb-2 min-h-[56px]">
       <button
         type="button"
         onClick={() => openFromTabBar(OPEN_ALERTS)}
-        className="press relative -mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-transparent text-gray-700"
+        className="press relative -mt-7 flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-white text-gray-700 shadow-md ring-1 ring-black/5"
         aria-label={unread > 0 ? `Alerts, ${unread} unread` : 'Alerts'}
       >
         <Bell className="w-6 h-6" strokeWidth={2.25} aria-hidden="true" />
