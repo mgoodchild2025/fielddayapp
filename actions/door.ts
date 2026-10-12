@@ -160,12 +160,12 @@ export async function deleteDoorStation(stationId: string): Promise<Result> {
 const DEVICE_KINDS = ['iPhone', 'iPad', 'Android phone', 'Android tablet', 'phone', 'tablet', 'computer'] as const
 
 /**
- * "Alert me on this phone": pair the signed-in admin's own device as a display
- * for this door — no staff QR or code needed. Door alerts then reach them
- * through the Fieldday app's existing notifications (the root worker). The
- * token is returned once, like a normal pairing; the browser keeps it.
+ * Pair the signed-in admin's own device as a display for this door — no staff
+ * QR or code. Used by "Open door screen" (screen only) and "Alert me on this
+ * device" (which then registers the Fieldday app's push subscription for it).
+ * The token is returned once, like a normal pairing; the browser keeps it.
  */
-export async function alertMeOnThisDevice(stationId: string, deviceKind: string): Promise<Result<{ displayToken: string; displayId: string; label: string }>> {
+export async function pairMyDeviceForDoor(stationId: string, deviceKind: string): Promise<Result<{ displayToken: string; displayId: string; label: string }>> {
   const g = await guard()
   if ('error' in g) return g
   if (!z.string().uuid().safeParse(stationId).success) return { error: 'Door not found.' }

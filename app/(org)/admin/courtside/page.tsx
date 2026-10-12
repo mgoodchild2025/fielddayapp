@@ -11,6 +11,8 @@ import { AdminScoreEntry } from '@/components/scores/admin-score-entry'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { roundDisplayName } from '@/lib/bracket'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
+import { canAccess } from '@/lib/features'
+import { CourtsideDoors, type CourtsideDoor } from '@/components/door/courtside-doors'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Courtside' }
@@ -31,6 +33,10 @@ export default async function CourtsidePage({
   await requireOrgMember(org, ['org_admin', 'league_admin'])
   const scope = await getAdminScope(org.id)
   const db = createServiceRoleClient()
+
+  // Door Alert shortcuts (any day: the door kit doesn't follow the schedule).
+  const doorsPromise = loadCourtsideDoors(org.id)
+  doorsPromise.catch(() => {})
 
   const { data: branding } = await db
     .from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle()
@@ -241,6 +247,8 @@ export default async function CourtsidePage({
   const renderItem = (item: (typeof unscoredItems)[number]) =>
     item.kind === 'game' ? <GameCard key={item.row.id} g={item.row} /> : <BracketCard key={item.row.id} m={item.row} />
 
+  const doors = await doorsPromise
+
   return (
     // The admin shell already pads 16px; no second gutter on phones.
     <div className="max-w-xl mx-auto sm:px-4 py-2 sm:py-6 pb-24">
@@ -260,6 +268,8 @@ export default async function CourtsidePage({
         <Link href={`/admin/courtside?date=${nextDateStr}`} aria-label="Next day"
           className="press inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg border bg-white text-gray-600 font-bold">›</Link>
       </div>
+
+      {doors.length > 0 && <CourtsideDoors doors={doors} from={date === todayLocal ? '/admin/courtside' : `/admin/courtside?date=${date}`} />}
 
       {checkinEvents.size > 0 && (
         <div className="mb-5">
@@ -299,4 +309,20 @@ export default async function CourtsidePage({
       )}
     </div>
   )
+}
+
+async function loadCourtsideDoors(orgId: string): Promise<CourtsideDoor[]> {
+  if (!(await canAccess(orgId, 'door_alert'))) return []
+  const db = createServiceRoleClient()
+  const [{ data: stations }, { data: displays }] = await Promise.all([
+    db.from('door_stations').select('id, name, is_armed, location_label').eq('organization_id', orgId).order('created_at'),
+    db.from('door_displays').select('id, station_id').eq('organization_id', orgId).is('revoked_at', null),
+  ])
+  return (stations ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    isArmed: s.is_armed,
+    locationLabel: s.location_label,
+    displayIds: (displays ?? []).filter((d) => d.station_id === s.id).map((d) => d.id),
+  }))
 }
