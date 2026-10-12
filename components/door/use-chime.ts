@@ -6,20 +6,37 @@ import { useCallback, useEffect, useRef } from 'react'
  * Two-tone ding-dong made with Web Audio — no audio files to fetch on venue
  * wifi. Browsers only allow sound after a tap, so `unlock()` must run inside
  * the ARM SCREEN tap; after that `play()` works from timers.
+ *
+ * The AudioContext is module-level, not per component: once the door screen
+ * is armed, the in-app door alert (DoorWatcher) can chime on any Fieldday
+ * page the user navigates to — until a full page reload.
  */
+let sharedCtx: AudioContext | null = null
+
+export function unlockDoorAudio(): boolean {
+  const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!AC) return false
+  if (!sharedCtx) sharedCtx = new AC()
+  void sharedCtx.resume()
+  return true
+}
+
+/** True once sound was unlocked by a tap in this page session. */
+export function doorAudioReady(): boolean {
+  return sharedCtx !== null
+}
+
 export function useChime() {
   const ctxRef = useRef<AudioContext | null>(null)
 
   const unlock = useCallback(() => {
-    const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!AC) return false
-    if (!ctxRef.current) ctxRef.current = new AC()
-    void ctxRef.current.resume()
-    return true
+    const ok = unlockDoorAudio()
+    ctxRef.current = sharedCtx
+    return ok
   }, [])
 
   const play = useCallback(() => {
-    const ctx = ctxRef.current
+    const ctx = ctxRef.current ?? sharedCtx
     if (!ctx) return
     if (ctx.state !== 'running') void ctx.resume()
     const out = ctx.createDynamicsCompressor()
@@ -46,7 +63,8 @@ export function useChime() {
   // iOS suspends the context when the page is hidden; wake it on return.
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && ctxRef.current?.state !== 'running') void ctxRef.current?.resume()
+      const ctx = ctxRef.current ?? sharedCtx
+      if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') void ctx.resume()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
