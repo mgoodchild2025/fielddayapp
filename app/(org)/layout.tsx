@@ -9,6 +9,7 @@ import { CartButton } from '@/components/shop/cart-button'
 import { MaintenancePage } from '@/components/maintenance-page'
 import { HibernatePage } from '@/components/hibernate-page'
 import { PwaRegistrar } from '@/components/pwa/pwa-registrar'
+import { DoorWatcher } from '@/components/door/door-watcher'
 import type { OrgBranding } from '@/types/database'
 import { taxSuffix } from '@/lib/tax'
 import { originFromHeaders } from '@/lib/public-origin'
@@ -206,6 +207,8 @@ export default async function OrgLayout({
           {children}
           {user && <CartButton orgId={orgId} taxSuffix={merchTaxSuffix} />}
           {user && <PwaRegistrar />}
+          {/* In-app door alert for devices paired to a door (renders nothing otherwise). */}
+          <DoorWatcher />
         </CartProvider>
       </BrandProvider>
     </>
