@@ -10,7 +10,7 @@ export const RENOTIFY_AT_MS = [60_000, 120_000] as const
  * visitor has given up or been let in by someone without a display. They stay
  * in the ring log.
  */
-export const LIVE_RING_MAX_AGE_MS = 30 * 60_000
+export const LIVE_RING_MAX_AGE_MS = 15 * 60_000
 
 /** The visitor page polls for an acknowledgement this long, then stops. */
 export const VISITOR_POLL_MS = 3 * 60_000
