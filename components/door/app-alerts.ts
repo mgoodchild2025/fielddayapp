@@ -1,6 +1,6 @@
 'use client'
 
-import { alertMeOnThisDevice } from '@/actions/door'
+import { pairMyDeviceForDoor } from '@/actions/door'
 import { safeAction } from '@/lib/action-errors'
 import { isIOS, isStandalone, pushSupported } from '@/lib/push-client'
 import { base64UrlToBytes, idbPut, readMyDoors, writeMyDoor } from './door-push'
@@ -57,7 +57,11 @@ export async function turnOnAppAlerts(stationId: string, vapidKey: string | null
     }
   }
 
-  const paired = await safeAction(alertMeOnThisDevice(stationId, deviceKind()))
+  // Reuse this device's pairing for the door (e.g. from Open door screen).
+  const existing = readMyDoors()[stationId]
+  const paired = existing
+    ? { displayToken: existing.displayToken, displayId: existing.displayId, label: 'this device', error: undefined }
+    : await safeAction(pairMyDeviceForDoor(stationId, deviceKind()))
   if (paired.error !== undefined) return { ok: false, error: paired.error }
 
   let saved = false
@@ -70,28 +74,61 @@ export async function turnOnAppAlerts(stationId: string, vapidKey: string | null
     saved = res.ok
   } catch { /* handled below */ }
   if (!saved) {
-    // Don't leave a paired device that can never alert.
-    await fetch(`/api/door/display/${paired.displayToken}`, { method: 'DELETE' }).catch(() => {})
+    // Don't leave a fresh pairing that can never alert (an existing one stays).
+    if (!existing) await fetch(`/api/door/display/${paired.displayToken}`, { method: 'DELETE' }).catch(() => {})
     return { ok: false, error: 'Couldn’t reach the server. Check your connection and try again.' }
   }
 
   await idbPut(`display:${stationId}`, paired.displayToken)
-  writeMyDoor(stationId, { displayToken: paired.displayToken, displayId: paired.displayId })
+  writeMyDoor(stationId, { displayToken: paired.displayToken, displayId: paired.displayId, viaApp: true })
   return { ok: true, label: paired.label }
 }
 
-/** Unpairs this device from the door; the app's own notifications are untouched. */
+/**
+ * Stop door notifications on this device. It stays paired, so Open door
+ * screen still works; the app's own notifications are untouched.
+ */
 export async function turnOffAppAlerts(stationId: string): Promise<{ ok: boolean }> {
   const mine = readMyDoors()[stationId]
   if (!mine) return { ok: true }
   try {
-    await fetch(`/api/door/display/${mine.displayToken}`, { method: 'DELETE' })
+    const sub = await (await navigator.serviceWorker.getRegistration('/'))?.pushManager.getSubscription()
+    if (sub) {
+      const res = await fetch(`/api/door/display/${mine.displayToken}/push`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      })
+      if (!res.ok && res.status !== 404 && res.status !== 410) return { ok: false }
+    }
   } catch {
     return { ok: false }
   }
-  writeMyDoor(stationId, null)
-  await idbPut(`display:${stationId}`, null)
+  writeMyDoor(stationId, { ...mine, viaApp: false })
   return { ok: true }
+}
+
+/**
+ * Open the door screen on this device: its existing pairing for the door, or
+ * a new one (signed-in admin, no code). `from` is where its back link returns.
+ */
+export async function openDoorScreen(stationId: string, from: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  let mine = readMyDoors()[stationId]
+  if (!mine) {
+    const paired = await safeAction(pairMyDeviceForDoor(stationId, deviceKind()))
+    if (paired.error !== undefined) return { ok: false, error: paired.error }
+    mine = { displayToken: paired.displayToken, displayId: paired.displayId, viaApp: false }
+    writeMyDoor(stationId, mine)
+  }
+  window.location.href = `/door/display/${mine.displayToken}?from=${encodeURIComponent(from)}`
+  return { ok: true }
+}
+
+/** Forget pairings for this browser that the server no longer lists (disconnected, expired, deleted). */
+export function forgetStaleDoors(activeDisplayIds: Record<string, string[]>) {
+  for (const [stationId, d] of Object.entries(readMyDoors())) {
+    if (stationId in activeDisplayIds && !activeDisplayIds[stationId].includes(d.displayId)) writeMyDoor(stationId, null)
+  }
 }
 
 export async function sendAppAlertTest(stationId: string): Promise<boolean> {

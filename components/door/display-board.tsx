@@ -54,12 +54,15 @@ export function DisplayBoard({
   vapidKey,
   timezone,
   orgName,
+  back,
 }: {
   displayToken: string
   initialState: DoorState
   vapidKey: string | null
   timezone: string
   orgName: string
+  /** Opened from the app (?from=): the way back. */
+  back: { href: string; label: string } | null
 }) {
   const [state, setState] = useState(initialState)
   const [revoked, setRevoked] = useState(false)
@@ -72,6 +75,7 @@ export function DisplayBoard({
   const [pushBusy, setPushBusy] = useState(false)
   const [sheet, setSheet] = useState<Sheet>(null)
   const [testAlert, setTestAlert] = useState<number | null>(null)
+  const [backLink, setBackLink] = useState(back)
   const [acking, setAcking] = useState(false)
   const armedRef = useRef(false)
   const labelRef = useRef(initialState.display.label)
@@ -157,9 +161,13 @@ export function DisplayBoard({
     })()
     const t = setTimeout(() => {
       try { setWasArmed(sessionStorage.getItem(SCREEN_KEY) === '1') } catch { /* blocked */ }
+      // Opened without ?from= (e.g. from a notification) on an admin's own device: back to settings.
+      if (!back && Object.values(readMyDoors()).some((d) => d.displayToken === displayToken)) {
+        setBackLink({ href: '/admin/settings/door-alert', label: 'Door Alert settings' })
+      }
     }, 0)
     return () => { cancelled = true; clearTimeout(t) }
-  }, [displayToken])
+  }, [displayToken, back])
 
   useEffect(() => {
     if (revoked) forgetSavedDisplay(displayToken)
@@ -325,6 +333,11 @@ export function DisplayBoard({
         <DoorStripes className="h-3" />
         <header className="flex items-start justify-between gap-3 px-5 pt-4 sm:px-8 sm:pt-6">
           <div className="min-w-0">
+            {backLink && (
+              <Link href={backLink.href} className="press -ml-1 mb-1 inline-flex min-h-10 items-center px-1 text-sm font-semibold text-white/75 hover:text-white">
+                ← {backLink.label}
+              </Link>
+            )}
             <p className="text-xs font-semibold uppercase tracking-widest text-white/60">{orgName} · Door alert</p>
             <h1 className={`${DISPLAY_TYPE} mt-1 text-5xl sm:text-7xl break-words`}>{station.name}</h1>
             <button type="button" onClick={() => setSheet('location')} className="press mt-2 min-h-10 text-left text-base text-white/80 underline decoration-white/30 underline-offset-4">

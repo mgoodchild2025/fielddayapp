@@ -22,7 +22,7 @@ const SW_URL = '/door/sw.js'
 const SCOPE = '/door/'
 
 export async function doorPushState(displayToken?: string): Promise<DoorPushState> {
-  if (displayToken && Object.values(readMyDoors()).some((d) => d.displayToken === displayToken)) return 'on-app'
+  if (displayToken && Object.values(readMyDoors()).some((d) => d.displayToken === displayToken && d.viaApp !== false)) return 'on-app'
   if (isIOS() && !isStandalone()) return 'ios-install'
   if (!pushSupported()) return 'unsupported'
   if (Notification.permission === 'denied') return 'denied'
@@ -124,7 +124,10 @@ export async function rememberDisplayForWorker(displayToken: string) {
 // station; the root worker looks tokens up as IndexedDB 'display:<stationId>'.
 
 const MY_DOORS_KEY = 'fieldday-door-mine'
-export type MyDoors = Record<string, { displayToken: string; displayId: string }>
+// viaApp: alerts come through the app's notifications. False when the device
+// was paired only to open the door screen. (Missing = true: the first pairings
+// were all "Alert me on this device".)
+export type MyDoors = Record<string, { displayToken: string; displayId: string; viaApp?: boolean }>
 
 export function readMyDoors(): MyDoors {
   try {

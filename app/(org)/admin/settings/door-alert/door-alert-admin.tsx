@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { BellRing, Check, Copy, Printer, Smartphone } from 'lucide-react'
+import { BellRing, Check, Copy, Monitor, Printer, Smartphone } from 'lucide-react'
 import { Overlay } from '@/components/ui/overlay'
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -14,8 +14,8 @@ import {
   createDoorStation, deleteDoorStation, regenerateDoorVisitorLink, revokeDoorDisplay,
   rotateDoorJoinCredentials, setDoorStationArmed, updateDoorStation,
 } from '@/actions/door'
-import { appAlertEligibility, sendAppAlertTest, turnOffAppAlerts, turnOnAppAlerts, type AppAlertEligibility } from '@/components/door/app-alerts'
-import { readMyDoors, writeMyDoor } from '@/components/door/door-push'
+import { appAlertEligibility, forgetStaleDoors, openDoorScreen, sendAppAlertTest, turnOffAppAlerts, turnOnAppAlerts, type AppAlertEligibility } from '@/components/door/app-alerts'
+import { readMyDoors } from '@/components/door/door-push'
 
 export type AdminStation = {
   id: string
@@ -365,51 +365,61 @@ function StationForm({ station, onDone, onCancel }: { station: AdminStation | nu
 }
 
 /**
- * "Alert me on this phone": the signed-in admin pairs this device in one tap;
- * alerts arrive through the Fieldday app's notifications. Shown after mount
- * (it depends on this browser's storage and notification permission).
+ * This device and this door: Open door screen (pairs on first use, no code)
+ * and "Alert me on this device" (door alerts through the Fieldday app's
+ * notifications). Shown after mount — it depends on this browser's storage
+ * and notification permission.
  */
 function MyDevice({ station, vapidKey, onChange }: { station: AdminStation; vapidKey: string | null; onChange: () => void }) {
   const [ready, setReady] = useState(false)
   const [eligibility, setEligibility] = useState<AppAlertEligibility>('ok')
-  const [mine, setMine] = useState<{ displayId: string } | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [alerting, setAlerting] = useState(false)
+  const [busy, setBusy] = useState<null | 'on' | 'off' | 'open'>(null)
 
   useEffect(() => {
     const t = setTimeout(() => {
-      const saved = readMyDoors()[station.id]
       // Disconnected by an admin, expired, or the door was recreated: forget it.
-      if (saved && !station.displays.some((d) => d.id === saved.displayId)) writeMyDoor(station.id, null)
-      setMine(saved && station.displays.some((d) => d.id === saved.displayId) ? saved : null)
+      forgetStaleDoors({ [station.id]: station.displays.map((d) => d.id) })
+      const mine = readMyDoors()[station.id]
+      setAlerting(!!mine && mine.viaApp !== false)
       setEligibility(appAlertEligibility())
       setReady(true)
     }, 0)
     return () => clearTimeout(t)
   }, [station.id, station.displays])
 
+  async function open() {
+    setBusy('open')
+    const res = await openDoorScreen(station.id, '/admin/settings/door-alert')
+    if (!res.ok) {
+      setBusy(null)
+      toast.error(res.error)
+    }
+  }
+
   async function turnOn() {
-    setBusy(true)
+    setBusy('on')
     const res = await turnOnAppAlerts(station.id, vapidKey)
-    setBusy(false)
+    setBusy(null)
     if (!res.ok) {
       toast.error(res.error)
       setEligibility(appAlertEligibility())
       return
     }
-    setMine(readMyDoors()[station.id] ?? null)
-    toast.success(`Door alerts on for ${res.label}`)
+    setAlerting(true)
+    toast.success('Door alerts on for this device')
     onChange()
   }
 
   async function turnOff() {
-    setBusy(true)
+    setBusy('off')
     const res = await turnOffAppAlerts(station.id)
-    setBusy(false)
+    setBusy(null)
     if (!res.ok) {
       toast.error('Couldn’t reach the server. Try again.')
       return
     }
-    setMine(null)
+    setAlerting(false)
     toast.success('Door alerts off for this device')
     onChange()
   }
@@ -420,37 +430,43 @@ function MyDevice({ station, vapidKey, onChange }: { station: AdminStation; vapi
   }
 
   if (!ready) return null
+  const button = 'press inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-60'
   return (
-    <div className="border-t px-5 py-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">This device</h3>
-      {mine ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="mr-auto text-sm text-gray-700">
-            <Check className="inline h-4 w-4 text-green-600 -mt-0.5 mr-1" aria-hidden="true" />
-            Door alerts come to this device through your Fieldday app.
-          </p>
-          <button type="button" onClick={() => void test()} className="press min-h-10 rounded-md border px-3 text-sm font-semibold">Send a test</button>
-          <button type="button" disabled={busy} onClick={() => void turnOff()} className="press min-h-10 rounded-md border px-3 text-sm font-semibold disabled:opacity-60">Stop alerting me</button>
-        </div>
-      ) : eligibility === 'ios-browser' ? (
-        <p className="text-sm text-gray-700">To get door alerts on this iPhone or iPad, open Fieldday from your Home Screen, come back to this page and tap <strong>Alert me on this device</strong>.</p>
-      ) : eligibility === 'unsupported' ? (
-        <p className="text-sm text-gray-700">This browser can’t show notifications. Use the staff card on a phone, or open this page in Chrome or Safari.</p>
-      ) : eligibility === 'denied' ? (
-        <p className="text-sm text-gray-700">Notifications are blocked for Fieldday on this device. Allow them in your browser or phone settings, then reload this page.</p>
-      ) : (
-        <div className="flex flex-wrap items-center gap-3">
+    <div className="border-t px-5 py-4 space-y-3">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">This device</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" disabled={busy !== null} onClick={() => void open()} className={button}>
+          <Monitor className="h-4 w-4" aria-hidden="true" /> {busy === 'open' ? 'Opening…' : 'Open door screen'}
+        </button>
+        {alerting ? (
+          <>
+            <button type="button" onClick={() => void test()} className={button}>Send a test</button>
+            <button type="button" disabled={busy !== null} onClick={() => void turnOff()} className={button}>Stop alerting me</button>
+          </>
+        ) : eligibility === 'ok' ? (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy !== null}
             onClick={() => void turnOn()}
             className="press inline-flex min-h-10 items-center gap-2 rounded-md bg-brand-primary text-on-brand px-4 text-sm font-semibold disabled:opacity-60"
           >
-            <Smartphone className="h-4 w-4" aria-hidden="true" /> {busy ? 'Turning on…' : 'Alert me on this device'}
+            <Smartphone className="h-4 w-4" aria-hidden="true" /> {busy === 'on' ? 'Turning on…' : 'Alert me on this device'}
           </button>
-          <p className="text-sm text-gray-600">No code or QR needed. Alerts arrive as Fieldday notifications, on a paired watch too.</p>
-        </div>
-      )}
+        ) : null}
+      </div>
+      <p className="text-sm text-gray-600">
+        {alerting ? (
+          <><Check className="inline h-4 w-4 text-green-600 -mt-0.5 mr-1" aria-hidden="true" />Door alerts come to this device through your Fieldday app.</>
+        ) : eligibility === 'ios-browser' ? (
+          <>For door alerts on this iPhone or iPad, open Fieldday from your Home Screen, come back here and tap <strong>Alert me on this device</strong>.</>
+        ) : eligibility === 'unsupported' ? (
+          'This browser can’t show notifications; the door screen still works here.'
+        ) : eligibility === 'denied' ? (
+          'Notifications are blocked for Fieldday on this device. Allow them in your browser or phone settings, then reload.'
+        ) : (
+          'No code or QR needed. Alerts arrive as Fieldday notifications, on a paired watch too.'
+        )}
+      </p>
     </div>
   )
 }
