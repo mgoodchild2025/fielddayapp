@@ -234,7 +234,7 @@ export default async function GameMatchupPage({
         id, scheduled_at, court, status, week_number, is_exhibition,
         home_team:teams!games_home_team_id_fkey(id, name),
         away_team:teams!games_away_team_id_fkey(id, name),
-        game_results(home_score, away_score, status)
+        game_results(home_score, away_score, sets, status)
       `)
       .eq('league_id', rawGame.league_id)
       .eq('organization_id', org.id)
@@ -365,6 +365,24 @@ export default async function GameMatchupPage({
               )}
             </div>
           </div>
+
+          {/* Set by set (volleyball etc.): the big numbers above are sets won.
+              Home on the left, like the teams; each set's winner in bold. */}
+          {isCompleted && Array.isArray(result.sets) && result.sets.length > 0 && (
+            <div className="mt-4 flex flex-wrap justify-center gap-2" aria-label="Set scores">
+              {(result.sets as { home: number; away: number }[]).map((set, i) => (
+                <div key={i} className="min-w-[4.5rem] rounded-lg bg-gray-50 border border-gray-100 px-3 py-1.5 text-center">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Set {i + 1}</p>
+                  <p className="text-base tabular-nums text-gray-700">
+                    <span className={set.home > set.away ? 'font-bold text-gray-900' : ''}>{set.home}</span>
+                    <span className="text-gray-400" aria-hidden="true">–</span>
+                    <span className="sr-only"> to </span>
+                    <span className={set.away > set.home ? 'font-bold text-gray-900' : ''}>{set.away}</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Why it's off — players asked "cancelled why?" with nowhere to look. */}
           {(isCancelled || isPostponed) && (rawGame as { cancellation_reason?: string | null }).cancellation_reason && (
@@ -527,6 +545,11 @@ export default async function GameMatchupPage({
                           {gDone ? ` ${gResult.home_score} – ${gResult.away_score} ` : ' vs '}
                           {gAway?.name ?? 'TBD'}
                         </p>
+                        {gDone && Array.isArray(gResult.sets) && gResult.sets.length > 0 && (
+                          <p className="text-xs text-gray-600 tabular-nums mt-0.5">
+                            {(gResult.sets as { home: number; away: number }[]).map((st) => `${st.home}–${st.away}`).join(', ')}
+                          </p>
+                        )}
                         <p className="text-xs text-gray-500 mt-0.5">
                           {gDate} · {gTime}
                           {g.court ? ` · ${g.court}` : ''}
