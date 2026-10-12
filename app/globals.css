@@ -281,8 +281,20 @@ summary,
 body { --fd-toast-bottom: 32px; }
 @media (max-width: 767px) {
   body { --fd-toast-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px); }
+  /* The tab bar's raised Alerts button pokes 28px above the bar: clear it too. */
+  body:has([data-mobile-tab-bar]) { --fd-toast-bottom: calc(env(safe-area-inset-bottom, 0px) + 100px); }
   body:has([data-above-tab-bar]) { --fd-toast-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px); }
-  body:has([data-mobile-tab-bar]):has([data-above-tab-bar]) { --fd-toast-bottom: calc(env(safe-area-inset-bottom, 0px) + 136px); }
+  body:has([data-mobile-tab-bar]):has([data-above-tab-bar]) { --fd-toast-bottom: calc(env(safe-area-inset-bottom, 0px) + 164px); }
+}
+
+/* Phone tab bar: it carries Menu and Alerts, so the top nav's own hamburger
+   and bell (and the admin top bar's ☰) hide wherever the bar is on the page —
+   pages without it (registration, sign-in…) keep them. Unlayered so it beats
+   utilities like md:hidden / inline-flex. */
+@media (max-width: 767px) {
+  body:has([data-mobile-tab-bar]) [data-top-mobile-nav] { display: none !important; }
+  /* The footer clears the bar (56px), the raised Alerts button (28px) and the home indicator. */
+  body:has([data-mobile-tab-bar]) [data-site-footer] { padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* Event page register bar — unlayered so it beats the bar's bottom-0 and the
@@ -295,10 +307,14 @@ body { --fd-toast-bottom: 32px; }
     bottom: calc(56px + env(safe-area-inset-bottom, 0px));
     box-shadow: 0 -0.5px 0 rgb(0 0 0 / 0.12);
   }
-  body:has([data-mobile-tab-bar]) [data-above-tab-bar] .fd-register-bar__inner { padding-bottom: 12px; }
+  /* 12px + 28px of room for the tab bar's raised Alerts button, which pokes
+     up into the bottom of this bar. */
+  body:has([data-mobile-tab-bar]) [data-above-tab-bar] .fd-register-bar__inner { padding-bottom: 40px; }
   body:has([data-mobile-tab-bar]):has([data-above-tab-bar]) [data-site-footer] {
-    padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(12rem + env(safe-area-inset-bottom, 0px));
   }
+  /* Admin Save bars stick just above the tab bar: same room for the button. */
+  body:has([data-mobile-tab-bar]) [data-save-bar] { padding-bottom: 40px; }
 }
 
 /* ── Scoreboard gesture feedback (components/scoreboard/scoreboard-app.tsx) ─

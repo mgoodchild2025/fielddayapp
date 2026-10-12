@@ -13,6 +13,8 @@ import { getLimit, getActiveLeagueCount } from '@/lib/features'
 import { getEnforcementState } from '@/lib/billing'
 import { getPendingReacceptance } from '@/actions/tenant-consent'
 import { redirectToLogin } from '@/lib/auth'
+import { NotificationBell } from '@/components/layout/notification-bell'
+import { MobileBottomNavClient } from '@/components/layout/mobile-bottom-nav-client'
 
 export default async function AdminLayout({
   children,
@@ -54,6 +56,16 @@ export default async function AdminLayout({
     getEnforcementState(org.id),
   ])
   bannerData.catch(() => {})
+  // Unread notifications for the phone tab bar's Alerts button (same query as OrgNav).
+  const unreadData = Promise.resolve(
+    db.from('notifications').select('id, type, title, body, created_at, data')
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .eq('read', false)
+      .order('created_at', { ascending: false })
+      .limit(20),
+  )
+  unreadData.catch(() => {})
 
   if (!isImpersonating) {
     // Use service role for this membership check — RLS on org_members requires
@@ -135,6 +147,8 @@ export default async function AdminLayout({
 
   // Subscription + plan limits for the banners (started above)
   const [{ data: subscription }, playerLimit, leagueLimit, activeLeagueCount, { count: playerCount }, enforcement] = await bannerData
+  const { data: unreadRows } = await unreadData
+  const unread = (unreadRows ?? []).map((n) => ({ ...n, created_at: n.created_at ?? new Date(0).toISOString() }))
 
   return (
     <div
@@ -167,11 +181,18 @@ export default async function AdminLayout({
           inGracePeriod={enforcement.inGracePeriod}
         />
       </div>
-      <div className="flex flex-1 min-h-0 overflow-hidden print:block print:overflow-visible">
+      {/* Phones: the scroller ends at the top of the tab bar (so sticky Save
+          bars sit just above it); the raised Alerts button pokes into the
+          last 28px, which the content's bottom padding leaves free. */}
+      <div className="flex flex-1 min-h-0 overflow-hidden max-md:pb-[calc(56px+env(safe-area-inset-bottom))] print:block print:overflow-visible print:pb-0">
         <div className="print:hidden"><AdminSidebar org={org} role={memberRole} /></div>
         <main className="flex-1 overflow-y-auto print:overflow-visible">
-          <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:p-6 max-w-6xl mx-auto print:p-0 print:max-w-none">{children}</div>
+          <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] max-md:pb-10 lg:p-6 max-w-6xl mx-auto print:p-0 print:max-w-none">{children}</div>
         </main>
+      </div>
+      <div className="md:hidden print:hidden">
+        <NotificationBell initialNotifications={unread} tabBar hideTrigger />
+        <MobileBottomNavClient signedIn area="admin" />
       </div>
     </div>
   )

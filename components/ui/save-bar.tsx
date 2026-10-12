@@ -27,7 +27,7 @@ export function SaveBar({
   disabled?: boolean
 }) {
   return (
-    <div className="sticky bottom-0 z-10 -mx-4 lg:mx-0 px-4 lg:px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 backdrop-blur border-t lg:border lg:rounded-lg space-y-2">
+    <div data-save-bar="" className="sticky bottom-0 z-10 -mx-4 lg:mx-0 px-4 lg:px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 backdrop-blur border-t lg:border lg:rounded-lg space-y-2">
       {error && (
         <p role="alert" className="fd-fade-in bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</p>
       )}

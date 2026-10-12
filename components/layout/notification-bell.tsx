@@ -6,6 +6,8 @@ import { markAllNotificationsRead, markNotificationRead } from '@/actions/notifi
 import { approveJoinRequest, rejectJoinRequest } from '@/actions/teams'
 import { setAppBadge } from '@/lib/push-client'
 import { toast } from 'sonner'
+import { Overlay } from '@/components/ui/overlay'
+import { OPEN_ALERTS, unreadStore } from '@/lib/nav-events'
 
 interface Notification {
   id: string
@@ -21,6 +23,14 @@ interface Props {
   initialNotifications: Notification[]
   /** When true the dropdown opens upward — for use in a bottom nav bar */
   dropUp?: boolean
+  /**
+   * This bell serves the phone tab bar's Alerts button: it publishes the
+   * unread count for the bar's badge and opens as a bottom sheet when the
+   * bar asks. Exactly one bell per page should set it.
+   */
+  tabBar?: boolean
+  /** No button of its own (the admin shell, where only the tab bar opens it). */
+  hideTrigger?: boolean
 }
 
 function relativeTime(dateStr: string) {
@@ -34,9 +44,11 @@ function relativeTime(dateStr: string) {
   return `${days}d ago`
 }
 
-export function NotificationBell({ initialNotifications, dropUp = false }: Props) {
+export function NotificationBell({ initialNotifications, dropUp = false, tabBar = false, hideTrigger = false }: Props) {
   const [notifications, setNotifications] = useState(initialNotifications)
   const [open, setOpen] = useState(false)
+  // Opened from the tab bar: a bottom sheet (thumb reach) instead of the dropdown.
+  const [sheet, setSheet] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [actioningId, setActioningId] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -48,10 +60,27 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
   // Installed app: the icon badge is the unread count, cleared when it hits 0.
   useEffect(() => { setAppBadge(count) }, [count])
 
+  useEffect(() => {
+    if (!tabBar) return
+    unreadStore.set(count)
+  }, [tabBar, count])
+
+  useEffect(() => {
+    if (!tabBar) return
+    const openSheet = () => { setSheet(true); setOpen(true) }
+    window.addEventListener(OPEN_ALERTS, openSheet)
+    return () => window.removeEventListener(OPEN_ALERTS, openSheet)
+  }, [tabBar])
+
+  function close() {
+    setOpen(false)
+    setSheet(false)
+  }
+
   // Close on a tap/click outside (pointerdown — iOS Safari doesn't reliably
   // fire mousedown on plain areas) or Escape.
   useEffect(() => {
-    if (!open) return
+    if (!open || sheet) return
     function handlePointer(e: PointerEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
@@ -63,7 +92,7 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
       document.removeEventListener('pointerdown', handlePointer)
       document.removeEventListener('keydown', handleKey)
     }
-  }, [open])
+  }, [open, sheet])
 
   // A removed row takes the focused button with it: put focus on the row that
   // slides into its place (or the one above, or the bell) so a keyboard /
@@ -107,34 +136,135 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
 
   function handleMarkAllRead() {
     setNotifications([])
-    setOpen(false)
+    close()
     startTransition(async () => {
       await markAllNotificationsRead()
     })
   }
 
+  const body = (
+    <>
+      <div className="px-4 py-3 border-b flex items-center justify-between">
+        <span className="font-semibold text-sm">Notifications</span>
+        {count > 0 && (
+          <button
+            onClick={handleMarkAllRead}
+            disabled={isPending}
+            className="press min-h-10 px-2 -mr-2 text-sm font-medium text-brand-ink disabled:opacity-50"
+          >
+            Mark all read
+          </button>
+        )}
+      </div>
+
+      {count === 0 ? (
+        <div className="px-4 py-8 text-center text-sm text-gray-500">
+          No new notifications
+        </div>
+      ) : (
+        <ul ref={listRef} className="divide-y max-h-[min(24rem,70dvh)] overflow-y-auto overscroll-contain">
+          {notifications.map((n) => {
+            const acceptUrl = n.data?.accept_url as string | undefined
+            // Generic link support: any notification can carry data.href (+ link_label)
+            // team_url: captain_assigned / team_added say "Tap to manage your
+            // roster" but only carried team_url, so the bell row had nothing to tap.
+            const genericHref = (n.data?.href as string | undefined) ?? (n.data?.team_url as string | undefined)
+            const genericLabel = (n.data?.link_label as string | undefined) ?? (n.data?.href ? 'View →' : n.data?.team_url ? 'Go to team →' : 'View →')
+            const requestId = n.data?.request_id as string | undefined
+            const isJoinRequest = n.type === 'join_request' && requestId
+            const isActioning = actioningId === n.id
+
+            return (
+              <li key={n.id} className="relative pl-4 pr-11 py-3">
+                <p className="text-sm font-medium text-gray-900">{n.title}</p>
+                {n.body && <p className="text-sm text-gray-600 mt-0.5">{n.body}</p>}
+                {!isJoinRequest && (
+                  <button
+                    type="button"
+                    onClick={() => dismiss(n.id)}
+                    aria-label={`Dismiss: ${n.title}`}
+                    className="press absolute top-1.5 right-1.5 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:bg-gray-100"
+                  >
+                    <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                )}
+
+                {isJoinRequest ? (
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      disabled={isActioning}
+                      onClick={() => actOnRequest(n, requestId, true)}
+                      className="press flex-1 min-h-10 text-sm font-semibold rounded-md bg-brand-primary text-on-brand disabled:opacity-50"
+                    >
+                      {isActioning ? '…' : 'Approve'}
+                    </button>
+                    <button
+                      disabled={isActioning}
+                      onClick={() => actOnRequest(n, requestId, false)}
+                      className="press flex-1 min-h-10 text-sm font-semibold rounded-md border text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Deny
+                    </button>
+                    <p className="text-xs text-gray-500 shrink-0">{relativeTime(n.created_at)}</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between mt-1.5">
+                    <p className="text-xs text-gray-500">{relativeTime(n.created_at)}</p>
+                    {acceptUrl ? (
+                      <Link
+                        href={acceptUrl}
+                        onClick={close}
+                        className="inline-flex items-center min-h-10 text-sm font-semibold text-brand-ink"
+                      >
+                        View Invite →
+                      </Link>
+                    ) : genericHref ? (
+                      <Link
+                        href={genericHref}
+                        onClick={() => {
+                          markNotificationRead(n.id)
+                          setNotifications((prev) => prev.filter((x) => x.id !== n.id))
+                          close()
+                        }}
+                        className="inline-flex items-center min-h-10 text-sm font-semibold text-brand-ink"
+                      >
+                        {genericLabel}
+                      </Link>
+                    ) : null}
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </>
+  )
+
   return (
     <div className="relative" ref={ref}>
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-controls="notification-panel"
-        className={`relative inline-flex items-center justify-center min-h-10 min-w-10 rounded-full transition-colors ${dropUp ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
-        aria-label={count > 0 ? `${count} unread notification${count !== 1 ? 's' : ''}` : 'Notifications'}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
-        {count > 0 && (
-          <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
-            {count > 9 ? '9+' : count}
-          </span>
-        )}
-      </button>
+      {!hideTrigger && (
+        <button
+          ref={buttonRef}
+          onClick={() => { setSheet(false); setOpen((o) => !o) }}
+          aria-expanded={open && !sheet}
+          aria-controls="notification-panel"
+          className={`relative inline-flex items-center justify-center min-h-10 min-w-10 rounded-full transition-colors ${dropUp ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
+          aria-label={count > 0 ? `${count} unread notification${count !== 1 ? 's' : ''}` : 'Notifications'}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          {count > 0 && (
+            <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+              {count > 9 ? '9+' : count}
+            </span>
+          )}
+        </button>
+      )}
 
-      {open && (
+      {open && !sheet && (
         // Phones: full width under the nav (a 320px panel anchored to the bell
         // started off the left edge of a 375px screen). sm+: the dropdown.
         <div id="notification-panel" role="region" aria-label="Notifications" className={`fd-pop z-50 overflow-hidden bg-white rounded-xl shadow-xl border border-gray-200 text-gray-900 ${
@@ -142,101 +272,20 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
             ? 'absolute right-0 w-80 max-w-[calc(100vw-1rem)] origin-bottom-right bottom-full mb-2'
             : 'fixed inset-x-2 top-16 origin-top sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:w-80 sm:mt-2 sm:origin-top-right'
         }`}>
-          <div className="px-4 py-3 border-b flex items-center justify-between">
-            <span className="font-semibold text-sm">Notifications</span>
-            {count > 0 && (
-              <button
-                onClick={handleMarkAllRead}
-                disabled={isPending}
-                className="press min-h-10 px-2 -mr-2 text-sm font-medium text-brand-ink disabled:opacity-50"
-              >
-                Mark all read
-              </button>
-            )}
-          </div>
-
-          {count === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-500">
-              No new notifications
-            </div>
-          ) : (
-            <ul ref={listRef} className="divide-y max-h-[min(24rem,70dvh)] overflow-y-auto overscroll-contain">
-              {notifications.map((n) => {
-                const acceptUrl = n.data?.accept_url as string | undefined
-                // Generic link support: any notification can carry data.href (+ link_label)
-                // team_url: captain_assigned / team_added say "Tap to manage your
-                // roster" but only carried team_url, so the bell row had nothing to tap.
-                const genericHref = (n.data?.href as string | undefined) ?? (n.data?.team_url as string | undefined)
-                const genericLabel = (n.data?.link_label as string | undefined) ?? (n.data?.href ? 'View →' : n.data?.team_url ? 'Go to team →' : 'View →')
-                const requestId = n.data?.request_id as string | undefined
-                const isJoinRequest = n.type === 'join_request' && requestId
-                const isActioning = actioningId === n.id
-
-                return (
-                  <li key={n.id} className="relative pl-4 pr-11 py-3">
-                    <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                    {n.body && <p className="text-sm text-gray-600 mt-0.5">{n.body}</p>}
-                    {!isJoinRequest && (
-                      <button
-                        type="button"
-                        onClick={() => dismiss(n.id)}
-                        aria-label={`Dismiss: ${n.title}`}
-                        className="press absolute top-1.5 right-1.5 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:bg-gray-100"
-                      >
-                        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    )}
-
-                    {isJoinRequest ? (
-                      <div className="flex items-center gap-2 mt-2">
-                        <button
-                          disabled={isActioning}
-                          onClick={() => actOnRequest(n, requestId, true)}
-                          className="press flex-1 min-h-10 text-sm font-semibold rounded-md bg-brand-primary text-on-brand disabled:opacity-50"
-                        >
-                          {isActioning ? '…' : 'Approve'}
-                        </button>
-                        <button
-                          disabled={isActioning}
-                          onClick={() => actOnRequest(n, requestId, false)}
-                          className="press flex-1 min-h-10 text-sm font-semibold rounded-md border text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          Deny
-                        </button>
-                        <p className="text-xs text-gray-500 shrink-0">{relativeTime(n.created_at)}</p>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between mt-1.5">
-                        <p className="text-xs text-gray-500">{relativeTime(n.created_at)}</p>
-                        {acceptUrl ? (
-                          <Link
-                            href={acceptUrl}
-                            onClick={() => setOpen(false)}
-                            className="inline-flex items-center min-h-10 text-sm font-semibold text-brand-ink"
-                          >
-                            View Invite →
-                          </Link>
-                        ) : genericHref ? (
-                          <Link
-                            href={genericHref}
-                            onClick={() => {
-                              markNotificationRead(n.id)
-                              setNotifications((prev) => prev.filter((x) => x.id !== n.id))
-                              setOpen(false)
-                            }}
-                            className="inline-flex items-center min-h-10 text-sm font-semibold text-brand-ink"
-                          >
-                            {genericLabel}
-                          </Link>
-                        ) : null}
-                      </div>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+          {body}
         </div>
+      )}
+
+      {tabBar && (
+        <Overlay
+          open={open && sheet}
+          onClose={close}
+          variant="sheet"
+          label="Notifications"
+          panelClassName="w-full sm:max-w-md bg-white text-gray-900 rounded-t-2xl sm:rounded-xl shadow-xl max-h-[80dvh] overflow-hidden flex flex-col"
+        >
+          {body}
+        </Overlay>
       )}
     </div>
   )

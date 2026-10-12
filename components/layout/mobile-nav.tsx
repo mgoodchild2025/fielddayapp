@@ -8,6 +8,7 @@ import { logout } from '@/actions/auth'
 import { clearOfflineCache } from '@/lib/push-client'
 import type { NavLink } from '@/actions/nav-links'
 import { Overlay } from '@/components/ui/overlay'
+import { OPEN_SITE_MENU } from '@/lib/nav-events'
 
 interface Props {
   userName: string | null
@@ -32,9 +33,18 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
   // Close on route change
   useEffect(() => { setOpen(false) }, [pathname])
 
+  // The phone tab bar's Menu button opens this drawer.
+  useEffect(() => {
+    const openMenu = () => setOpen(true)
+    window.addEventListener(OPEN_SITE_MENU, openMenu)
+    return () => window.removeEventListener(OPEN_SITE_MENU, openMenu)
+  }, [])
+
   return (
     <>
       <button
+        // data-top-mobile-nav: hidden wherever the tab bar (which has its own Menu) shows.
+        data-top-mobile-nav=""
         onClick={() => setOpen((o) => !o)}
         className="press md:hidden -mr-2 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full opacity-90 hover:opacity-100"
         aria-label={open ? 'Close menu' : 'Open menu'}
