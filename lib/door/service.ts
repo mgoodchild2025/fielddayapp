@@ -5,7 +5,7 @@ import { getClientIp } from '@/lib/rate-limit'
 import type { Database } from '@/types/database'
 import { broadcastDoor } from './broadcast'
 import { sendDoorPush } from './push'
-import { dueRenotifyStage, isLiveRing, RENOTIFY_AT_MS, type RingReason } from './logic'
+import { dueRenotifyStage, isLiveRing, LIVE_RING_MAX_AGE_MS, RENOTIFY_AT_MS, type RingReason } from './logic'
 import {
   generateJoinCode, hashIp, hashToken, hashesEqual, isTokenShaped, normalizeJoinCode, randomToken,
 } from './tokens'
@@ -201,7 +201,7 @@ export async function displayState(display: DoorDisplay, station: DoorStation, o
     client.from('door_displays').update(seen).eq('id', display.id),
     client.from('door_rings').select('id, station_id, visitor_name, created_at, acknowledged_at, renotify_count')
       .eq('station_id', station.id).is('acknowledged_at', null)
-      .gte('created_at', new Date(now.getTime() - 30 * 60_000).toISOString())
+      .gte('created_at', new Date(now.getTime() - LIVE_RING_MAX_AGE_MS).toISOString())
       .order('created_at', { ascending: false }).limit(20),
     client.from('door_rings').select('visitor_name, created_at, acknowledged_at, door_displays(label)')
       .eq('station_id', station.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),

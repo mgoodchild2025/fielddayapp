@@ -27,6 +27,11 @@ describe('isLiveRing', () => {
   it('is not live once acknowledged', () => {
     expect(isLiveRing({ created_at: new Date(now - 5_000).toISOString(), acknowledged_at: new Date(now).toISOString() }, now)).toBe(false)
   })
+  it('stops alerting after 15 minutes', () => {
+    expect(LIVE_RING_MAX_AGE_MS).toBe(15 * 60_000)
+    expect(isLiveRing({ created_at: new Date(now - 14 * 60_000).toISOString(), acknowledged_at: null }, now)).toBe(true)
+    expect(isLiveRing({ created_at: new Date(now - 15 * 60_000).toISOString(), acknowledged_at: null }, now)).toBe(false)
+  })
   it('expires after the max age', () => {
     expect(isLiveRing({ created_at: new Date(now - LIVE_RING_MAX_AGE_MS).toISOString(), acknowledged_at: null }, now)).toBe(false)
   })
