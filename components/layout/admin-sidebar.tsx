@@ -90,26 +90,26 @@ function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string;
             </Link>
           )
         })}
-      </nav>
-
-      {/* Two full rows, not two small links side by side: they were easy to
-          mis-tap on a phone. */}
-      <div className="p-2 border-t border-white/10 space-y-1">
-        <Link href="/" onClick={onClose} className="press flex items-center gap-3 min-h-11 px-3 rounded-md text-sm opacity-80 hover:opacity-100 hover:bg-white/10">
-          <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
-          Public site
-        </Link>
+        {/* Last item of the main menu; Public site stays alone at the bottom. */}
         <a
           href="https://docs.fielddayapp.ca"
           target="_blank"
           rel="noopener noreferrer"
-          className="press flex items-center gap-3 min-h-11 px-3 rounded-md text-sm opacity-80 hover:opacity-100 hover:bg-white/10"
+          onClick={onClose}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors opacity-70 hover:opacity-100 hover:bg-white/10"
         >
           <CircleHelp className="w-4 h-4 shrink-0" aria-hidden="true" />
           Help and guides
           <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-60" aria-hidden="true" />
           <span className="sr-only">(opens in a new tab)</span>
         </a>
+      </nav>
+
+      <div className="p-2 border-t border-white/10">
+        <Link href="/" onClick={onClose} className="press flex items-center gap-3 min-h-11 px-3 rounded-md text-sm opacity-80 hover:opacity-100 hover:bg-white/10">
+          <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
+          Public site
+        </Link>
       </div>
     </div>
   )
