@@ -12,6 +12,7 @@ import { canAccess } from '@/lib/features'
 import type { OrgContext } from '@/lib/tenant'
 import type { NavLink } from '@/actions/nav-links'
 import { canOptimizeImage } from '@/lib/image-src'
+import { getOrgBrandingCached } from '@/lib/org-cache'
 
 interface OrgNavProps {
   org: OrgContext
@@ -29,7 +30,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let unreadNotifications: { id: string; type: string | null; title: string; body: string | null; created_at: string; data: any }[] = []
 
-  const [navLinksResult, sectionLayoutResult, featMediaGallery, featMerchandiseShop, featCustomNavLinks, medalsCountResult, liveStream, ...userResults] = await Promise.all([
+  const [navLinksResult, sectionLayoutResult, featMediaGallery, featMerchandiseShop, featCustomNavLinks, medalsCountResult, liveStream, branding, ...userResults] = await Promise.all([
     db.from('org_nav_links')
       .select('id, label, link_type, url, open_in_new_tab, sort_order')
       .eq('organization_id', org.id)
@@ -47,6 +48,8 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
     db.from('medals').select('id').eq('organization_id', org.id).limit(1),
     // Current live stream (if any) → "Live now" banner. In the batch, not after it.
     getCurrentLiveStream(org.id),
+    // Contact email for the drawer's "Contact <org>" (cached per org).
+    getOrgBrandingCached(org.id),
     ...(user ? [
       db.from('profiles').select('full_name').eq('id', user.id).single(),
       db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
@@ -197,7 +200,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
               </div>
             </div>
           )}
-          <MobileNav userName={userName} userEmail={user?.email ?? null} isAdmin={isAdmin} customLinks={customLinks} showGallery={showGallery} showShop={showShop} showChampions={showChampions} />
+          <MobileNav userName={userName} userEmail={user?.email ?? null} isAdmin={isAdmin} customLinks={customLinks} showGallery={showGallery} showShop={showShop} showChampions={showChampions} contactEmail={branding?.contact_email ?? null} orgName={org.name} />
         </div>
       </div>
     </nav>

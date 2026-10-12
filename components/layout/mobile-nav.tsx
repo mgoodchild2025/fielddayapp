@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight, CalendarDays, Ticket, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images, FileText, ExternalLink, Timer, House } from 'lucide-react'
+import { ChevronRight, CalendarDays, Ticket, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images, FileText, ExternalLink, Timer, House, Mail } from 'lucide-react'
 import { logout } from '@/actions/auth'
 import { clearOfflineCache } from '@/lib/push-client'
 import type { NavLink } from '@/actions/nav-links'
@@ -18,6 +18,9 @@ interface Props {
   showGallery?: boolean
   showChampions?: boolean
   showShop?: boolean
+  /** The org's public contact email (Branding settings): players' "help" is the organizer. */
+  contactEmail?: string | null
+  orgName?: string
 }
 
 function getInitials(name: string): string {
@@ -26,7 +29,7 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase()
 }
 
-export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], showGallery = true, showShop = true, showChampions = false }: Props) {
+export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], showGallery = true, showShop = true, showChampions = false, contactEmail = null, orgName }: Props) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
@@ -185,6 +188,13 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
               <ShoppingBag className="w-4 h-4 shrink-0" />
               Shop
             </Link>
+          )}
+
+          {contactEmail && (
+            <a href={`mailto:${contactEmail}`} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+              <Mail className="w-4 h-4 shrink-0" />
+              {orgName ? `Contact ${orgName}` : 'Contact us'}
+            </a>
           )}
 
           {userName ? (

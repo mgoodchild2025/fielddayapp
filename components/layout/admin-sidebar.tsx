@@ -6,8 +6,8 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Trophy, CreditCard, ShoppingBag, Users,
   ClipboardList, Image, Radio, Mail, Settings, PersonStanding, CalendarDays,
-  TrendingUp,
- Timer } from 'lucide-react'
+  TrendingUp, Timer, ArrowLeft, CircleHelp, ExternalLink,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { OrgContext } from '@/lib/tenant'
 import { cn } from '@/lib/utils'
@@ -92,20 +92,23 @@ function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string;
         })}
       </nav>
 
-      <div className="p-4 border-t border-white/10 flex items-center justify-between">
-        <Link href="/" onClick={onClose} className="text-xs opacity-50 hover:opacity-80 transition-opacity">
-          ← Public site
+      {/* Two full rows, not two small links side by side: they were easy to
+          mis-tap on a phone. */}
+      <div className="p-2 border-t border-white/10 space-y-1">
+        <Link href="/" onClick={onClose} className="press flex items-center gap-3 min-h-11 px-3 rounded-md text-sm opacity-80 hover:opacity-100 hover:bg-white/10">
+          <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
+          Public site
         </Link>
         <a
           href="https://docs.fielddayapp.ca"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs opacity-50 hover:opacity-80 transition-opacity flex items-center gap-1"
+          className="press flex items-center gap-3 min-h-11 px-3 rounded-md text-sm opacity-80 hover:opacity-100 hover:bg-white/10"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Help
+          <CircleHelp className="w-4 h-4 shrink-0" aria-hidden="true" />
+          Help and guides
+          <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-60" aria-hidden="true" />
+          <span className="sr-only">(opens in a new tab)</span>
         </a>
       </div>
     </div>
