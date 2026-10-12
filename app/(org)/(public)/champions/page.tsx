@@ -8,7 +8,12 @@ import { Footer } from '@/components/layout/footer'
 import { EventPodium } from '@/components/medals/event-podium'
 import { assignBannerTints } from '@/lib/banner-tints'
 import { TeamAvatar } from '@/components/ui/team-avatar'
-import { tallyShelf } from '@/lib/hall-boards'
+import { rankLabel, rankTiers, type RankedRow } from '@/lib/hall-boards'
+import { createServerClient } from '@/lib/supabase/server'
+import { Leaderboard, type LeaderboardRow } from '@/components/champions/leaderboard'
+
+/** The most rows a board sends to the page; "Show all" lists up to this many. */
+const BOARD_CAP = 100
 
 export const metadata = { title: 'Hall of Champions' }
 
@@ -17,10 +22,40 @@ export default async function ChampionsPage() {
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  const [{ data: branding }, hall] = await Promise.all([
+  const [{ data: branding }, hall, viewerId] = await Promise.all([
     db.from('org_branding').select('logo_url').eq('organization_id', org.id).maybeSingle(),
     getHallOfChampions(db, org.id),
+    // Optional: a signed-in player sees their own row on the boards.
+    createServerClient().then((sb) => sb.auth.getUser()).then(({ data }) => data.user?.id ?? null, () => null),
   ])
+
+  const decoratedRanked = rankTiers(hall.decorated)
+  const tenureRanked = rankTiers(hall.tenure)
+  // Photos for the rows that can render: each board's first BOARD_CAP + the viewer.
+  const avatarIds = [...new Set([
+    ...decoratedRanked.slice(0, BOARD_CAP), ...tenureRanked.slice(0, BOARD_CAP),
+  ].map((r) => r.player.userId).concat(viewerId).filter((id): id is string => !!id))]
+  const { data: avatarRows } = avatarIds.length
+    ? await db.from('profiles').select('id, avatar_url').in('id', avatarIds)
+    : { data: [] as { id: string; avatar_url: string | null }[] }
+  const avatarOf = new Map((avatarRows ?? []).map((p) => [p.id, p.avatar_url]))
+
+  function boardRows<T>(ranked: RankedRow<T>[], fill: (tier: T) => Partial<LeaderboardRow>) {
+    const toRow = (r: RankedRow<T>): LeaderboardRow => ({
+      key: r.player.userId ?? `name:${r.player.name}`,
+      rank: rankLabel(r),
+      userId: r.player.userId,
+      name: r.player.name,
+      avatarUrl: r.player.userId ? avatarOf.get(r.player.userId) ?? null : null,
+      isViewer: !!viewerId && r.player.userId === viewerId,
+      ...fill(r.tier),
+    })
+    const rows = ranked.slice(0, BOARD_CAP).map(toRow)
+    const viewerPast = viewerId ? ranked.slice(BOARD_CAP).find((r) => r.player.userId === viewerId) : undefined
+    return { rows, viewerRow: viewerPast ? toRow(viewerPast) : null, capped: ranked.length > BOARD_CAP ? ranked.length : undefined }
+  }
+  const decoratedBoard = boardRows(decoratedRanked, (t) => ({ gold: t.gold, silver: t.silver, bronze: t.bronze, titles: t.tierTitles }))
+  const tenureBoard = boardRows(tenureRanked, (t) => ({ seasons: t.seasons }))
   // Team colour where set, else palette — and no two fallback neighbours alike.
   const tints = assignBannerTints(hall.banners)
   const hasBoards = hall.dynasties.length > 0 || hall.decorated.length > 0 || hall.repeatChampions.length > 0
@@ -116,61 +151,24 @@ export default async function ChampionsPage() {
                   </Board>
                 )}
 
-                {hall.decorated.length > 0 && (
-                  <Board title="Most decorated" sub="Career medals, all events — ties shown, nobody cut">
-                    <ul className="mt-3 space-y-3">
-                      {hall.decorated.map((tier, i) => {
-                        const shelf = tallyShelf(tier)
-                        const many = tier.players.length > 6
-                        // The top two tiers always list names; crowded lower tiers fold to a count.
-                        const open = i < 2 && !many
-                        return (
-                          <li key={shelf} className="text-sm">
-                            <details open={open}>
-                              <summary className="flex cursor-pointer items-baseline justify-between gap-3 list-none">
-                                <span className="tracking-wide">{shelf}</span>
-                                <span className="text-xs text-gray-500">
-                                  {tier.players.length} player{tier.players.length !== 1 ? 's' : ''}
-                                  <span className="ml-1 text-gray-300">▾</span>
-                                </span>
-                              </summary>
-                              <p className="mt-1.5 text-gray-700 leading-relaxed">
-                                {tier.players.map((p, j) => (
-                                  <span key={p.userId ?? p.name}>
-                                    {j > 0 && <span className="text-gray-300"> · </span>}
-                                    <PlayerName userId={p.userId} name={p.name} />
-                                  </span>
-                                ))}
-                              </p>
-                            </details>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </Board>
+                {decoratedBoard.rows.length > 0 && (
+                  <Leaderboard
+                    title="Most decorated"
+                    sub="Career medals, all events — ties share a rank"
+                    kind="medals"
+                    noun="medallists"
+                    {...decoratedBoard}
+                  />
                 )}
 
-                {hall.tenure.length > 0 && (
-                  <Board title="Most seasons" sub="Events played with this club">
-                    <ul className="mt-3 space-y-3">
-                      {hall.tenure.map((tier) => (
-                        <li key={tier.seasons} className="text-sm">
-                          <p className="flex items-baseline justify-between gap-3">
-                            <span className="font-semibold text-gray-800">{tier.seasons} seasons</span>
-                            <span className="text-xs text-gray-500">{tier.players.length} player{tier.players.length !== 1 ? 's' : ''}</span>
-                          </p>
-                          <p className="mt-1 text-gray-700 leading-relaxed">
-                            {tier.players.map((p, j) => (
-                              <span key={p.userId ?? p.name}>
-                                {j > 0 && <span className="text-gray-300"> · </span>}
-                                <PlayerName userId={p.userId} name={p.name} />
-                              </span>
-                            ))}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  </Board>
+                {tenureBoard.rows.length > 0 && (
+                  <Leaderboard
+                    title="Most seasons"
+                    sub="Events played with this club"
+                    kind="seasons"
+                    noun="players"
+                    {...tenureBoard}
+                  />
                 )}
 
                 {hall.statLeaders.map((board) => (

@@ -122,6 +122,32 @@ export function tenureTiers(
     .map(([seasons, players]) => ({ seasons, players: players.sort((a, b) => a.name.localeCompare(b.name)) }))
 }
 
+// ── Leaderboard rows: tiers flattened with shared (competition) ranks ───────
+
+export interface RankedRow<T> {
+  /** 1-based; tied players share the rank and the next rank skips (1, 2, T-3, T-3, 5). */
+  rank: number
+  tied: boolean
+  player: PlayerRef
+  tier: T
+}
+
+/** One row per player, in tier order (names stay A–Z within a tie). */
+export function rankTiers<T extends { players: PlayerRef[] }>(tiers: T[]): RankedRow<T>[] {
+  const rows: RankedRow<T>[] = []
+  for (const tier of tiers) {
+    const rank = rows.length + 1
+    const tied = tier.players.length > 1
+    for (const player of tier.players) rows.push({ rank, tied, player, tier })
+  }
+  return rows
+}
+
+/** "1", "T-3" — what the rank column prints. */
+export function rankLabel(r: { rank: number; tied: boolean }): string {
+  return r.tied ? `T-${r.rank}` : String(r.rank)
+}
+
 // ── Stat leaders: career total of a sport's headline stat ───────────────────
 
 export interface StatLeaderBoard {
