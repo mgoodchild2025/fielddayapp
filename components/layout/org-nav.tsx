@@ -190,7 +190,11 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
           {user && (
             <div className="md:hidden flex items-center gap-1">
               {showShop && <CartNavIcon />}
-              <NotificationBell initialNotifications={unreadNotifications} />
+              {/* Also serves the phone tab bar's Alerts button; its own button
+                  hides wherever the tab bar shows (data-top-mobile-nav). */}
+              <div data-top-mobile-nav="" className="contents">
+                <NotificationBell initialNotifications={unreadNotifications} tabBar />
+              </div>
             </div>
           )}
           <MobileNav userName={userName} userEmail={user?.email ?? null} isAdmin={isAdmin} customLinks={customLinks} showGallery={showGallery} showShop={showShop} showChampions={showChampions} />

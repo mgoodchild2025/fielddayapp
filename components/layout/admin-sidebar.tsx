@@ -12,6 +12,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { OrgContext } from '@/lib/tenant'
 import { cn } from '@/lib/utils'
 import { Overlay } from '@/components/ui/overlay'
+import { OPEN_ADMIN_MENU } from '@/lib/nav-events'
 
 interface NavItem { label: string; href: string; icon: LucideIcon }
 
@@ -119,6 +120,13 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
 
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
+  // The phone tab bar's Admin button opens this drawer.
+  useEffect(() => {
+    const openMenu = () => setMobileOpen(true)
+    window.addEventListener(OPEN_ADMIN_MENU, openMenu)
+    return () => window.removeEventListener(OPEN_ADMIN_MENU, openMenu)
+  }, [])
+
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden'
     return () => { document.documentElement.style.overflow = '' }
@@ -150,6 +158,8 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
           ⏱ Courtside
         </Link>
         <button
+          // Hidden on phones, where the tab bar's Admin button opens the menu.
+          data-top-mobile-nav=""
           onClick={() => setMobileOpen(true)}
           className="press inline-flex items-center justify-center min-h-11 min-w-11 rounded opacity-80 hover:opacity-100"
           aria-label="Open admin menu"
