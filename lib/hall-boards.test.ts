@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { decoratedTiers, repeatChampions, statLeaders, tallyShelf, tenureTiers, type MedalRecipientRow } from './hall-boards'
+import { decoratedTiers, rankLabel, rankTiers, repeatChampions, statLeaders, tallyShelf, tenureTiers, type MedalRecipientRow } from './hall-boards'
 
 const gold = (leagueId: string, year: string, userId: string, name: string, placement = 'gold'): MedalRecipientRow =>
   ({ medalId: `${leagueId}-${placement}`, leagueId, placement, year, userId, name })
@@ -69,5 +69,23 @@ describe('statLeaders', () => {
     expect(boards).toHaveLength(1)
     expect(boards[0].statLabel).toBe('Kills')
     expect(boards[0].players.map((p) => [p.name, p.value])).toEqual([['Ann', 15], ['Bob', 12]])
+  })
+})
+
+describe('rankTiers', () => {
+  it('gives tied players a shared rank and skips the ranks they use up', () => {
+    const p = (name: string) => ({ userId: name, name })
+    const rows = rankTiers([
+      { seasons: 9, players: [p('Ann')] },
+      { seasons: 7, players: [p('Bob'), p('Cal')] },
+      { seasons: 5, players: [p('Dee')] },
+    ])
+    expect(rows.map((r) => `${rankLabel(r)} ${r.player.name} ${r.tier.seasons}`)).toEqual([
+      '1 Ann 9', 'T-2 Bob 7', 'T-2 Cal 7', '4 Dee 5',
+    ])
+  })
+
+  it('is empty for no tiers', () => {
+    expect(rankTiers([])).toEqual([])
   })
 })

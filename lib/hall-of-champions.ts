@@ -51,7 +51,7 @@ export interface HallOfChampions {
   decorated: DecoratedTier[]
   /** Gold in two or more different events. */
   repeatChampions: RepeatChampion[]
-  /** Most seasons played, grouped by count (top tiers). */
+  /** Most seasons played (2+), grouped by count, most first. */
   tenure: TenureTier[]
   /** Career leaders in each sport's headline stat, where stats are kept. */
   statLeaders: StatLeaderBoard[]
@@ -181,7 +181,8 @@ export async function getHallOfChampions(db: Db, orgId: string): Promise<HallOfC
     if (league?.sport) sportByLeague.set(team.league_id, league.sport)
     memberships.push({ userId: m.user_id, name, leagueId: team.league_id })
   }
-  const tenure = tenureTiers(memberships)
+  // Every tier: the page ranks them all (top 5 shown, the rest behind "Show all").
+  const tenure = tenureTiers(memberships, { maxTiers: Infinity })
 
   const statSports = [...new Set((statRows ?? []).map((r) => sportByLeague.get(r.league_id)).filter((s): s is string => !!s))]
   const headline = new Map<string, { key: string; label: string }>()
