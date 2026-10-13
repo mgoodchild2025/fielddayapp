@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { SCOREBOARD_APP_STORE_URL, isIphone } from '@/lib/scoreboard-app-store'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { submitScore, adminSetScore } from '@/actions/scores'
@@ -166,6 +167,8 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   const [resaveTick, setResaveTick] = useState(0)
   const [installed, setInstalled] = useState(false)
   const [installHelp, setInstallHelp] = useState(false)
+  // iPhone visitors get the App Store app offered in the menu (read on the client only).
+  const iphoneDevice = useSyncExternalStore(noSubscribe, () => isIphone(navigator.userAgent), () => false)
 
   // Capture Chrome's install prompt at the app level so BOTH the one-time hint
   // and the menu's "Add to home screen" button can fire it — even after the
@@ -1082,7 +1085,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       {/* Only before scoring starts (and never on a locked board): it sat over
           the bottom panel's −/+ buttons, and on Android the card is a button. */}
       {!locked && game.events.length === 0 && (
-        <InstallHint installPrompt={installPrompt} installed={installed} onInstall={requestInstall} />
+        <InstallHint installPrompt={installPrompt} installed={installed} onInstall={requestInstall} offerNativeApp={!attached} />
       )}
       {!attached && <DetachedNotice />}
 
@@ -1253,6 +1256,15 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
               </button>
             ) : null}
 
+            {!attached && iphoneDevice && (
+              <a
+                href={SCOREBOARD_APP_STORE_URL}
+                className="block w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-emerald-500/20 text-emerald-200"
+              >
+                ⌚ Get the free iPhone + Apple Watch app
+              </a>
+            )}
+
             {!installed && (
               <div>
                 <button onClick={requestInstall} className="w-full py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80">
@@ -1333,13 +1345,18 @@ function InstallHint({
   installPrompt,
   installed,
   onInstall,
+  offerNativeApp,
 }: {
   installPrompt: InstallPromptEvent | null
   installed: boolean
   onInstall: () => void
+  /** Standalone boards on an iPhone point at the App Store app instead
+   *  (an attached board saves to a league game, which the app can't). */
+  offerNativeApp: boolean
 }) {
   const [show, setShow] = useState(false)
   const [isIos, setIsIos] = useState(false)
+  const [iphone, setIphone] = useState(false)
 
   useEffect(() => {
     try {
@@ -1349,6 +1366,7 @@ function InstallHint({
     }
     if (window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) return
     setIsIos(isIosDevice())
+    setIphone(isIphone(navigator.userAgent))
     const timer = setTimeout(() => setShow(true), 2500)
     return () => clearTimeout(timer)
   }, [])
@@ -1367,7 +1385,14 @@ function InstallHint({
   // version only worked via a button that existed once the event had fired,
   // so an early tap on the message did nothing. iOS has no install API, so
   // there the card stays informational.
-  const body = (
+  const body = offerNativeApp && iphone ? (
+    <p className="text-xs text-white/85 leading-snug text-left">
+      <a href={SCOREBOARD_APP_STORE_URL} onClick={dismiss} className="font-bold underline underline-offset-2">
+        Get the free iPhone app
+      </a>{' '}
+      <span className="text-white/60">— works offline, with Apple Watch scoring.</span>
+    </p>
+  ) : (
     <p className="text-xs text-white/85 leading-snug text-left">
       <span className="font-bold">Add to your home screen</span> — opens fullscreen and works offline.{' '}
       {isIos ? (

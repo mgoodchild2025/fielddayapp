@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { SCOREBOARD_APP_STORE_URL } from '@/lib/scoreboard-app-store'
 import {
   ORGANIZATION_SCHEMA,
   ORGANIZATION_ID,
@@ -789,12 +790,20 @@ function ScoreboardPromo() {
             Fieldday leagues get the connected version: team names prefill from the schedule, finished
             scores save straight into standings, and live scores appear on the gym TV.
           </p>
-          <a
-            href="/scoreboard"
-            className="inline-block px-8 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-emerald-900/30"
-          >
-            Open the scoreboard →
-          </a>
+          <div className="flex flex-col sm:flex-row items-center md:items-start gap-3">
+            <a
+              href="/scoreboard"
+              className="inline-block px-8 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-emerald-900/30"
+            >
+              Open the scoreboard →
+            </a>
+            <a
+              href={SCOREBOARD_APP_STORE_URL}
+              className="inline-block px-6 py-3.5 rounded-xl border border-white/20 text-white font-semibold hover:bg-white/10 transition-colors"
+            >
+              Get the iPhone + Apple Watch app
+            </a>
+          </div>
         </div>
       </div>
     </section>

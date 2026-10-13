@@ -114,6 +114,9 @@ The authorized scorer's board broadcasts on Supabase Realtime channel `scoreboar
 - Changes to `/scoreboard` behaviour reach Play users too. Data collected by the web board (the anonymous launch counts) must stay in step with the Play **Data safety** answers in `android/PlayStore/listing.md` and the `/privacy/scoreboard` notice.
 - `LauncherActivity` needs `ManageDataLauncherActivity` declared in the manifest (it crashes on launch without it). Build/sign/upload steps are in `android/README.md`. The upload key lives in `~/.android-keys`, never in the repo.
 
+### iPhone app on the App Store
+The native Fieldday Scoreboard (iPhone + Apple Watch, `ios/`) is live: `SCOREBOARD_APP_STORE_URL` in `lib/scoreboard-app-store.ts` (no storefront in the path, so Apple sends each visitor to their own country's store). Linked from the marketing page's scoreboard section and, on iPhones only (`isIphone`; the app is iPhone-only) and only on STANDALONE boards, from the web scoreboard's install hint and menu. An attached board keeps "Add to home screen", because the native app can't save to a league game. Android (the TWA) never sees it. It's a plain text link: Apple's badge image is blocked by the CSP's `img-src`, and only Apple's official artwork may be used as a badge.
+
 ### Discovery (deliberate placement — don't re-add elsewhere)
 Menu-only in the app: mobile drawer (`mobile-nav.tsx`) + desktop nav user menu (`nav-user-menu.tsx`). NOT on the org top nav, org footer, or player dashboard (removed on request). Marketing: apex footer link + `ScoreboardPromo` section on the marketing page (free tool = lead magnet; the integrated version is the upsell).
 
