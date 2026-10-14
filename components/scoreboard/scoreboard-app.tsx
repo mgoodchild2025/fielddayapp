@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { SCOREBOARD_APP_STORE_URL, isIphone } from '@/lib/scoreboard-app-store'
+import { AppStoreBadge } from '@/components/ui/app-store-badge'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { submitScore, adminSetScore } from '@/actions/scores'
@@ -1257,12 +1258,10 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
             ) : null}
 
             {!attached && iphoneDevice && (
-              <a
-                href={SCOREBOARD_APP_STORE_URL}
-                className="block w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-emerald-500/20 text-emerald-200"
-              >
-                ⌚ Get the free iPhone + Apple Watch app
-              </a>
+              <div className="flex items-center justify-center gap-3 py-1">
+                <AppStoreBadge height={40} />
+                <span className="text-xs text-white/60 leading-snug">Free iPhone app,<br />with Apple Watch</span>
+              </div>
             )}
 
             {!installed && (
