@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alertHeadline, dueRenotifyStage, isLiveRing, LIVE_RING_MAX_AGE_MS, ringRefusal } from './logic'
+import { alertHeadline, dueRenotifyStage, isLiveRing, isQuietAlert, LIVE_RING_MAX_AGE_MS, QUIET_AFTER_MS, ringRefusal } from './logic'
 
 describe('dueRenotifyStage', () => {
   const t0 = 1_000_000
@@ -56,5 +56,20 @@ describe('alertHeadline', () => {
     expect(alertHeadline([null])).toBe('Someone is at the door')
     expect(alertHeadline(['Danny', null])).toBe('2 people at the door')
     expect(alertHeadline([])).toBe('')
+  })
+})
+
+describe('isQuietAlert', () => {
+  const t0 = Date.parse('2026-10-19T23:00:00Z')
+  const at = (ms: number) => new Date(t0 + ms).toISOString()
+  it('stays loud for the first two minutes', () => {
+    expect(QUIET_AFTER_MS).toBe(2 * 60_000)
+    expect(isQuietAlert(at(0), t0 + 119_999)).toBe(false)
+  })
+  it('quiets at two minutes', () => {
+    expect(isQuietAlert(at(0), t0 + 120_000)).toBe(true)
+  })
+  it('goes by the newest ring, so a second ring is loud again', () => {
+    expect(isQuietAlert(at(150_000), t0 + 180_000)).toBe(false)
   })
 })
