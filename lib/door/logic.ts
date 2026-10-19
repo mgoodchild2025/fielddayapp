@@ -12,6 +12,18 @@ export const RENOTIFY_AT_MS = [60_000, 120_000] as const
  */
 export const LIVE_RING_MAX_AGE_MS = 15 * 60_000
 
+/**
+ * An unanswered alert flashes and chimes this long, then quiets to a calm
+ * "not answered" card: often someone saw the screen and let the visitor in
+ * without crossing the gym to tap ON MY WAY. A new ring is loud again.
+ */
+export const QUIET_AFTER_MS = 2 * 60_000
+
+/** True once the NEWEST ring has gone unanswered for QUIET_AFTER_MS. */
+export function isQuietAlert(newestRingCreatedAt: string, nowMs: number): boolean {
+  return nowMs - Date.parse(newestRingCreatedAt) >= QUIET_AFTER_MS
+}
+
 /** The visitor page polls for an acknowledgement this long, then stops. */
 export const VISITOR_POLL_MS = 3 * 60_000
 

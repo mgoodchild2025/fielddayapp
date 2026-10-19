@@ -12,6 +12,7 @@ import type { displayState } from '@/lib/door/service'
 import { DISPLAY_TYPE, DoorStripes } from './door-stripes'
 import { DoorAlertOverlay } from './door-alert-overlay'
 import { useChime } from './use-chime'
+import { isQuietAlert } from '@/lib/door/logic'
 import { useWakeLock } from './use-wake-lock'
 import {
   disableDoorPush, doorPushState, enableDoorPush, idbPut, readMyDoors, registerDoorWorker, rememberDisplayForWorker,
@@ -34,7 +35,6 @@ type Sheet = null | 'menu' | 'add' | 'location' | 'devices' | 'tips'
 
 const POLL_MS = 15_000
 const CHIME_EVERY_MS = 3_500
-const CHIME_FOR_MS = 3 * 60_000
 const SCREEN_KEY = 'fieldday-door-screen'
 
 let socket: ReturnType<typeof createBroadcastSocket> | null = null
@@ -77,6 +77,8 @@ export function DisplayBoard({
   const [testAlert, setTestAlert] = useState<number | null>(null)
   const [backLink, setBackLink] = useState(back)
   const [acking, setAcking] = useState(false)
+  // Rings cleared from the quiet card: hidden here, still unanswered on the server.
+  const [cleared, setCleared] = useState<ReadonlySet<string>>(() => new Set())
   const armedRef = useRef(false)
   const labelRef = useRef(initialState.display.label)
   const ackedHere = useRef(new Set<string>())
@@ -176,22 +178,24 @@ export function DisplayBoard({
   // ── Alerting ─────────────────────────────────────────────────────────────
   const rings: Ring[] = testAlert !== null
     ? [{ ringId: 'test', visitorName: 'Test', createdAt: new Date(testAlert).toISOString() }]
-    : state.rings
+    : state.rings.filter((r) => !cleared.has(r.ringId))
   const alerting = rings.length > 0
   const newestId = rings[0]?.ringId ?? null
+  const newestAt = rings[0]?.createdAt ?? null
+  // Unanswered for 2 minutes: stop flashing and chiming (isQuietAlert).
+  const quiet = testAlert === null && newestAt !== null && isQuietAlert(newestAt, now)
 
   useEffect(() => {
-    if (!alerting || !screenArmed) return
-    const started = Date.now()
+    if (!alerting || !screenArmed || !newestAt) return
     const beat = () => {
-      if (Date.now() - started > CHIME_FOR_MS) return // the visual alert stays until acknowledged
+      if (isQuietAlert(newestAt, Date.now())) return // the calm "not answered" card takes over
       chime.play()
       try { navigator.vibrate?.([400, 150, 400]) } catch { /* unsupported */ }
     }
     beat()
     const t = setInterval(beat, CHIME_EVERY_MS)
     return () => clearInterval(t)
-  }, [alerting, newestId, screenArmed, chime])
+  }, [alerting, newestId, newestAt, screenArmed, chime])
 
   async function onMyWay() {
     if (testAlert !== null) {
@@ -412,6 +416,8 @@ export function DisplayBoard({
           onMyWay={() => void onMyWay()}
           fmtTime={fmtTime}
           ago={ago}
+          quiet={quiet}
+          onClear={() => setCleared((prev) => new Set([...prev, ...rings.map((r) => r.ringId)]))}
         />
       )}
 

@@ -7,6 +7,7 @@ import { DoorAlertOverlay, type AlertRing } from './door-alert-overlay'
 import { readMyDoors, writeMyDoor } from './door-push'
 import { forgetSavedDisplay, readSavedDisplay } from './join-form'
 import { doorAudioReady, unlockDoorAudio, useChime } from './use-chime'
+import { isQuietAlert } from '@/lib/door/logic'
 
 /**
  * The in-app door alert. On every Fieldday page (mounted by the org layout,
@@ -26,7 +27,6 @@ import { doorAudioReady, unlockDoorAudio, useChime } from './use-chime'
 type Door = { token: string; stationName: string; channelKey: string; rings: AlertRing[] }
 
 const CHIME_EVERY_MS = 3_500
-const CHIME_FOR_MS = 3 * 60_000
 const SCREEN_KEY = 'fieldday-door-screen'
 const SAFETY_POLL_MS = 60_000
 
@@ -130,22 +130,22 @@ export function DoorWatcher() {
     .filter((d) => d.rings.length > 0)
     .sort((a, b) => Date.parse(b.rings[0].createdAt) - Date.parse(a.rings[0].createdAt))[0] ?? null
   const newestId = alerting?.rings[0]?.ringId ?? null
+  const newestAt = alerting?.rings[0]?.createdAt ?? null
 
   // While alerting: the clock for "1 min ago", vibration, and the chime if
-  // the door screen was armed this session.
+  // the door screen was armed this session — until the alert quiets (2 min).
   useEffect(() => {
-    if (!newestId) return
-    const started = Date.now()
+    if (!newestId || !newestAt) return
     const beat = () => {
       setNow(Date.now())
-      if (Date.now() - started > CHIME_FOR_MS) return
+      if (isQuietAlert(newestAt, Date.now())) return
       if (armedRef.current && doorAudioReady()) play()
       try { navigator.vibrate?.([400, 150, 400]) } catch { /* unsupported */ }
     }
     beat()
     const t = setInterval(beat, CHIME_EVERY_MS)
     return () => clearInterval(t)
-  }, [newestId, play])
+  }, [newestId, newestAt, play])
 
   if (!alerting) return null
 
@@ -184,6 +184,8 @@ export function DoorWatcher() {
       onMyWay={() => void onMyWay()}
       fmtTime={fmtTime}
       ago={ago}
+      quiet={isQuietAlert(alerting.rings[0].createdAt, now)}
+      onClear={hide}
     >
       <div className="flex w-full max-w-md flex-col items-center gap-2">
         <a
