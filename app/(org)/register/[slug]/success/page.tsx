@@ -99,7 +99,7 @@ export default async function RegistrationSuccessPage({
   const { data: registration } = user && league
     ? await db
         .from('registrations')
-        .select('checkin_token, status, session_id, position')
+        .select('id, checkin_token, status, session_id, position')
         .eq('league_id', league.id)
         .eq('organization_id', org.id)
         .eq('user_id', user.id)
@@ -111,14 +111,16 @@ export default async function RegistrationSuccessPage({
 
   // Chose cash / e-transfer / cheque: the registration is already active, so
   // without this the page said "You're all set" and the payment instructions
-  // (shown once, on the payment step) were gone.
-  const { data: owed } = user && league
+  // (shown once, on the payment step) were gone. Scoped to THIS registration:
+  // on a drop-in event each session is its own registration, and an unpaid
+  // e-transfer for an earlier session used to show up here right after a
+  // successful card payment for a new one.
+  const { data: owed } = user && league && registration
     ? await db
         .from('payments')
         .select('payment_method, amount_cents, currency')
         .eq('organization_id', org.id)
-        .eq('league_id', league.id)
-        .eq('user_id', user.id)
+        .eq('registration_id', registration.id)
         .eq('status', 'pending')
         // 'other' = an event with no online payments: pay as the instructions say.
         .in('payment_method', ['cash', 'etransfer', 'cheque', 'other'])
