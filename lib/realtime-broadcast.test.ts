@@ -21,9 +21,11 @@ class FakeWS {
   events(name: string) { return this.sent.filter((m) => m.event === name) }
 }
 
-const make = () => createBroadcastSocket({
+// A legacy anon key is a JWT (header.payload.signature).
+const LEGACY_ANON = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.c2ln'
+const make = (apiKey = LEGACY_ANON) => createBroadcastSocket({
   url: 'https://abc.supabase.co',
-  apiKey: 'anon',
+  apiKey,
   WebSocketImpl: FakeWS,
   heartbeatMs: 1000,
   backoffMs: [100, 500],
@@ -50,11 +52,20 @@ describe('createBroadcastSocket', () => {
     last().open()
     const joins = last().events('phx_join')
     expect(joins.map((j) => j.topic)).toEqual(['realtime:scoreboard:A', 'realtime:scoreboard:B'])
-    expect(joins[0].payload).toMatchObject({ config: { broadcast: { self: false }, private: false }, access_token: 'anon' })
+    expect(joins[0].payload).toMatchObject({ config: { broadcast: { self: false }, private: false }, access_token: LEGACY_ANON })
 
     last().push({ topic: 'realtime:scoreboard:A', event: 'broadcast', payload: { type: 'broadcast', event: 'score', payload: { gameId: 'g1', a: 3 } } })
     expect(a).toHaveBeenCalledWith('score', { gameId: 'g1', a: 3 })
     expect(b).not.toHaveBeenCalled()
+  })
+
+  it('sends no access_token with a new sb_publishable_ key (it is not a JWT)', () => {
+    const s = make('sb_publishable_abc123')
+    s.subscribe('door:k', vi.fn())
+    last().open()
+    const join = last().events('phx_join')[0]
+    expect(join.payload).not.toHaveProperty('access_token')
+    expect(last().url).toContain('apikey=sb_publishable_abc123')
   })
 
   it('joins a topic added after the socket is open straight away', () => {
