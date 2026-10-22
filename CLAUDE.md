@@ -45,6 +45,7 @@ app/(org)/
 | `lib/tenant.ts#getOrgTimezone` | Org display timezone (cached). Server components render in **UTC** — any time they print must pass `timeZone` (or go through `formatGameTime(iso, tz)`). |
 | `lib/format-time.ts#utcToLocalInput` | Fills a `datetime-local` field with the ORG's wall-clock time; save with `parseLocalToUtc(date, time, tz)`. Never `iso.slice(0, 16)` (UTC wall-clock → shifts by the offset on every save) or `new Date(localString)` (the browser's zone, not the org's). Date-only columns (`incurred_on`, `season_end_date`, …) display via `formatDateOnly`. |
 | `lib/supabase/server.ts` | Supabase server client (cookie-based) |
+| `lib/supabase/key-headers.ts` | `supabaseKeyHeaders(key)` / `isJwtKey` — every HAND-BUILT Supabase request (proxy REST calls, door REST broadcast, the Realtime join in `lib/realtime-broadcast.ts`) goes through it. Legacy JWT keys ride on `apikey` + `Authorization: Bearer`; new `sb_secret_`/`sb_publishable_` keys on `apikey` only (Supabase rejects them as Bearer), and the Realtime join sends `access_token` only for a JWT. Never write `Authorization: Bearer ${serviceKey}` by hand. |
 | `actions/` | All server actions (auth, leagues, teams, scores, registrations, etc.) |
 | `components/scores/admin-score-entry.tsx` | Inline score entry for admin schedule table |
 | `components/scores/captain-score-entry.tsx` | Score submit/confirm for captains on public schedule |

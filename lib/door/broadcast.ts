@@ -1,3 +1,4 @@
+import { supabaseKeyHeaders } from '@/lib/supabase/key-headers'
 /**
  * Server → displays over Supabase Realtime broadcast (topic `door:<channel_key>`),
  * through the REST endpoint: no long-lived socket in a route handler.
@@ -26,7 +27,7 @@ export async function broadcastDoor(channelKey: string, msg: DoorEvent): Promise
   try {
     const res = await fetch(`${url.replace(/\/$/, '')}/realtime/v1/api/broadcast`, {
       method: 'POST',
-      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      headers: { ...supabaseKeyHeaders(key), 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages: [{ topic: doorTopic(channelKey), event: msg.event, payload: msg.payload, private: false }],
       }),

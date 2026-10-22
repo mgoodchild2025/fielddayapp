@@ -1,3 +1,4 @@
+import { isJwtKey } from '@/lib/supabase/key-headers'
 /**
  * Receive-only Supabase Realtime BROADCAST listener over a plain WebSocket.
  *
@@ -95,7 +96,9 @@ export function createBroadcastSocket(opts: BroadcastSocketOptions) {
           postgres_changes: [],
           private: false,
         },
-        access_token: opts.apiKey,
+        // A legacy anon key is a JWT and doubles as the join token; a new
+        // sb_publishable_ key isn't, and public channels need no token.
+        ...(isJwtKey(opts.apiKey) ? { access_token: opts.apiKey } : {}),
       },
       ref: r,
       join_ref: r,

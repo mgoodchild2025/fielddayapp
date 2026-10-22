@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { supabaseKeyHeaders } from '@/lib/supabase/key-headers'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const REST_HEADERS = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+// Legacy JWT keys ride on both headers; new sb_secret_ keys on apikey only.
+const REST_HEADERS = supabaseKeyHeaders(SERVICE_KEY)
 
 // host → orgId, cached in memory (the app runs as one long-lived process). The
 // proxy runs on every request — including RSC prefetches — so an uncached
