@@ -15,7 +15,7 @@ import { useChime } from './use-chime'
 import { isQuietAlert } from '@/lib/door/logic'
 import { useWakeLock } from './use-wake-lock'
 import {
-  disableDoorPush, doorPushState, enableDoorPush, idbPut, readMyDoors, registerDoorWorker, rememberDisplayForWorker,
+  disableDoorPush, doorPushState, enableDoorPush, idbPut, readMyDoors, refreshDoorPushKey, registerDoorWorker, rememberDisplayForWorker,
   writeMyDoor, type DoorPushState,
 } from './door-push'
 import { forgetSavedDisplay } from './join-form'
@@ -159,6 +159,8 @@ export function DisplayBoard({
       if (s === 'on') {
         void registerDoorWorker() // picks up a newer sw.js
         void rememberDisplayForWorker(displayToken)
+        // After a VAPID key rotation, re-subscribe this screen with the new key.
+        void refreshDoorPushKey(displayToken, vapidKey)
       }
     })()
     const t = setTimeout(() => {
@@ -169,7 +171,7 @@ export function DisplayBoard({
       }
     }, 0)
     return () => { cancelled = true; clearTimeout(t) }
-  }, [displayToken, back])
+  }, [displayToken, back, vapidKey])
 
   useEffect(() => {
     if (revoked) forgetSavedDisplay(displayToken)

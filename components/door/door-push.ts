@@ -1,6 +1,6 @@
 'use client'
 
-import { isIOS, isStandalone, pushSupported } from '@/lib/push-client'
+import { ensureCurrentKey, isIOS, isStandalone, pushSupported } from '@/lib/push-client'
 
 /**
  * Notify mode: Web Push through the door's own service worker (/door/sw.js,
@@ -80,6 +80,12 @@ export async function enableDoorPush(displayToken: string, vapidKey: string | nu
   await idbPut('displayToken', displayToken)
 
   let sub = await reg.pushManager.getSubscription()
+  if (sub) {
+    // Still on a rotated-out key? Re-subscribe with the current one.
+    const rekeyed = await ensureCurrentKey(reg, sub, vapidKey)
+    if (rekeyed.replaced) await dropDoorEndpoint(displayToken, rekeyed.replaced)
+    sub = rekeyed.sub
+  }
   if (!sub) {
     try {
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(vapidKey) as BufferSource })
@@ -112,6 +118,53 @@ export async function disableDoorPush(displayToken: string): Promise<void> {
     })
   } catch { /* the server prunes dead subscriptions anyway */ }
   await sub.unsubscribe().catch(() => {})
+}
+
+function dropDoorEndpoint(displayToken: string, endpoint: string): Promise<void> {
+  return fetch(`/api/door/display/${displayToken}/push`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoint }),
+  }).then(() => {}, () => {})
+}
+
+function saveDoorSubscription(displayToken: string, sub: PushSubscription): Promise<void> {
+  return fetch(`/api/door/display/${displayToken}/push`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subscription: sub.toJSON(), userAgent: navigator.userAgent }),
+  }).then(() => {}, () => {})
+}
+
+/**
+ * Key rotation, door screen (notify mode, the door's own /door/ worker): when
+ * this browser's door subscription was made with an old VAPID key, re-subscribe
+ * with the current one and move the door's record over. Silent — permission is
+ * already granted. Runs when a paired door screen opens.
+ */
+export async function refreshDoorPushKey(displayToken: string, vapidKey: string | null): Promise<void> {
+  if (!vapidKey || !pushSupported() || Notification.permission !== 'granted') return
+  const reg = await navigator.serviceWorker.getRegistration(SCOPE)
+  const sub = await reg?.pushManager.getSubscription()
+  if (!reg || !sub) return
+  const rekeyed = await ensureCurrentKey(reg, sub, vapidKey)
+  if (!rekeyed.replaced) return
+  await dropDoorEndpoint(displayToken, rekeyed.replaced)
+  if (rekeyed.sub) await saveDoorSubscription(displayToken, rekeyed.sub)
+}
+
+/**
+ * Key rotation, door alerts through the app ("Alert me on this device"): those
+ * ride on the app's root subscription, which syncPushSubscription just
+ * replaced. Point every door this device alerts for at the new subscription
+ * and drop the old endpoint from each.
+ */
+export async function moveAppDoorAlerts(replaced: string, sub: PushSubscription): Promise<void> {
+  const doors = Object.values(readMyDoors()).filter((d) => d.viaApp !== false)
+  await Promise.all(doors.map(async (d) => {
+    await dropDoorEndpoint(d.displayToken, replaced)
+    await saveDoorSubscription(d.displayToken, sub)
+  }))
 }
 
 /** Keeps the worker's copy of the token current when a paired page opens. */
