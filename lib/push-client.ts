@@ -65,6 +65,42 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0))
 }
 
+/**
+ * Does this subscription use `key` (the server's current VAPID public key)?
+ * null when the browser doesn't expose the key it subscribed with.
+ */
+export function subscriptionUsesKey(sub: PushSubscription, key: string): boolean | null {
+  const have = sub.options?.applicationServerKey
+  if (!have) return null
+  const a = new Uint8Array(have)
+  const b = urlBase64ToUint8Array(key)
+  return a.length === b.length && a.every((x, i) => x === b[i])
+}
+
+/**
+ * Key rotation: a subscription made with an OLD VAPID key can't receive
+ * pushes signed with the new one (the push service refuses them). When the
+ * keys differ, drop it and subscribe again with the current key. Permission
+ * is already granted, so there's no prompt. `replaced` is the old endpoint,
+ * for the caller to remove from the server; `sub` is null if re-subscribing
+ * failed (the device then shows alerts as off and a tap turns them back on).
+ */
+export async function ensureCurrentKey(
+  reg: ServiceWorkerRegistration,
+  sub: PushSubscription,
+  key: string,
+): Promise<{ sub: PushSubscription | null; replaced: string | null }> {
+  if (subscriptionUsesKey(sub, key) !== false) return { sub, replaced: null }
+  const replaced = sub.endpoint
+  try { await sub.unsubscribe() } catch { /* already gone */ }
+  try {
+    const fresh = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) as BufferSource })
+    return { sub: fresh, replaced }
+  } catch {
+    return { sub: null, replaced }
+  }
+}
+
 /** Is this browser currently subscribed (regardless of what the server knows)? */
 export async function currentSubscription(): Promise<PushSubscription | null> {
   if (!pushSupported()) return null
@@ -93,6 +129,12 @@ export async function enablePush(prefetchedKey?: string | null): Promise<{ ok: b
   await navigator.serviceWorker.ready
 
   let sub = await reg.pushManager.getSubscription()
+  if (sub) {
+    // Still on a rotated-out key? Re-subscribe with the current one.
+    const rekeyed = await ensureCurrentKey(reg, sub, key)
+    if (rekeyed.replaced) await removePushSubscription(rekeyed.replaced)
+    sub = rekeyed.sub
+  }
   if (!sub) {
     try {
       sub = await reg.pushManager.subscribe({
@@ -122,24 +164,36 @@ export async function disablePush(): Promise<void> {
 /**
  * On launch: if this browser already holds a subscription, refresh the server
  * row (last_seen_at, and re-attach it after a data wipe). Once per session.
+ * After a VAPID key rotation it also re-subscribes with the new key (silently
+ * — permission is already granted) and drops the old row. Returns the
+ * endpoint it replaced and the new subscription, so door alerts that ride on
+ * this subscription can be moved over too.
  */
-export async function syncPushSubscription(): Promise<void> {
-  if (pushState() !== 'granted') return
-  try { if (sessionStorage.getItem(SYNC_FLAG)) return } catch { /* ignore */ }
-  let sub = await currentSubscription()
-  if (!sub) {
+export async function syncPushSubscription(): Promise<{ replaced: string; sub: PushSubscription } | null> {
+  if (pushState() !== 'granted') return null
+  try { if (sessionStorage.getItem(SYNC_FLAG)) return null } catch { /* ignore */ }
+  const reg = await navigator.serviceWorker.getRegistration('/')
+  const key = await getVapidPublicKey()
+  if (!key || !reg) return null
+  let sub = await reg.pushManager.getSubscription()
+  let replaced: string | null = null
+  if (sub) {
+    const rekeyed = await ensureCurrentKey(reg, sub, key)
+    sub = rekeyed.sub
+    replaced = rekeyed.replaced
+    if (replaced) await removePushSubscription(replaced)
+    if (!sub) return null
+  } else {
     // Permission is per device, the subscription is per signed-in player:
     // sign-out drops it (clearOfflineCache), so whoever signs in next on a
     // phone that already allowed alerts gets their own — no extra prompt.
-    const key = await getVapidPublicKey()
-    const reg = await navigator.serviceWorker.getRegistration('/')
-    if (!key || !reg) return
     try {
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) as BufferSource })
-    } catch { return }
+    } catch { return null }
   }
   const { error } = await savePushSubscription(sub.toJSON(), navigator.userAgent)
   if (!error) { try { sessionStorage.setItem(SYNC_FLAG, '1') } catch { /* ignore */ } }
+  return replaced ? { replaced, sub } : null
 }
 
 /**

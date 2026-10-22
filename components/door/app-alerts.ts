@@ -2,8 +2,9 @@
 
 import { pairMyDeviceForDoor } from '@/actions/door'
 import { safeAction } from '@/lib/action-errors'
-import { isIOS, isStandalone, pushSupported } from '@/lib/push-client'
-import { base64UrlToBytes, idbPut, readMyDoors, writeMyDoor } from './door-push'
+import { ensureCurrentKey, isIOS, isStandalone, pushSupported } from '@/lib/push-client'
+import { removePushSubscription, savePushSubscription } from '@/actions/push'
+import { base64UrlToBytes, idbPut, moveAppDoorAlerts, readMyDoors, writeMyDoor } from './door-push'
 
 /**
  * "Alert me on this phone" for signed-in admins: pair this device as a
@@ -49,6 +50,19 @@ export async function turnOnAppAlerts(stationId: string, vapidKey: string | null
   const reg = await rootRegistration()
   if (!reg) return { ok: false, error: 'Couldn’t start notifications on this device.' }
   let sub = await reg.pushManager.getSubscription()
+  if (sub) {
+    // Still on a rotated-out key? Re-subscribe, and move the app's record
+    // and any doors this device already alerts for to the new subscription.
+    const rekeyed = await ensureCurrentKey(reg, sub, vapidKey)
+    sub = rekeyed.sub
+    if (rekeyed.replaced) {
+      await safeAction(removePushSubscription(rekeyed.replaced))
+      if (sub) {
+        await safeAction(savePushSubscription(sub.toJSON(), navigator.userAgent))
+        await moveAppDoorAlerts(rekeyed.replaced, sub)
+      }
+    }
+  }
   if (!sub) {
     try {
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(vapidKey) as BufferSource })

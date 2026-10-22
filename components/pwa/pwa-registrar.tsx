@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { isIOS, isStandalone, registerServiceWorker, syncPushSubscription } from '@/lib/push-client'
 import { logPwaLaunch, type PwaPlatform } from '@/actions/pwa'
+import { moveAppDoorAlerts } from '@/components/door/door-push'
 // Imported for its side effect: catches Android's one-shot install prompt
 // app-wide, so the dashboard nudge can still use it after a navigation.
 import '@/lib/install-prompt'
@@ -36,7 +37,10 @@ export function PwaRegistrar() {
     ;(async () => {
       const reg = await registerServiceWorker()
       if (!reg || cancelled) return
-      await syncPushSubscription()
+      // After a VAPID key rotation this re-subscribes; door alerts that ride
+      // on the app's subscription move over with it.
+      const rekeyed = await syncPushSubscription()
+      if (rekeyed && !cancelled) await moveAppDoorAlerts(rekeyed.replaced, rekeyed.sub)
     })().catch(() => {})
     return () => { cancelled = true }
   }, [])
