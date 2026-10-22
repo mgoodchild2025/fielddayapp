@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { clearSupersededOfflinePayments } from '@/lib/payments/clear-superseded-offline'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendRegistrationConfirmation, sendPaymentFailedEmail, sendAdminPaymentFailedAlert, sendMerchOrderAdminNotification, sendRegistrationAdminNotification, type MerchOrderLine } from '@/actions/emails'
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
@@ -382,6 +383,8 @@ export async function POST(request: NextRequest) {
           .update({ status: 'active' })
           .eq('id', registrationId),
       ])
+      // Paid by card: an earlier e-transfer/cash choice is no longer owed.
+      await clearSupersededOfflinePayments(supabase, orgId, registrationId)
 
       // Mark merchandise orders as paid and link payment_id
       if (rawMerchOrderIds) {

@@ -1,5 +1,6 @@
 import { formatDateOnly, formatGameTime } from '@/lib/format-time'
 import { headers } from 'next/headers'
+import { clearSupersededOfflinePayments } from '@/lib/payments/clear-superseded-offline'
 import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
@@ -76,6 +77,8 @@ export default async function RegistrationSuccessPage({
             if (pay.registration_id) {
 
               await db.from('registrations').update({ status: 'active' }).eq('id', pay.registration_id)
+              // Paid by card: an earlier e-transfer/cash choice is no longer owed.
+              await clearSupersededOfflinePayments(db, org.id, pay.registration_id)
             }
 
             const merchIds = (session.metadata?.merchOrderIds ?? '').split(',').filter(Boolean)
