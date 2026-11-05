@@ -1,5 +1,6 @@
 import { formatDateOnly } from '@/lib/format-time'
 import { headers } from 'next/headers'
+import { requireOrgMember } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
@@ -46,6 +47,15 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
   const timeZone = await getOrgTimezone(org.id)
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
+
+  // Who, and which event, first: the admin layout renders in parallel with this
+  // page, so its redirect alone doesn't stop the guarded loaders below throwing
+  // "Unauthorized" for a signed-out visitor, a non-admin, or another org's event.
+  const [, { data: eventInOrg }] = await Promise.all([
+    requireOrgMember(org, ['org_admin', 'league_admin']),
+    db.from('leagues').select('id').eq('id', id).eq('organization_id', org.id).maybeSingle(),
+  ])
+  if (!eventInOrg) notFound()
 
   // All data fetches use the service role client — RLS on these tables requires
   // app.current_org_id to be set in the Postgres session, which the session
