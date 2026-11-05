@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg, type OrgContext } from '@/lib/tenant'
+import { impersonationGrantsAdmin } from '@/lib/impersonation'
 
 export type OrgRole = 'org_admin' | 'league_admin' | 'captain' | 'player'
 
@@ -18,6 +19,12 @@ export async function requireOrgMember(org: OrgContext, allowedRoles?: OrgRole[]
   } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+
+  // A verified platform admin impersonating this org passes as its org admin,
+  // like the admin layout (lib/impersonation.ts). No caller reads member.id.
+  if (impersonationGrantsAdmin((await headers()).get('x-impersonating'), user)) {
+    return { user, member: { id: 'impersonation', role: 'org_admin' as OrgRole } }
+  }
 
   // Use service role for the org_members lookup — RLS on org_members requires
   // app.current_org_id to be set in the Postgres session, which the session
@@ -105,6 +112,12 @@ export async function assertOrgAdmin(
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
+
+  // A verified platform admin impersonating this org acts as its org admin,
+  // exactly as the admin layout lets them in (lib/impersonation.ts).
+  if (impersonationGrantsAdmin((await headers()).get('x-impersonating'), user)) {
+    return { userId: user.id, role: 'org_admin' }
+  }
 
   // Use service role — same reason as requireOrgMember above.
   const db = createServiceRoleClient()
