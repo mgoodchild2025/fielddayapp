@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
+import { requireOrgMember } from '@/lib/auth'
 import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { getOrgAcceptances, getPendingReacceptance } from '@/actions/tenant-consent'
@@ -19,6 +20,9 @@ const DOC_LABELS: Record<string, string> = {
 export default async function AgreementsSettingsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  // Redirect a non-admin before any guarded loader runs: the admin layout renders
+  // in parallel with this page, so its redirect alone doesn't stop the loaders throwing.
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
   // Dates print in the ORG's timezone (the server renders in UTC).
   const timeZone = await getOrgTimezone(org.id)
 

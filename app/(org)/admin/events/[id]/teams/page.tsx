@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
+import { requireOrgMember } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
@@ -19,6 +20,9 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  // Redirect a non-admin before any guarded loader runs: the admin layout renders
+  // in parallel with this page, so its redirect alone doesn't stop the loaders throwing.
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
   const scope = await getAdminScope(org.id)

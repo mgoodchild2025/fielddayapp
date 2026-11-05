@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
+import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
@@ -20,6 +21,9 @@ export default async function AdminStatsPage({
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  // Redirect a non-admin before any guarded loader runs: the admin layout renders
+  // in parallel with this page, so its redirect alone doesn't stop the loaders throwing.
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   if (!await canAccess(org.id, 'stats_leaderboards')) {
     return (
