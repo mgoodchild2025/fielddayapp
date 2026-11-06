@@ -75,23 +75,25 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone,
             )}
           </tr>
         </thead>
-        <tbody>
-          {games.length === 0 ? (
+        {games.length === 0 ? (
+          <tbody>
             <tr>
               <td colSpan={colSpanTotal} className="py-8 text-center text-gray-400 italic">
                 No games scheduled for this day.
               </td>
             </tr>
-          ) : (
+          </tbody>
+        ) : (
             games.map((game) => {
               const { time } = formatGameTime(game.scheduledAt, timezone)
               return (
-                <>
+                // One tbody per game keeps its two rows on the same page.
+                <tbody key={game.id} data-print-block className="break-inside-avoid">
                   {/* Home team row */}
-                  <tr key={`${game.id}-home`} className="border-t-2 border-black">
+                  <tr data-keep-with-next className="border-t-2 border-black">
                     <td
                       rowSpan={2}
-                      className="pr-3 font-medium tabular-nums align-middle text-sm"
+                      className="pr-3 font-medium tabular-nums whitespace-nowrap align-middle text-sm"
                       style={{ verticalAlign: 'middle' }}
                     >
                       {time}
@@ -124,7 +126,7 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone,
                     )}
                   </tr>
                   {/* Away team row */}
-                  <tr key={`${game.id}-away`}>
+                  <tr>
                     <td className="pt-1 pb-2.5 pr-4 font-medium text-gray-600">{game.awayTeamName}</td>
                     {showSets ? (
                       Array.from({ length: sheetSets }, (_, i) => (
@@ -136,11 +138,10 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone,
                       <td className="pt-1 pb-2.5 px-3 text-center"><ScoreBox /></td>
                     )}
                   </tr>
-                </>
+                </tbody>
               )
             })
-          )}
-        </tbody>
+        )}
       </table>
 
       {/* Referee signature line */}
