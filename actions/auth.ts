@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { optionalPhone } from '@/lib/validation'
 import { createRateLimiter } from '@/lib/rate-limit'
 import { safeRelativePath } from '@/lib/safe-redirect'
+import { trustedOrigin } from '@/lib/trusted-origin'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
@@ -24,55 +25,6 @@ const signUpLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 5 })
 async function clientIp(): Promise<string> {
   const h = await headers()
   return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown'
-}
-
-/** Returns true for internal/loopback addresses that should never appear in emails. */
-function isInternalHost(host: string): boolean {
-  return (
-    host.startsWith('0.0.0.0') ||
-    host.startsWith('127.') ||
-    host === 'localhost' ||
-    host.startsWith('localhost:')
-  )
-}
-
-/**
- * Derive the public-facing origin for auth email links.
- *
- * Priority:
- * 1. `referer` header — browser always sets this to the page URL on form submit,
- *    giving the real public domain (org subdomain, custom domain, etc.).
- * 2. `x-forwarded-host` — set by Vercel / CDN edge to the original hostname.
- * 3. `NEXT_PUBLIC_PLATFORM_DOMAIN` env var — explicit, always-correct fallback.
- *
- * Any candidate that resolves to an internal address (0.0.0.0, 127.x, localhost)
- * is rejected so it never ends up in a confirmation email.
- */
-function getPublicOrigin(headersList: Awaited<ReturnType<typeof headers>>): string {
-  const isDev = process.env.NODE_ENV === 'development'
-
-  // 1. Referer (most reliable for browser-initiated server actions)
-  const referer = headersList.get('referer')
-  if (referer) {
-    try {
-      const u = new URL(referer)
-      if (isDev || !isInternalHost(u.hostname)) {
-        return u.origin
-      }
-    } catch { /* fall through */ }
-  }
-
-  // 2. x-forwarded-host (Vercel edge sets this to the real public hostname)
-  const fwdHost = headersList.get('x-forwarded-host')
-  if (fwdHost && (isDev || !isInternalHost(fwdHost))) {
-    const proto = headersList.get('x-forwarded-proto') ?? 'https'
-    return `${proto}://${fwdHost}`
-  }
-
-  // 3. Explicit fallback: use the app subdomain so password-reset links land on
-  //    a page that has the auth/callback route, not the marketing site.
-  if (isDev) return 'http://localhost:3000'
-  return `https://app.${PLATFORM_DOMAIN}`
 }
 
 const loginSchema = z.object({
@@ -170,7 +122,7 @@ export async function requestPasswordReset(input: { email: string; redirectTo?: 
   if (authEmailLimiter.check(await clientIp()).limited) {
     return { error: 'Too many attempts. Please wait a few minutes and try again.' }
   }
-  const origin = getPublicOrigin(await headers())
+  const origin = await trustedOrigin(await headers())
   const service = createServiceRoleClient()
   const { data, error } = await service.auth.admin.generateLink({ type: 'recovery', email: email.data })
   if (!error && data?.properties?.hashed_token) {
@@ -202,7 +154,7 @@ export async function resendConfirmation(input: { email: string; password: strin
     return { error: "That email and password don't match." }
   }
   const headersList = await headers()
-  const origin = getPublicOrigin(headersList)
+  const origin = await trustedOrigin(headersList)
   const callbackBase = process.env.NODE_ENV === 'development'
     ? `${origin}/auth/callback`
     : `https://app.${PLATFORM_DOMAIN}/auth/callback`
@@ -230,7 +182,7 @@ export async function signUp(input: { email: string; password: string; fullName:
   }
 
   const headersList = await headers()
-  const origin = getPublicOrigin(headersList) // real public domain (org subdomain, etc.)
+  const origin = await trustedOrigin(headersList) // the org's own site, never a request header
 
   const safeRedirect = safeRelativePath(input.redirectTo) ?? ''
 
