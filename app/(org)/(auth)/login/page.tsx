@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { LoginForm } from './login-form'
 import { canOptimizeImage } from '@/lib/image-src'
 import { safeRelativePath } from '@/lib/safe-redirect'
+import { getMfaStatus } from '@/lib/mfa'
 import { BackLink } from '@/components/ui/back-link'
 import type { Metadata } from 'next'
 
@@ -40,6 +41,13 @@ export default async function LoginPage({
     } else {
       errorBanner = `Sign-in didn't complete${reason ? ` — ${reason}` : ''}. Please try again.`
     }
+  }
+
+  // Past the password but still owing a two-factor code (they came back to
+  // /login, or a page sent them here): to the code page, not the form again.
+  if ((await getMfaStatus()).needsVerify) {
+    const next = safeRelativePath(redirectTo)
+    redirect(next ? `/mfa/verify?redirect=${encodeURIComponent(next)}` : '/mfa/verify')
   }
 
   const headersList = await headers()

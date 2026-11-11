@@ -4,12 +4,14 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg, type OrgContext } from '@/lib/tenant'
 import { impersonationGrantsAdmin } from '@/lib/impersonation'
+import { getMfaStatus } from '@/lib/mfa'
 
 export type OrgRole = 'org_admin' | 'league_admin' | 'captain' | 'player'
 
 /**
  * Require the current user to be authenticated and an active member of the org.
- * Redirects to /login if not authenticated or not a member.
+ * Redirects to /login if not authenticated or not a member (or to the
+ * two-factor code page when that is what's missing).
  * Returns { user, member } on success.
  */
 export async function requireOrgMember(org: OrgContext, allowedRoles?: OrgRole[]) {
@@ -18,7 +20,7 @@ export async function requireOrgMember(org: OrgContext, allowedRoles?: OrgRole[]
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   // A verified platform admin impersonating this org passes as its org admin,
   // like the admin layout (lib/impersonation.ts). No caller reads member.id.
@@ -48,12 +50,6 @@ export async function requireOrgMember(org: OrgContext, allowedRoles?: OrgRole[]
 }
 
 /**
- * Require the user to be authenticated (any logged-in user, no org membership check).
- * Use this for public-facing org pages (Leagues, Schedule, Standings).
- * Redirects to /login if not authenticated.
- * Redirects to /mfa/verify if the user has enrolled MFA but hasn't verified this session.
- */
-/**
  * Send a signed-out visitor to /login, coming back to the page they asked for
  * (proxy.ts puts pathname + search in x-pathname). Use this instead of a bare
  * redirect('/login') so links from alerts, emails and shares survive sign-in.
@@ -64,25 +60,26 @@ export async function redirectToLogin(): Promise<never> {
   const returnTo = pathname && pathname !== '/login' && !pathname.startsWith('/login?')
     ? `?redirect=${encodeURIComponent(pathname)}`
     : ''
+  // Signed in with a password but still owing a two-factor code: to the server
+  // that is "nobody" (lib/mfa-gate.ts), so they land here — send them to enter
+  // the code, not back to the sign-in form.
+  if ((await getMfaStatus()).needsVerify) redirect(`/mfa/verify${returnTo}`)
   redirect(`/login${returnTo}`)
 }
 
+/**
+ * Require the user to be authenticated (any logged-in user, no org membership check).
+ * Use this for public-facing org pages (Leagues, Schedule, Standings).
+ * Redirects to /login if not authenticated, or to /mfa/verify when the user
+ * has two-factor set up and hasn't entered a code this session (such a session
+ * has no user — see lib/mfa-gate.ts — and redirectToLogin tells the two apart).
+ */
 export async function requireAuth() {
   const supabase = await createServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return redirectToLogin()
-
-  // If the user has a TOTP factor enrolled but hasn't verified it this session,
-  // redirect to the MFA challenge page regardless of role.
-  const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
-    const headersList = await headers()
-    const pathname = headersList.get('x-pathname') ?? ''
-    const returnTo = pathname ? `?redirect=${encodeURIComponent(pathname)}` : ''
-    redirect(`/mfa/verify${returnTo}`)
-  }
 
   return user
 }

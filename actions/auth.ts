@@ -4,7 +4,7 @@ import type { Database } from '@/types/database'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getUserBeforeMfa } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { toE164 } from '@/lib/twilio'
 import { z } from 'zod'
@@ -12,6 +12,7 @@ import { optionalPhone } from '@/lib/validation'
 import { createRateLimiter } from '@/lib/rate-limit'
 import { safeRelativePath } from '@/lib/safe-redirect'
 import { trustedOrigin } from '@/lib/trusted-origin'
+import { mfaStatusFor } from '@/lib/mfa'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
@@ -76,7 +77,9 @@ export async function login(input: { email: string; password: string; redirectTo
     destination = safeRedirect
   } else {
     // Platform-domain login (fielddayapp.ca) — route based on who the user is
-    const { data: { user } } = await supabase.auth.getUser()
+    // The user as of the password step — auth.getUser() answers "nobody"
+    // until a two-factor code is entered (lib/mfa-gate.ts).
+    const user = await getUserBeforeMfa(supabase)
     const service = createServiceRoleClient()
 
     // Platform admins → super console
@@ -92,8 +95,7 @@ export async function login(input: { email: string; password: string; redirectTo
 
   // If the user has a TOTP factor enrolled, redirect to MFA verification
   // before granting access — applies to ALL roles (players, admins, platform admins).
-  const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
+  if ((await mfaStatusFor(supabase)).needsVerify) {
     redirect(`/mfa/verify?redirect=${encodeURIComponent(destination)}`)
   }
 

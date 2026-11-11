@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getMfaStatus } from '@/lib/mfa'
+import { redirectToLogin } from '@/lib/auth'
 import { MfaGraceBanner } from '@/components/mfa/mfa-grace-banner'
 import { getPlatformStripeMode } from '@/lib/stripe-platform'
 import { SuperNav } from '@/components/platform/super-nav'
@@ -14,7 +15,7 @@ export default async function PlatformAdminLayout({
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin() // or to the two-factor code page, when that is what's missing
 
   const { data: profile } = await supabase
     .from('profiles')
