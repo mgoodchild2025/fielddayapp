@@ -7,6 +7,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { requireOrgMember } from '@/lib/auth'
 import { canAccess } from '@/lib/features'
+import { webLink } from '@/lib/zod-web-link'
 
 export type LiveStream = {
   id: string
@@ -76,12 +77,12 @@ export async function getActiveLiveStreams(orgId: string): Promise<LiveStream[]>
 
 const goLiveSchema = z.object({
   platform: z.enum(['youtube', 'instagram', 'other']),
-  url: z.string().url('Enter a valid URL'),
+  url: webLink.refine((v) => v !== '', 'Enter the link to the stream'),
   title: z.string().max(120).optional(),
   leagueId: z.string().uuid().optional().nullable(),
 })
 
-export async function goLive(input: z.infer<typeof goLiveSchema>): Promise<{ error: string | null }> {
+export async function goLive(input: z.input<typeof goLiveSchema>): Promise<{ error: string | null }> {
   const parsed = goLiveSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
 

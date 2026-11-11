@@ -1,3 +1,5 @@
+import { escapeHtml } from '@/lib/html-escape'
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const EMAIL_FROM = process.env.EMAIL_FROM ?? 'Fieldday <hello@fielddayapp.ca>'
 // Reply-To MUST match the From address. A noreply From with a different Reply-To
@@ -37,6 +39,11 @@ export function buildCalendarCtaHtml({
   heading?: string
   subtext?: string
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  webcalUrl = escapeHtml(webcalUrl)
+  googleUrl = escapeHtml(googleUrl)
+  heading = escapeHtml(heading)
+  subtext = escapeHtml(subtext)
   return `<div style="margin:24px 0;padding:20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
     <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#111827;">📅 ${heading}</p>
     <p style="margin:0 0 14px;font-size:13px;color:#6b7280;line-height:1.5;">${subtext}</p>
@@ -119,6 +126,13 @@ export function buildJoinRequestEmail({
   message: string | null
   teamUrl: string
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  teamName = escapeHtml(teamName)
+  orgName = escapeHtml(orgName)
+  playerName = escapeHtml(playerName)
+  playerEmail = escapeHtml(playerEmail)
+  if (message != null) message = escapeHtml(message)
+  teamUrl = escapeHtml(teamUrl)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -160,6 +174,10 @@ export function buildJoinApprovedEmail({
   teamUrl: string
   calendarCtaHtml?: string
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  teamName = escapeHtml(teamName)
+  orgName = escapeHtml(orgName)
+  teamUrl = escapeHtml(teamUrl)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -194,6 +212,9 @@ export function buildJoinDeclinedEmail({
   teamName: string
   orgName: string
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  teamName = escapeHtml(teamName)
+  orgName = escapeHtml(orgName)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -230,6 +251,13 @@ export function buildRosterReminderEmail({
   message?: string
   teamUrl: string
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  recipientName = escapeHtml(recipientName)
+  teamName = escapeHtml(teamName)
+  orgName = escapeHtml(orgName)
+  senderName = escapeHtml(senderName)
+  message = escapeHtml(message)
+  teamUrl = escapeHtml(teamUrl)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -271,6 +299,10 @@ export function buildPickupInviteEmail({
   inviteUrl: string
   isDropIn?: boolean
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  orgName = escapeHtml(orgName)
+  leagueName = escapeHtml(leagueName)
+  inviteUrl = escapeHtml(inviteUrl)
   const heading = isDropIn ? 'You&rsquo;re invited as a drop-in!' : 'You&rsquo;re invited!'
   const body = isDropIn
     ? `A spot has opened up in <strong>${leagueName}</strong> and you&rsquo;ve been invited to join as a drop-in player. Click below to register for this session.`
@@ -322,6 +354,12 @@ export function buildEventRegistrationOpenEmail({
   unsubscribeUrl: string
   startLine?: string | null
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  orgName = escapeHtml(orgName)
+  leagueName = escapeHtml(leagueName)
+  registerUrl = escapeHtml(registerUrl)
+  unsubscribeUrl = escapeHtml(unsubscribeUrl)
+  if (startLine != null) startLine = escapeHtml(startLine)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -363,6 +401,11 @@ export function buildCaptainAssignedEmail({
   leagueName: string
   teamUrl: string
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  teamName = escapeHtml(teamName)
+  orgName = escapeHtml(orgName)
+  leagueName = escapeHtml(leagueName)
+  teamUrl = escapeHtml(teamUrl)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -405,6 +448,12 @@ export function buildTeamAddedEmail({
   teamUrl: string
   calendarCtaHtml?: string
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  teamName = escapeHtml(teamName)
+  orgName = escapeHtml(orgName)
+  leagueName = escapeHtml(leagueName)
+  role = escapeHtml(role)
+  teamUrl = escapeHtml(teamUrl)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -445,6 +494,12 @@ export function buildOrganizerInviteEmail({
   acceptUrl: string
   declineUrl: string
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  orgName = escapeHtml(orgName)
+  leagueName = escapeHtml(leagueName)
+  inviterName = escapeHtml(inviterName)
+  acceptUrl = escapeHtml(acceptUrl)
+  declineUrl = escapeHtml(declineUrl)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -498,6 +553,14 @@ export function buildTeamInviteEmail({
   acceptUrl: string
   declineUrl: string
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  teamName = escapeHtml(teamName)
+  if (leagueName != null) leagueName = escapeHtml(leagueName)
+  orgName = escapeHtml(orgName)
+  invitedBy = escapeHtml(invitedBy)
+  role = escapeHtml(role)
+  acceptUrl = escapeHtml(acceptUrl)
+  declineUrl = escapeHtml(declineUrl)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -553,6 +616,17 @@ export function buildGameSubInviteEmail({
   message: string | null
   acceptUrl: string
 }): string {
+  // Escaped once, here: everything below goes into HTML (text and href attributes).
+  teamName = escapeHtml(teamName)
+  if (opponentName != null) opponentName = escapeHtml(opponentName)
+  if (leagueName != null) leagueName = escapeHtml(leagueName)
+  orgName = escapeHtml(orgName)
+  invitedBy = escapeHtml(invitedBy)
+  gameDate = escapeHtml(gameDate)
+  gameTime = escapeHtml(gameTime)
+  if (court != null) court = escapeHtml(court)
+  if (message != null) message = escapeHtml(message)
+  acceptUrl = escapeHtml(acceptUrl)
   const gameDetails = `${gameDate} · ${gameTime}${court ? ` · ${court}` : ''}`
   const matchup = opponentName ? `${teamName} vs ${opponentName}` : teamName
   return `<!DOCTYPE html>

@@ -11,6 +11,7 @@ import { sendPlatformAlert } from '@/lib/platform-alerts'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { isUpgrade, tierLabel } from '@/lib/plan-tiers'
 import { invalidateOrgCache } from '@/lib/org-cache'
+import { escapeHtml } from '@/lib/html-escape'
 
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@fielddayapp.ca'
 
@@ -151,7 +152,7 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
       await sendPlatformAlert(
         'subscription_change',
         `Downgrade scheduled: ${org.name} → Free`,
-        `<p><strong>${org.name}</strong> scheduled a downgrade to <strong>Free</strong>, effective ${sub.current_period_end ?? 'period end'}.</p>`,
+        `<p><strong>${escapeHtml(org.name)}</strong> scheduled a downgrade to <strong>Free</strong>, effective ${sub.current_period_end ?? 'period end'}.</p>`,
       ).catch(() => {})
 
       return { error: null }
@@ -183,7 +184,7 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
     await sendPlatformAlert(
       'subscription_change',
       `Subscription changed: ${org.name} → Free`,
-      `<p><strong>${org.name}</strong> (${org.id}) downgraded to the <strong>Free</strong> plan.</p>`,
+      `<p><strong>${escapeHtml(org.name)}</strong> (${org.id}) downgraded to the <strong>Free</strong> plan.</p>`,
     )
 
     await recordAuditLog({
@@ -388,7 +389,7 @@ export async function changeSubscriptionPlan(
       await sendPlatformAlert(
         'subscription_change',
         `Subscription changed: ${org.name} → ${tier}`,
-        `<p><strong>${org.name}</strong> upgraded from <strong>${sub.plan_tier}</strong> to <strong>${tier}</strong>.</p>`,
+        `<p><strong>${escapeHtml(org.name)}</strong> upgraded from <strong>${sub.plan_tier}</strong> to <strong>${tier}</strong>.</p>`,
       ).catch(() => {})
 
       return { error: null, scheduledFor: null }
@@ -418,7 +419,7 @@ export async function changeSubscriptionPlan(
     await sendPlatformAlert(
       'subscription_change',
       `Downgrade scheduled: ${org.name} → ${tier}`,
-      `<p><strong>${org.name}</strong> scheduled a downgrade from <strong>${tierLabel(sub.plan_tier)}</strong> to <strong>${tierLabel(tier)}</strong>, effective ${sub.current_period_end ?? 'period end'}.</p>`,
+      `<p><strong>${escapeHtml(org.name)}</strong> scheduled a downgrade from <strong>${tierLabel(sub.plan_tier)}</strong> to <strong>${tierLabel(tier)}</strong>, effective ${sub.current_period_end ?? 'period end'}.</p>`,
     ).catch(() => {})
 
     return { error: null, scheduledFor: sub.current_period_end ?? null }
@@ -538,7 +539,7 @@ export async function hibernateSubscription(
     await sendPlatformAlert(
       'subscription_change',
       `Subscription changed: ${org.name} → Hibernating`,
-      `<p><strong>${org.name}</strong> (${org.id}) has hibernated their account (was on <strong>${sub.plan_tier}</strong> plan).${hibernateUntil ? ` Auto-resume: ${hibernateUntil}.` : ''}</p>`,
+      `<p><strong>${escapeHtml(org.name)}</strong> (${org.id}) has hibernated their account (was on <strong>${sub.plan_tier}</strong> plan).${hibernateUntil ? ` Auto-resume: ${hibernateUntil}.` : ''}</p>`,
     )
 
     await recordAuditLog({
@@ -612,7 +613,7 @@ export async function resumeFromHibernation(): Promise<{ error: string | null }>
     await sendPlatformAlert(
       'subscription_change',
       `Subscription changed: ${org.name} → ${restoreTier} (resumed)`,
-      `<p><strong>${org.name}</strong> (${org.id}) has resumed from hibernation and is back on the <strong>${restoreTier}</strong> plan.</p>`,
+      `<p><strong>${escapeHtml(org.name)}</strong> (${org.id}) has resumed from hibernation and is back on the <strong>${restoreTier}</strong> plan.</p>`,
     )
 
     await recordAuditLog({
@@ -661,12 +662,12 @@ export async function requestAccountDeletion(
     const deletionHtml = `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;">
         <h2 style="font-size:18px;margin-bottom:4px;">Account deletion request</h2>
-        <p style="color:#6b7280;font-size:14px;margin-top:0;">Submitted by ${user.email}</p>
+        <p style="color:#6b7280;font-size:14px;margin-top:0;">Submitted by ${escapeHtml(user.email)}</p>
         <table style="width:100%;border-collapse:collapse;font-size:14px;margin:20px 0;">
-          <tr><td style="padding:6px 0;color:#6b7280;width:140px;">Organization</td><td style="padding:6px 0;font-weight:600;">${org.name}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;width:140px;">Organization</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(org.name)}</td></tr>
           <tr><td style="padding:6px 0;color:#6b7280;">Org ID</td><td style="padding:6px 0;font-family:monospace;">${org.id}</td></tr>
           <tr><td style="padding:6px 0;color:#6b7280;">Current plan</td><td style="padding:6px 0;">${sub?.plan_tier ?? 'unknown'} / ${sub?.status ?? 'unknown'}</td></tr>
-          <tr><td style="padding:6px 0;color:#6b7280;">Requested by</td><td style="padding:6px 0;">${user.email}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Requested by</td><td style="padding:6px 0;">${escapeHtml(user.email)}</td></tr>
           <tr><td style="padding:6px 0;color:#6b7280;">Requested at</td><td style="padding:6px 0;">${new Date().toUTCString()}</td></tr>
         </table>
         ${reason ? `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:20px;"><p style="font-size:13px;font-weight:600;color:#374151;margin:0 0 6px;">Reason:</p><p style="font-size:14px;color:#4b5563;margin:0;">${reason.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div>` : ''}

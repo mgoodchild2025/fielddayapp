@@ -7,16 +7,17 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { convertToWebP } from '@/lib/image-utils'
+import { webLink } from '@/lib/zod-web-link'
 
 const sponsorSchema = z.object({
   name: z.string().min(1).max(100),
-  website_url: z.string().url().optional().or(z.literal('')),
+  website_url: webLink.optional(),
   tier: z.enum(['gold', 'silver', 'bronze', 'standard']).default('standard'),
 })
 
 export async function upsertSponsor(
   id: string | null,
-  input: z.infer<typeof sponsorSchema>,
+  input: z.input<typeof sponsorSchema>,
 ): Promise<{ id: string | null; error: string | null }> {
   const parsed = sponsorSchema.safeParse(input)
   if (!parsed.success) return { id: null, error: 'Invalid input' }

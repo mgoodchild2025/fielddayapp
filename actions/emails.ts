@@ -283,7 +283,7 @@ export async function sendRegistrationAdminNotification({
   // Defensive: never render a blank event name if a caller omits it.
   const eventName = leagueName?.trim() || 'an event'
   const emailLine = playerEmail
-    ? `<p style="color:#444;font-size:15px;margin:4px 0;"><strong>Email:</strong> ${playerEmail}</p>`
+    ? `<p style="color:#444;font-size:15px;margin:4px 0;"><strong>Email:</strong> ${esc(playerEmail)}</p>`
     : ''
 
   await getResend().emails.send({
@@ -295,7 +295,7 @@ export async function sendRegistrationAdminNotification({
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
         <h1 style="font-size:22px;font-weight:bold;margin-bottom:4px;">New Registration 🎉</h1>
-        <p style="color:#555;font-size:15px;margin-top:0;">Someone just registered for one of your events on ${orgName}.</p>
+        <p style="color:#555;font-size:15px;margin-top:0;">Someone just registered for one of your events on ${esc(orgName)}.</p>
 
         <div style="margin:24px 0;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
           <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Player:</strong> ${esc(displayName)}</p>

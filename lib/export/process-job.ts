@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { buildArchive } from '@/lib/export/build-archive'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
+import { escapeHtml } from '@/lib/html-escape'
 
 const EXPORT_TTL_DAYS = 7
 
@@ -128,19 +129,19 @@ function buildEmailHtml(params: {
 <html>
 <body style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #111;">
   <h2 style="font-size: 20px; margin-bottom: 4px;">Your data export is ready</h2>
-  <p style="color: #555; font-size: 14px; margin-top: 0;">Hi ${params.adminName},</p>
+  <p style="color: #555; font-size: 14px; margin-top: 0;">Hi ${escapeHtml(params.adminName)},</p>
   <p style="font-size: 14px; color: #333;">
     Your Fieldday data export has been prepared and is ready to download.
   </p>
 
   <div style="background: #f9f9f9; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; margin: 20px 0; font-size: 13px; color: #555;">
-    <p style="margin: 0 0 4px;"><strong>File:</strong> ${params.filename}</p>
+    <p style="margin: 0 0 4px;"><strong>File:</strong> ${escapeHtml(params.filename)}</p>
     <p style="margin: 0 0 4px;"><strong>Size:</strong> ${sizeMb} MB</p>
     <p style="margin: 0;"><strong>Available until:</strong> ${expiryStr}</p>
   </div>
 
   <p style="margin: 24px 0 8px;">
-    <a href="${params.downloadUrl}"
+    <a href="${escapeHtml(params.downloadUrl)}"
        style="background: #111; color: #fff; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600;">
       Download export →
     </a>

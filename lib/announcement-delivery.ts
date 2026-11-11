@@ -4,6 +4,7 @@ import { sendSms, toE164 } from '@/lib/twilio'
 import { canAccess } from '@/lib/features'
 import { getMarketingConsentBatch, getMarketingOptInUserIds } from '@/lib/marketing-consent'
 import { unsubscribeUrl, interestUnsubscribeUrl } from '@/lib/unsubscribe'
+import { escapeHtml } from '@/lib/html-escape'
 
 /**
  * Announcement fan-out (email + SMS) — used by actions/messages.ts (after its
@@ -198,10 +199,10 @@ export async function deliverAnnouncement(
   if (sendEmail) {
     const resend = getResend()
     const renderHtml = (unsubLink: string | null) => `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-      <h2 style="font-size:20px;font-weight:bold">${data.title}</h2>
-      <div style="white-space:pre-wrap;line-height:1.6">${data.body}</div>
+      <h2 style="font-size:20px;font-weight:bold">${escapeHtml(data.title)}</h2>
+      <div style="white-space:pre-wrap;line-height:1.6">${escapeHtml(data.body)}</div>
       <p style="font-size:12px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:16px;margin-top:24px;line-height:1.6;">
-        This message was sent to you by <strong>${orgName}</strong>, powered by Fieldday.<br>
+        This message was sent to you by <strong>${escapeHtml(orgName)}</strong>, powered by Fieldday.<br>
         ${
           unsubLink
             ? `You&rsquo;re receiving this because you signed up for updates from this organization. <a href="${unsubLink}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>.`

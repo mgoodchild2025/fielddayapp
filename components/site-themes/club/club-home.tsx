@@ -9,6 +9,7 @@ import type { OrgContext } from '@/lib/tenant'
 import { formatEventPrice } from '@/lib/event-price'
 import { UpcomingEventsSection } from '@/components/site-themes/shared/upcoming-events-section'
 import { canOptimizeImage } from '@/lib/image-src'
+import { safeHttpUrl } from '@/lib/safe-url'
 
 type League = {
   id: string; name: string; slug: string; event_type: string | null; status: string
@@ -80,8 +81,9 @@ function SponsorStrip({ sponsors }: { sponsors: Sponsor[] }) {
             ) : (
               <span className="text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors">{s.name}</span>
             )
-            return s.website_url ? (
-              <a key={s.id} href={s.website_url} target="_blank" rel="noopener noreferrer">{el}</a>
+            const site = safeHttpUrl(s.website_url)
+            return site ? (
+              <a key={s.id} href={site} target="_blank" rel="noopener noreferrer">{el}</a>
             ) : (
               <div key={s.id}>{el}</div>
             )

@@ -1,4 +1,5 @@
 import type { OrgContext } from '@/lib/tenant'
+import { safeHttpUrl } from '@/lib/safe-url'
 
 interface SocialLinks {
   contact_email?: string | null
@@ -65,11 +66,11 @@ function MailIcon() {
 export function Footer({ org, social }: FooterProps) {
   const links: { href: string; icon: React.ReactNode; label: string }[] = []
 
-  if (social?.social_instagram) links.push({ href: social.social_instagram, icon: <InstagramIcon />, label: 'Instagram' })
-  if (social?.social_facebook)  links.push({ href: social.social_facebook,  icon: <FacebookIcon />,  label: 'Facebook'  })
-  if (social?.social_x)         links.push({ href: social.social_x,         icon: <XIcon />,         label: 'X'         })
-  if (social?.social_tiktok)    links.push({ href: social.social_tiktok,    icon: <TikTokIcon />,    label: 'TikTok'    })
-  if (social?.social_youtube)   links.push({ href: social.social_youtube,   icon: <YouTubeIcon />,   label: 'YouTube'   })
+  if (safeHttpUrl(social?.social_instagram)) links.push({ href: safeHttpUrl(social?.social_instagram)!, icon: <InstagramIcon />, label: 'Instagram' })
+  if (safeHttpUrl(social?.social_facebook))  links.push({ href: safeHttpUrl(social?.social_facebook)!,  icon: <FacebookIcon />,  label: 'Facebook'  })
+  if (safeHttpUrl(social?.social_x))         links.push({ href: safeHttpUrl(social?.social_x)!,         icon: <XIcon />,         label: 'X'         })
+  if (safeHttpUrl(social?.social_tiktok))    links.push({ href: safeHttpUrl(social?.social_tiktok)!,    icon: <TikTokIcon />,    label: 'TikTok'    })
+  if (safeHttpUrl(social?.social_youtube))   links.push({ href: safeHttpUrl(social?.social_youtube)!,   icon: <YouTubeIcon />,   label: 'YouTube'   })
   if (social?.contact_email)    links.push({ href: `mailto:${social.contact_email}`, icon: <MailIcon />, label: 'Email' })
 
   return (

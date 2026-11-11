@@ -9,6 +9,7 @@ import { formatEventPrice } from '@/lib/event-price'
 import { UpcomingEventsSection } from '@/components/site-themes/shared/upcoming-events-section'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { canOptimizeImage } from '@/lib/image-src'
+import { safeHttpUrl } from '@/lib/safe-url'
 
 type League = {
   id: string; name: string; slug: string; event_type: string | null; status: string
@@ -86,8 +87,9 @@ function SponsorLogo({ sponsor, size }: { sponsor: Sponsor; size: 'sm' | 'lg' })
       {sponsor.name}
     </span>
   )
-  return sponsor.website_url
-    ? <a href={sponsor.website_url} target="_blank" rel="noopener noreferrer">{el}</a>
+  const site = safeHttpUrl(sponsor.website_url)
+  return site
+    ? <a href={site} target="_blank" rel="noopener noreferrer">{el}</a>
     : <div>{el}</div>
 }
 

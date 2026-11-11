@@ -10,11 +10,17 @@ import { NextRequest, NextResponse } from 'next/server'
  *
  * Usage: /api/calendar-handoff?p=%2Fapi%2Fevents%2F<slug>%2Fcalendar.ics%3Ftoken%3D<token>
  */
+/** /api/events/<slug>/calendar.ics?token=<uuid> or /api/teams/<id>/calendar.ics?token=<uuid> */
+const CALENDAR_FEED_PATH = /^\/api\/(events|teams)\/[A-Za-z0-9_-]{1,120}\/calendar\.ics\?token=[A-Za-z0-9-]{8,64}$/
+
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams.get('p')
 
   // Only allow our own relative calendar-feed paths — never an arbitrary URL.
-  if (!p || !p.startsWith('/api/') || !p.includes('calendar.ics')) {
+  // The exact shape, not "starts with /api/ and mentions calendar.ics": this
+  // value is written into the page below (including a <script>), so anything
+  // looser let a crafted link run script on the org's site.
+  if (!p || !CALENDAR_FEED_PATH.test(p)) {
     return new NextResponse('Invalid calendar link', { status: 400 })
   }
 
@@ -44,7 +50,7 @@ export async function GET(request: NextRequest) {
   <p style="margin-top:20px;color:#999;font-size:13px">
     Didn&rsquo;t work? <a href="${esc(httpsUrl)}" style="color:#999">Download the calendar file</a> instead.
   </p>
-  <script>setTimeout(function(){ location.href = ${JSON.stringify(webcalUrl)} }, 50)</script>
+  <script>setTimeout(function(){ location.href = ${JSON.stringify(webcalUrl).replace(/</g, '\\u003c')} }, 50)</script>
 </body>
 </html>`
 
