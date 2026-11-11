@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { selectOfflineTeamPayment } from '@/actions/payments'
-import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
+import { validateDiscountCode } from '@/actions/discounts'
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICON, type PaymentMethod } from '@/lib/payment-methods'
 import { formatDollars } from '@/lib/money'
 import { useBfcacheReset } from '@/components/ui/use-bfcache-reset'
@@ -107,7 +107,6 @@ export function TeamPaymentPanel({
         setError(res.error)
         setLoading(false)
       } else {
-        if (appliedDiscount) await incrementDiscountUse(appliedDiscount.id)
         if (typeof res.amountCents === 'number') setOfflineOwed({ amountCents: res.amountCents, taxCents: res.taxCents ?? 0 })
         setManualInstructions(res.instructions ?? offlineInstructions ?? '')
       }

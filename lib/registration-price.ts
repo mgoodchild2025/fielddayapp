@@ -60,7 +60,13 @@ export function teamFeeCents(league: Pick<PriceableLeague, 'price_cents' | 'earl
 /**
  * Re-validate a discount code server-side and apply it (never trust a
  * client-computed amount). Invalid / expired / used-up / wrong-scope codes
- * apply nothing.
+ * apply nothing. A code created for one event applies only to that event
+ * (`leagueId`) — the client-side check alone let its id be sent for any event.
+ *
+ * `alreadyCounted`: this purchase already holds the code (its payment row
+ * carries it and the use was counted), so the usage limit is not checked
+ * again — otherwise a one-use code would vanish when the same player
+ * re-selected their payment method.
  */
 export async function applyDiscountCode(
   db: Db,
@@ -68,22 +74,35 @@ export async function applyDiscountCode(
   discountId: string | null | undefined,
   priceCents: number,
   scope: 'leagues' | 'dropins',
+  opts: { leagueId: string | null; alreadyCounted?: boolean },
 ): Promise<{ priceCents: number; discount: { id: string; type: string; value: number; cents: number } | null }> {
   if (!discountId || priceCents <= 0) return { priceCents, discount: null }
   const { data: d } = await db
     .from('discount_codes')
-    .select('id, type, value, active, expires_at, max_uses, use_count, applies_to')
+    .select('id, type, value, active, expires_at, max_uses, use_count, applies_to, league_id')
     .eq('id', discountId)
     .eq('organization_id', orgId)
     .maybeSingle()
   if (
     !d || !d.active ||
     (d.expires_at && new Date(d.expires_at) <= new Date()) ||
-    (d.max_uses && d.use_count >= d.max_uses) ||
-    !(d.applies_to === 'all' || d.applies_to === scope)
+    (!opts.alreadyCounted && d.max_uses && d.use_count >= d.max_uses) ||
+    !(d.applies_to === 'all' || d.applies_to === scope) ||
+    (d.league_id && d.league_id !== opts.leagueId)
   ) return { priceCents, discount: null }
   const reduction = d.type === 'percent'
     ? Math.round(priceCents * d.value / 100)
     : Math.min(d.value * 100, priceCents)
   return { priceCents: Math.max(0, priceCents - reduction), discount: { id: d.id, type: d.type, value: d.value, cents: reduction } }
+}
+
+/**
+ * Count one use of a discount code. Called by the SERVER wherever a code is
+ * first attached to a purchase (Stripe checkout creation, an offline payment
+ * selection) — never by the browser, which could skip the call to reuse a
+ * limited code forever or repeat it to exhaust someone's promotion.
+ */
+export async function countDiscountUse(db: Db, discountId: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).rpc('increment_discount_use', { discount_id: discountId })
 }

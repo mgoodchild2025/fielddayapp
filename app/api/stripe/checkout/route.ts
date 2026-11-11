@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
   const earlyBirdActive = base.earlyBirdActive
 
   // Apply discount server-side (re-validate to prevent price tampering)
-  const discounted = await applyDiscountCode(db2, orgId, discountId, priceCents, isDropIn ? 'dropins' : 'leagues')
+  const discounted = await applyDiscountCode(db2, orgId, discountId, priceCents, isDropIn ? 'dropins' : 'leagues', { leagueId })
   priceCents = discounted.priceCents
   const discountApplied = discounted.discount
 

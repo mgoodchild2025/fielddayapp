@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { useCart } from './cart-provider'
-import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
+import { validateDiscountCode } from '@/actions/discounts'
 import { Overlay } from '@/components/ui/overlay'
 import { canOptimizeImage } from '@/lib/image-src'
 import { useBfcacheReset } from '@/components/ui/use-bfcache-reset'
@@ -75,7 +75,6 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
         window.location.href = data.url
       } else if (data.manual) {
         // Manual payment — clear cart and go to success page
-        if (appliedDiscount) await incrementDiscountUse(appliedDiscount.id)
         clearCart()
         const params = new URLSearchParams({ manual: '1' })
         if (data.instructions) params.set('instructions', encodeURIComponent(data.instructions))

@@ -11,7 +11,7 @@ import { resolveLeagueMethods, isOfflineMethod, PAYMENT_METHOD_LABELS, type Paym
 import { sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 import { getOrgTaxRates, ratesForScope, computeTax } from '@/lib/tax'
-import { registrationBasePriceCents, applyDiscountCode, teamFeeCents } from '@/lib/registration-price'
+import { registrationBasePriceCents, applyDiscountCode, teamFeeCents, countDiscountUse } from '@/lib/registration-price'
 
 const selectOfflinePaymentSchema = z.object({
   registrationId: z.string().uuid(),
@@ -76,7 +76,24 @@ export async function selectOfflinePayment(
   // could record $0.01 owed). The code is re-validated; any amount the client
   // sends is ignored.
   const base = await registrationBasePriceCents(db, org.id, league.id, league, reg.registration_type)
-  const discounted = await applyDiscountCode(db, org.id, parsed.data.discountId, base.priceCents, base.isDropIn ? 'dropins' : 'leagues')
+  // The newest payment row for this registration: what gets reused below, and
+  // whether it already carries (and counted) the code being applied.
+  const { data: existing } = await db
+    .from('payments')
+    .select('id, status, payment_method, discount_code_id')
+    .eq('registration_id', reg.id)
+    .eq('organization_id', org.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const heldCode = existing?.discount_code_id ?? null
+  const discounted = await applyDiscountCode(db, org.id, parsed.data.discountId, base.priceCents, base.isDropIn ? 'dropins' : 'leagues', {
+    leagueId: league.id,
+    alreadyCounted: !!parsed.data.discountId && heldCode === parsed.data.discountId,
+  })
+  // Count the code's use here, once, when it is first attached to this
+  // registration's payment — the browser used to be asked to report it.
+  const newlyApplied = discounted.discount && discounted.discount.id !== heldCode ? discounted.discount.id : null
   const subtotalCents = discounted.priceCents
   // Offline payers owe the SAME gross a card payer is charged: discounts
   // first, then tax — the shared helper keeps both worlds identical.
@@ -93,29 +110,20 @@ export async function selectOfflinePayment(
   // payment naming the code. (activateRegistration lets a player complete
   // their own registration only when it's free or a payment is recorded.)
   if (amountCents === 0 && discounted.discount) {
-    const { data: prior } = await db.from('payments').select('id').eq('registration_id', reg.id).eq('organization_id', org.id).limit(1).maybeSingle()
-    if (!prior) {
+    if (!existing) {
       await db.from('payments').insert({
         organization_id: org.id, registration_id: reg.id, user_id: user.id, league_id: league.id,
         amount_cents: 0, tax_cents: 0, currency, status: 'manual', payment_method: method,
         discount_code_id: discounted.discount.id, discount_cents: discounted.discount.cents,
       })
+      await countDiscountUse(db, discounted.discount.id)
     }
   }
 
   // Record a pending payment (skip when free) — reuse any existing row.
   if (amountCents > 0) {
-
-    const { data: existing } = await db
-      .from('payments')
-      .select('id, status, payment_method')
-      .eq('registration_id', reg.id)
-      .eq('organization_id', org.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (!existing) {
+    // A refunded row is history: leave it and record the new amount owed beside it.
+    if (!existing || existing.status === 'refunded') {
 
       await db.from('payments').insert({
         organization_id: org.id,
@@ -130,8 +138,9 @@ export async function selectOfflinePayment(
         discount_code_id: discounted.discount?.id ?? null,
         discount_cents: discounted.discount?.cents ?? 0,
       })
+      if (discounted.discount) await countDiscountUse(db, discounted.discount.id)
       shouldNotify = true
-    } else if (existing.status !== 'paid') {
+    } else if (existing.status === 'pending' || existing.status === 'failed') {
 
       await db.from('payments')
         .update({
@@ -140,10 +149,12 @@ export async function selectOfflinePayment(
           discount_cents: discounted.discount?.cents ?? 0,
         })
         .eq('id', existing.id)
+      if (newlyApplied) await countDiscountUse(db, newlyApplied)
       // Re-notify only if the player actually switched methods.
       shouldNotify = existing.payment_method !== method
     } else {
-      // Payment already marked paid — nothing to collect, don't re-alert.
+      // Already paid, or recorded by an admin ('manual') — nothing to collect.
+      // It used to reset an admin-recorded payment back to pending.
       shouldNotify = false
     }
   }
@@ -200,7 +211,7 @@ export async function selectOfflineTeamPayment(
 
     db.from('teams').select('id, organization_id, league_id').eq('id', parsed.data.teamId).maybeSingle(),
 
-    db.from('leagues').select('id, name, price_cents, currency, payment_methods, payment_instructions, early_bird_price_cents, early_bird_deadline')
+    db.from('leagues').select('id, name, price_cents, currency, payment_methods, payment_instructions, early_bird_price_cents, early_bird_deadline, payment_mode')
       .eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle(),
 
     db.from('org_payment_settings')
@@ -214,6 +225,13 @@ export async function selectOfflineTeamPayment(
   ])
 
   if (!team || team.organization_id !== org.id || !league) {
+    return { instructions: null, methodLabel: '', error: 'Team not found' }
+  }
+  // The team must be IN this event, and the event must charge per team. This
+  // action activates the members' registrations in the event it is given, so a
+  // captain could name a per-player event and activate registrations nobody
+  // had paid for.
+  if (team.league_id !== league.id || league.payment_mode !== 'per_team') {
     return { instructions: null, methodLabel: '', error: 'Team not found' }
   }
 
@@ -232,7 +250,24 @@ export async function selectOfflineTeamPayment(
   // Team fee + re-validated discount, as the card checkout computes it — never
   // the client's amount (it was trusted: a captain could record $0 owed and,
   // with $0, no payment row at all).
-  const teamDiscounted = await applyDiscountCode(db, org.id, parsed.data.discountId, teamFeeCents(league), 'leagues')
+  // The team's payment rows, newest first: what gets reused below, and whether
+  // the one in use already carries (and counted) the code being applied.
+  const { data: existingRows } = await db
+    .from('payments')
+    .select('id, status, discount_code_id')
+    .eq('team_id', parsed.data.teamId)
+    .eq('league_id', league.id)
+    .eq('organization_id', org.id)
+    .eq('payment_type', 'team')
+    .order('created_at', { ascending: false })
+  // Prefer a paid row (never downgrade it), else reuse the newest.
+  const existing = (existingRows ?? []).find((p) => p.status === 'paid') ?? (existingRows ?? [])[0] ?? null
+  const heldCode = existing?.discount_code_id ?? null
+
+  const teamDiscounted = await applyDiscountCode(db, org.id, parsed.data.discountId, teamFeeCents(league), 'leagues', {
+    leagueId: league.id,
+    alreadyCounted: !!parsed.data.discountId && heldCode === parsed.data.discountId,
+  })
   const teamSubtotalCents = teamDiscounted.priceCents
   const teamOfflineTax = computeTax(teamSubtotalCents, ratesForScope(await getOrgTaxRates(db, org.id), 'registrations'))
   const amountCents = teamOfflineTax.totalCents
@@ -240,18 +275,7 @@ export async function selectOfflineTeamPayment(
 
   // Pending team payment (reuse existing team payment row if present).
   if (amountCents > 0) {
-
-    const { data: existingRows } = await db
-      .from('payments')
-      .select('id, status')
-      .eq('team_id', parsed.data.teamId)
-      .eq('league_id', league.id)
-      .eq('payment_type', 'team')
-      .order('created_at', { ascending: false })
-    // Prefer a paid row (never downgrade it), else reuse the newest.
-    const existing = (existingRows ?? []).find((p) => p.status === 'paid') ?? (existingRows ?? [])[0] ?? null
-
-    if (!existing) {
+    if (!existing || existing.status === 'refunded') {
 
       await db.from('payments').insert({
         organization_id: org.id,
@@ -266,7 +290,8 @@ export async function selectOfflineTeamPayment(
         discount_code_id: teamDiscounted.discount?.id ?? null,
         discount_cents: teamDiscounted.discount?.cents ?? 0,
       })
-    } else if (existing.status !== 'paid') {
+      if (teamDiscounted.discount) await countDiscountUse(db, teamDiscounted.discount.id)
+    } else if (existing.status === 'pending' || existing.status === 'failed') {
 
       await db.from('payments')
         .update({
@@ -275,6 +300,7 @@ export async function selectOfflineTeamPayment(
           discount_cents: teamDiscounted.discount?.cents ?? 0,
         })
         .eq('id', existing.id)
+      if (teamDiscounted.discount && teamDiscounted.discount.id !== heldCode) await countDiscountUse(db, teamDiscounted.discount.id)
     }
   }
 
@@ -288,6 +314,7 @@ export async function selectOfflineTeamPayment(
     await db.from('registrations')
       .update({ status: 'active' })
       .eq('league_id', league.id)
+      .eq('organization_id', org.id)
       .in('user_id', userIds)
       .in('status', ['pending', 'waitlisted'])
   }

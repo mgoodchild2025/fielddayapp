@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { clearSupersededOfflinePayments } from '@/lib/payments/clear-superseded-offline'
+import { metadataBelongsToOrg } from '@/lib/payments/webhook-scope'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendRegistrationConfirmation, sendPaymentFailedEmail, sendAdminPaymentFailedAlert, sendMerchOrderAdminNotification, sendRegistrationAdminNotification, type MerchOrderLine } from '@/actions/emails'
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
@@ -41,6 +42,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  // The signature proves the event was signed with THIS org's secret — which
+  // this org's admin knows. It says nothing about whose rows the metadata
+  // names, so refuse any event that points at another org's records
+  // (lib/payments/webhook-scope.ts). Answer 200 so Stripe doesn't retry it.
+  const eventMetadata = (event.data.object as { metadata?: Record<string, string> | null }).metadata
+  if (!(await metadataBelongsToOrg(supabase, orgId, eventMetadata))) {
+    console.warn(`[webhook] org ${orgId}: event ${event.id} (${event.type}) names records outside this org — ignored`)
+    return NextResponse.json({ received: true, ignored: true })
+  }
+
   // Idempotency guard: Stripe redelivers events when the endpoint responds
   // slowly or with a non-2xx status (retries land minutes later). Claim this
   // event id; if it's already recorded, we've handled it — skip so we don't
@@ -73,7 +84,7 @@ export async function POST(request: NextRequest) {
           paid_at: new Date().toISOString(),
           stripe_payment_intent_id: session.payment_intent as string,
         })
-        .eq('stripe_checkout_session_id', session.id)
+        .eq('stripe_checkout_session_id', session.id).eq('organization_id', orgId)
 
       // Activate all pending registrations for active team members in this league
       const { data: members } = await supabase
@@ -89,6 +100,7 @@ export async function POST(request: NextRequest) {
           .from('registrations')
           .update({ status: 'active' })
           .eq('league_id', leagueId)
+          .eq('organization_id', orgId)
           .in('user_id', userIds)
           .in('status', ['pending', 'waitlisted'])
       }
@@ -186,7 +198,7 @@ export async function POST(request: NextRequest) {
         await supabase
           .from('merchandise_orders')
           .update({ status: 'paid', paid_at: new Date().toISOString() })
-          .in('id', shopOrderIds)
+          .in('id', shopOrderIds).eq('organization_id', orgId)
 
         // Check and notify admins if any item/variant is now low on stock
         await checkAndNotifyLowStock(orgId, shopOrderIds)
@@ -266,7 +278,7 @@ export async function POST(request: NextRequest) {
           paid_at: nowIso,
           stripe_payment_intent_id: session.payment_intent as string,
           stripe_checkout_session_id: session.id,
-        }).eq('id', guestPayId)
+        }).eq('id', guestPayId).eq('organization_id', orgId)
       }
       if (guestRegId) {
 
@@ -313,21 +325,21 @@ export async function POST(request: NextRequest) {
             payment_id: newPayment?.id ?? null,
             stripe_checkout_session_id: null,  // clear so future logic doesn't reuse it
           })
-          .eq('id', installmentId)
+          .eq('id', installmentId).eq('organization_id', orgId)
 
         // 3. First instalment → activate the registration
         if (installmentNumber === '1') {
           await supabase
             .from('registrations')
             .update({ status: 'active' })
-            .eq('id', registrationId)
+            .eq('id', registrationId).eq('organization_id', orgId)
 
           // Send registration confirmation email (fire-and-forget)
 
           const { data: regData } = await supabase
             .from('registrations')
             .select('profiles!registrations_user_id_fkey(email, full_name), leagues(name)')
-            .eq('id', registrationId)
+            .eq('id', registrationId).eq('organization_id', orgId)
             .single()
           const { data: orgData } = await supabase
             .from('organizations')
@@ -359,7 +371,7 @@ export async function POST(request: NextRequest) {
           await supabase
             .from('payment_plan_enrollments')
             .update({ status: 'completed' })
-            .eq('id', enrollmentId)
+            .eq('id', enrollmentId).eq('organization_id', orgId)
         }
       }
       return NextResponse.json({ received: true })
@@ -377,11 +389,11 @@ export async function POST(request: NextRequest) {
             paid_at: new Date().toISOString(),
             stripe_payment_intent_id: session.payment_intent as string,
           })
-          .eq('stripe_checkout_session_id', session.id),
+          .eq('stripe_checkout_session_id', session.id).eq('organization_id', orgId),
         supabase
           .from('registrations')
           .update({ status: 'active' })
-          .eq('id', registrationId),
+          .eq('id', registrationId).eq('organization_id', orgId),
       ])
       // Paid by card: an earlier e-transfer/cash choice is no longer owed.
       await clearSupersededOfflinePayments(supabase, orgId, registrationId)
@@ -395,7 +407,7 @@ export async function POST(request: NextRequest) {
           const { data: paymentRecord } = await supabase
             .from('payments')
             .select('id')
-            .eq('stripe_checkout_session_id', session.id)
+            .eq('stripe_checkout_session_id', session.id).eq('organization_id', orgId)
             .single()
 
 
@@ -405,7 +417,7 @@ export async function POST(request: NextRequest) {
               status: 'paid',
               payment_id: paymentRecord?.id ?? null,
             })
-            .in('id', orderIds)
+            .in('id', orderIds).eq('organization_id', orgId)
 
           // Check and notify admins if any item/variant is now low on stock
           await checkAndNotifyLowStock(orgId, orderIds)
@@ -420,7 +432,7 @@ export async function POST(request: NextRequest) {
         supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
         supabase.from('leagues').select('id, name, slug, sport, event_type, checkin_enabled, payment_mode, price_cents, currency, calendar_token, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url').eq('id', leagueId ?? '').single(),
         supabase.from('organizations').select('name, slug').eq('id', orgId).single(),
-        supabase.from('registrations').select('user_id, checkin_token, session_id').eq('id', registrationId).single(),
+        supabase.from('registrations').select('user_id, checkin_token, session_id').eq('id', registrationId).eq('organization_id', orgId).single(),
       ])
 
       if (profile?.email && league?.name) {
@@ -591,7 +603,7 @@ export async function POST(request: NextRequest) {
         const { data: pendingOrders } = await supabase
           .from('merchandise_orders')
           .select('id, variant_id, quantity')
-          .in('id', orderIds)
+          .in('id', orderIds).eq('organization_id', orgId)
           .eq('status', 'pending')
 
         // Restore stock: for each variant, re-read current qty and add back
@@ -618,7 +630,7 @@ export async function POST(request: NextRequest) {
         await supabase
           .from('merchandise_orders')
           .delete()
-          .in('id', orderIds)
+          .in('id', orderIds).eq('organization_id', orgId)
           .eq('status', 'pending')
       }
     }
@@ -628,13 +640,13 @@ export async function POST(request: NextRequest) {
     const pi = event.data.object as Stripe.PaymentIntent
     const md = pi.metadata ?? {}
     const { registrationId, userId, leagueId } = md
-    const failOrgId = md.orgId || orgId
+    const failOrgId = orgId // never the metadata's: alerts go to this org's admins only
 
     if (registrationId) {
       await supabase
         .from('payments')
         .update({ status: 'failed' })
-        .eq('stripe_payment_intent_id', pi.id)
+        .eq('stripe_payment_intent_id', pi.id).eq('organization_id', orgId)
     }
 
 
@@ -825,7 +837,7 @@ async function notifyMerchOrder(
   const [{ data: orders }, { data: buyerProfile }, { data: org }, { data: league }] = await Promise.all([
     db.from('merchandise_orders')
       .select('item_id, variant_id, quantity, merchandise_items(name, price_cents, currency), merchandise_variants(label)')
-      .in('id', orderIds),
+      .in('id', orderIds).eq('organization_id', orgId),
     buyerId ? db.from('profiles').select('full_name, email').eq('id', buyerId).single() : Promise.resolve({ data: null }),
     db.from('organizations').select('name, slug').eq('id', orgId).single(),
     leagueId ? db.from('leagues').select('name').eq('id', leagueId).single() : Promise.resolve({ data: null }),

@@ -872,7 +872,7 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
 
   const { data: league } = await db
     .from('leagues')
-    .select('id, name, slug, status, event_type, league_type, pickup_join_policy, drop_in_price_cents, price_cents, currency')
+    .select('id, name, slug, status, event_type, league_type, pickup_join_policy, drop_in_price_cents, price_cents, currency, max_participants')
     .eq('id', parsed.data.leagueId)
     .eq('organization_id', org.id)
     .maybeSingle()
@@ -944,6 +944,49 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
     }
   }
 
+
+  // A guest who backed out of checkout and tries again gets their pending
+  // registration back rather than a second one (which would also hold a second
+  // spot against the session's capacity).
+  if (!registrantUserId && needsOnlinePayment) {
+    const mineQuery = db
+      .from('registrations').select('id')
+      .eq('league_id', league.id).eq('organization_id', org.id)
+      .is('user_id', null).eq('guest_email', email)
+      .eq('registration_type', 'drop_in').eq('status', 'pending')
+    const { data: mine } = await (parsed.data.sessionId ? mineQuery.eq('session_id', parsed.data.sessionId) : mineQuery.is('session_id', null))
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (mine) return { error: null, registrationId: mine.id as string, needsPayment: true, slug: league.slug as string, priceCents }
+  }
+
+  // The session must be one of THIS event's, and have room — the same cap a
+  // signed-in player meets in createRegistration. A guest could name any
+  // session and book past a full one.
+  const guestSessionId = parsed.data.sessionId || null
+  let sessionCap: number | null = league.max_participants ?? null
+  if (guestSessionId) {
+    const { data: sess } = await db
+      .from('event_sessions')
+      .select('id, capacity')
+      .eq('id', guestSessionId)
+      .eq('league_id', league.id)
+      .eq('organization_id', org.id)
+      .maybeSingle()
+    if (!sess) return { error: 'That session is no longer available.', registrationId: null, needsPayment: false, slug: null }
+    sessionCap = sess.capacity ?? sessionCap
+  }
+  if (sessionCap) {
+    const taken = db
+      .from('registrations')
+      .select('id', { count: 'exact', head: true })
+      .eq('league_id', league.id)
+      .eq('organization_id', org.id)
+      .in('status', ['pending', 'active'])
+    const { count } = await (guestSessionId ? taken.eq('session_id', guestSessionId) : taken.is('session_id', null))
+    if ((count ?? 0) >= sessionCap) {
+      return { error: guestSessionId ? 'That session is full.' : 'This event is full.', registrationId: null, needsPayment: false, slug: null }
+    }
+  }
 
   const { data: reg, error: regErr } = await db
     .from('registrations')

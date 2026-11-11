@@ -7,6 +7,7 @@ import { headers } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createRateLimiter } from '@/lib/rate-limit'
 import { getOrgTaxRates, stripeTaxRateIds } from '@/lib/tax'
+import { trustedOrigin } from '@/lib/trusted-origin'
 
 const limiter = createRateLimiter({ windowMs: 10 * 60_000, max: 8 })
 
@@ -40,11 +41,14 @@ export async function POST(request: NextRequest) {
   // Load the pending guest registration (authoritative — we never trust a client price).
   const { data: reg } = await db
     .from('registrations')
-    .select('id, league_id, status, user_id, guest_name, guest_email')
+    .select('id, league_id, status, user_id, guest_name, guest_email, registration_type')
     .eq('id', parsed.data.registrationId)
     .eq('organization_id', org.id)
     .maybeSingle()
-  if (!reg) return NextResponse.json({ error: 'Registration not found.' }, { status: 404 })
+  // Drop-in registrations only. This route charges the drop-in price, and it
+  // took ANY pending registration — so a season registration could be paid for
+  // (and activated) at the price of one session.
+  if (!reg || reg.registration_type !== 'drop_in') return NextResponse.json({ error: 'Registration not found.' }, { status: 404 })
   if (reg.status !== 'pending') return NextResponse.json({ error: 'This registration is not awaiting payment.' }, { status: 400 })
 
   const { data: settings } = await db
@@ -79,11 +83,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const origin = await trustedOrigin(headersList)
 
   // Fully covered by the discount — activate the registration without charging.
   if (priceCents === 0) {
-    await db.from('registrations').update({ status: 'active' }).eq('id', reg.id)
+    await db.from('registrations').update({ status: 'active' }).eq('id', reg.id).eq('organization_id', org.id)
     const { data: existingPaid } = await db
       .from('payments').select('id').eq('registration_id', reg.id).in('status', ['paid', 'manual']).limit(1).maybeSingle()
     if (!existingPaid) {

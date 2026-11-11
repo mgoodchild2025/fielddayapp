@@ -7,7 +7,10 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { parseLocalToUtc } from '@/lib/format-time'
 import { assertOrgAdmin } from '@/lib/auth'
-import { createServerClient } from '@/lib/supabase/server'
+import { createRateLimiter } from '@/lib/rate-limit'
+
+// Checking a code is open to guests; this bounds how fast codes can be guessed.
+const codeGuessLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 30 })
 
 const discountSchema = z.object({
   code: z.string().min(2).max(30).transform(s => s.toUpperCase().trim()),
@@ -117,10 +120,20 @@ export async function deleteDiscount(id: string) {
  */
 export async function validateDiscountCode(
   code: string,
-  orgId: string,
+  /** Ignored — the org is the site this was asked on. (It was trusted, so any org's codes could be tested from anywhere.) */
+  _orgId: string,
   context: 'leagues' | 'dropins' | 'shop' | 'all' = 'all',
   leagueId?: string | null,
 ) {
+  const headersList = await headers()
+  const orgId = (await getCurrentOrg(headersList)).id
+  // Guests check codes too, so there is no sign-in to lean on: cap the guesses.
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ?? headersList.get('x-real-ip') ?? 'unknown'
+  if (codeGuessLimiter.check(`${orgId}:${ip}`).limited) {
+    return { valid: false, error: 'Too many attempts. Please wait a few minutes and try again.' }
+  }
+  if (typeof code !== 'string' || code.length > 60) return { valid: false, error: 'Invalid discount code' }
+
   const supabase = createServiceRoleClient()
   const { data } = await supabase
     .from('discount_codes')
@@ -158,27 +171,4 @@ export async function validateDiscountCode(
       value: data.value,
     },
   }
-}
-
-export async function incrementDiscountUse(discountId: string) {
-  // Burning a use is a write against someone's promotion: unauthenticated
-  // callers could exhaust a code's max_uses and disable it for real players,
-  // and an unscoped id reaches other tenants' codes. Require a signed-in
-  // caller and confirm the code belongs to the org whose site this is.
-  const headersList = await headers()
-  const org = await getCurrentOrg(headersList)
-  const auth = await createServerClient()
-  const { data: { user } } = await auth.auth.getUser()
-  if (!user) return
-
-  const supabase = createServiceRoleClient()
-  const { data: code } = await supabase
-    .from('discount_codes')
-    .select('id')
-    .eq('id', discountId)
-    .eq('organization_id', org.id)
-    .maybeSingle()
-  if (!code) return
-
-  await supabase.rpc('increment_discount_use', { discount_id: discountId })
 }
