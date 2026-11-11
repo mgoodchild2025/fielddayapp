@@ -340,12 +340,13 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
 const signWaiverGuestSchema = z.object({
   waiverId:             z.string().uuid(),
   leagueId:             z.string().uuid(),
-  leagueName:           z.string(),
+  /** Ignored — the event's name and the org are read on the server. */
+  leagueName:           z.string().max(300),
   orgId:                z.string().uuid(),
-  guestName:            z.string().min(2),
-  guestEmail:           z.string().email(),
-  teamName:             z.string().optional(),
-  signatureName:        z.string().min(2),
+  guestName:            z.string().trim().min(2).max(120),
+  guestEmail:           z.string().email().max(254),
+  teamName:             z.string().max(120).optional(),
+  signatureName:        z.string().trim().min(2).max(120),
   guardianRelationship: z.enum(['parent', 'legal_guardian']).optional(),
 })
 
@@ -354,6 +355,8 @@ export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSch
   if (!parsed.success) return { data: null, alreadySigned: false, error: 'Invalid input' }
 
   const headersList = await headers()
+  // The org is the site this was signed on — never the id the form sends.
+  const org = await getCurrentOrg(headersList)
 
   const ipAddress =
     headersList.get('x-forwarded-for')?.split(',')[0].trim() ??
@@ -368,23 +371,70 @@ export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSch
   const db = createServiceRoleClient()
   const email = parsed.data.guestEmail.toLowerCase()
 
-  // Verify waiver belongs to this org
-  const { data: waiver } = await db
-    .from('waivers')
-    .select('id')
-    .eq('id', parsed.data.waiverId)
-    .eq('organization_id', parsed.data.orgId)
-    .single()
-  if (!waiver) return { data: null, alreadySigned: false, error: 'Waiver not found' }
+  // The waiver and the event must both be this org's; the event's name is
+  // read here, not taken from the form.
+  const [{ data: waiver }, { data: league }, { data: { user } }] = await Promise.all([
+    db.from('waivers').select('id').eq('id', parsed.data.waiverId).eq('organization_id', org.id).maybeSingle(),
+    db.from('leagues').select('id, name').eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle(),
+    (await createServerClient()).auth.getUser(),
+  ])
+  if (!waiver || !league) return { data: null, alreadySigned: false, error: 'Waiver not found' }
 
-  // Idempotency: if same email already signed this waiver for this league, return success
+  // Signed in (the QR-poster page opened in the app): the signature is theirs.
+  // It goes on THEIR account — whatever email is typed — and marks their
+  // registration signed.
+  if (user) {
+    const { data: mine } = await db
+      .from('waiver_signatures')
+      .select('id')
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .eq('waiver_id', waiver.id)
+      .eq('league_id', league.id)
+      .maybeSingle()
+    if (mine) return { data: { signatureId: mine.id }, alreadySigned: true, error: null }
 
+    const { data: newSig, error: sigErr } = await db
+      .from('waiver_signatures')
+      .insert({
+        organization_id: org.id,
+        user_id: user.id,
+        waiver_id: waiver.id,
+        league_id: league.id,
+        league_name: league.name,
+        team_name: parsed.data.teamName ?? null,
+        signature_name: parsed.data.signatureName,
+        ip_address: ipAddress,
+        guardian_relationship: parsed.data.guardianRelationship ?? null,
+      })
+      .select('id')
+      .single()
+    if (sigErr) return { data: null, alreadySigned: false, error: sigErr.message }
+
+    await db
+      .from('registrations')
+      .update({ waiver_signature_id: newSig.id })
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .eq('league_id', league.id)
+      .is('waiver_signature_id', null)
+
+    return { data: { signatureId: newSig.id }, alreadySigned: false, error: null }
+  }
+
+  // Not signed in: a guest signature, and nothing more. It is NEVER attached
+  // to an account that happens to use the typed email, and never marks that
+  // person's registration signed — anyone can type anyone's email, and this
+  // used to let a stranger sign a liability waiver in a player's name. A player
+  // with an account signs in to sign.
+
+  // Idempotency: the same email already signed this waiver for this event as a guest.
   const { data: existing } = await db
     .from('waiver_signatures')
     .select('id')
-    .eq('organization_id', parsed.data.orgId)
-    .eq('waiver_id', parsed.data.waiverId)
-    .eq('league_id', parsed.data.leagueId)
+    .eq('organization_id', org.id)
+    .eq('waiver_id', waiver.id)
+    .eq('league_id', league.id)
     .ilike('guest_email', email)
     .is('user_id', null)
     .maybeSingle()
@@ -393,72 +443,16 @@ export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSch
     return { data: { signatureId: existing.id }, alreadySigned: true, error: null }
   }
 
-  // If this email belongs to an existing profile, use the normal auth path instead
-  // so the signature shows up in their account history.
-  const { data: profile } = await db
-    .from('profiles')
-    .select('id')
-    .ilike('email', email)
-    .maybeSingle()
-
-  if (profile?.id) {
-
-    const { data: authExisting } = await db
-      .from('waiver_signatures')
-      .select('id')
-      .eq('organization_id', parsed.data.orgId)
-      .eq('user_id', profile.id)
-      .eq('waiver_id', parsed.data.waiverId)
-      .eq('league_id', parsed.data.leagueId)
-      .maybeSingle()
-
-    if (authExisting) {
-      return { data: { signatureId: authExisting.id }, alreadySigned: true, error: null }
-    }
-
-
-    const { data: newSig, error: sigErr } = await db
-      .from('waiver_signatures')
-      .insert({
-        organization_id: parsed.data.orgId,
-        user_id: profile.id,
-        waiver_id: parsed.data.waiverId,
-        league_id: parsed.data.leagueId,
-        league_name: parsed.data.leagueName,
-        team_name: parsed.data.teamName ?? null,
-        signature_name: parsed.data.signatureName,
-        ip_address: ipAddress,
-        guardian_relationship: parsed.data.guardianRelationship ?? null,
-      })
-      .select('id')
-      .single()
-
-    if (sigErr) return { data: null, alreadySigned: false, error: sigErr.message }
-
-    // Link to their registration if one exists
-    await db
-      .from('registrations')
-      .update({ waiver_signature_id: newSig.id })
-      .eq('organization_id', parsed.data.orgId)
-      .eq('user_id', profile.id)
-      .eq('league_id', parsed.data.leagueId)
-      .is('waiver_signature_id', null)
-
-    return { data: { signatureId: newSig.id }, alreadySigned: false, error: null }
-  }
-
-  // Pure guest insert (no matching account)
-
   const { data: newSig, error: sigErr } = await db
     .from('waiver_signatures')
     .insert({
-      organization_id: parsed.data.orgId,
+      organization_id: org.id,
       user_id: null,
       guest_name: parsed.data.guestName,
       guest_email: email,
-      waiver_id: parsed.data.waiverId,
-      league_id: parsed.data.leagueId,
-      league_name: parsed.data.leagueName,
+      waiver_id: waiver.id,
+      league_id: league.id,
+      league_name: league.name,
       team_name: parsed.data.teamName ?? null,
       signature_name: parsed.data.signatureName,
       ip_address: ipAddress,

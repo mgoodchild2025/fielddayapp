@@ -988,6 +988,25 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
     }
   }
 
+  // Link a waiver signature only if it is the one this guest just made: this
+  // org, this event, and their own email (or their own account). The id came
+  // from the browser and used to be stored unchecked.
+  let guestWaiverSignatureId: string | null = null
+  if (parsed.data.waiverSignatureId) {
+    const { data: sig } = await db
+      .from('waiver_signatures')
+      .select('id, user_id, guest_email')
+      .eq('id', parsed.data.waiverSignatureId)
+      .eq('organization_id', org.id)
+      .eq('league_id', league.id)
+      .maybeSingle()
+    const theirs = sig && (
+      (sig.guest_email && sig.guest_email.toLowerCase() === email) ||
+      (sig.user_id && sig.user_id === registrantUserId)
+    )
+    if (theirs) guestWaiverSignatureId = sig.id
+  }
+
   const { data: reg, error: regErr } = await db
     .from('registrations')
     .insert({
@@ -999,7 +1018,7 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
       guest_phone: registrantUserId ? null : phone,
       registration_type: 'drop_in',
       session_id: parsed.data.sessionId || null,
-      waiver_signature_id: parsed.data.waiverSignatureId || null,
+      waiver_signature_id: guestWaiverSignatureId,
       status: needsOnlinePayment ? 'pending' : 'active',
     })
     .select('id')

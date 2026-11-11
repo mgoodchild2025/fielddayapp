@@ -146,6 +146,7 @@ export default async function GuestWaiverPage({
             leagueName={leagueName}
             orgId={org.id}
             prefill={prefill}
+            signInHref={user ? undefined : `/login?redirect=${encodeURIComponent(`/events/${slug}/waiver`)}`}
           />
         )}
       </div>

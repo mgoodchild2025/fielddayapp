@@ -6,7 +6,7 @@ import { cookies } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { requirePlatformAdmin } from '@/lib/auth'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
-import { destroyAssets } from '@/lib/cloudinary'
+import { destroyAssets, ownedAssets } from '@/lib/cloudinary'
 import { invalidateOrgCache } from '@/lib/org-cache'
 
 const IMPERSONATE_COOKIE = 'fieldday_impersonate_org_id'
@@ -272,12 +272,15 @@ export async function deleteOrganization(orgId: string): Promise<{ error: string
 
   const { data: media } = await supabase
     .from('event_media').select('cloudinary_public_id, media_type').eq('organization_id', orgId)
-  await destroyAssets(
+  // Only files Cloudinary confirms are this org's: a row recorded before
+  // uploads were verified could name another org's asset.
+  await destroyAssets(await ownedAssets(
     ((media ?? []) as { cloudinary_public_id: string; media_type: string }[]).map((m) => ({
       publicId: m.cloudinary_public_id,
-      resourceType: m.media_type === 'video' ? 'video' : 'image',
-    }))
-  )
+      resourceType: m.media_type === 'video' ? 'video' as const : 'image' as const,
+    })),
+    orgId,
+  ))
 
   // Purge via RPC so the org delete + its ON DELETE CASCADE (including the
   // append-only tenant_acceptances rows) happen atomically with the purge flag.
