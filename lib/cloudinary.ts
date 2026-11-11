@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary'
+import { assetBelongsToOrg, eventFolderFor } from '@/lib/cloudinary-scope'
 
 /**
  * Server-side Cloudinary helpers for signed uploads + deletion.
@@ -17,9 +18,7 @@ const API_KEY = process.env.CLOUDINARY_API_KEY ?? ''
 const API_SECRET = process.env.CLOUDINARY_API_SECRET ?? ''
 
 /** Folder uploads land in, namespaced per org so assets are easy to find/clean up. */
-export function uploadFolder(orgId: string, leagueId: string): string {
-  return `fieldday/${orgId}/events/${leagueId}`
-}
+export const uploadFolder = eventFolderFor
 
 export function isCloudinaryConfigured(): boolean {
   return !!(CLOUD_NAME && API_KEY && API_SECRET)
@@ -44,6 +43,30 @@ function ensureConfig() {
 export function signUploadParams(paramsToSign: Record<string, string | number>): string {
   ensureConfig()
   return cloudinary.utils.api_sign_request(paramsToSign, API_SECRET)
+}
+
+export type AssetLookup =
+  | { status: 'found'; asset: { public_id: string; folder?: string | null; asset_folder?: string | null; secure_url: string } }
+  | { status: 'missing' }
+  | { status: 'unavailable' }
+
+/**
+ * What Cloudinary itself says about an asset (Admin API). The browser reports
+ * a public id and URL after uploading; nothing it says is trusted until this
+ * confirms the asset exists in OUR account and where it lives
+ * (lib/cloudinary-scope.ts decides whether that is the right place).
+ */
+export async function describeAsset(publicId: string, resourceType: 'image' | 'video'): Promise<AssetLookup> {
+  if (!isCloudinaryConfigured()) return { status: 'unavailable' }
+  ensureConfig()
+  try {
+    const res = await cloudinary.api.resource(publicId, { resource_type: resourceType })
+    if (!res?.public_id || !res?.secure_url) return { status: 'missing' }
+    return { status: 'found', asset: { public_id: res.public_id, folder: res.folder ?? null, asset_folder: res.asset_folder ?? null, secure_url: res.secure_url } }
+  } catch (err) {
+    const code = (err as { error?: { http_code?: number }; http_code?: number })?.error?.http_code ?? (err as { http_code?: number })?.http_code
+    return code === 404 ? { status: 'missing' } : { status: 'unavailable' }
+  }
 }
 
 /** Delete an asset from Cloudinary (best-effort; called when media is removed). */
@@ -82,6 +105,36 @@ export async function destroyAssets(items: { publicId: string; resourceType: 'im
     }
   }
   return submitted
+}
+
+/**
+ * Of these assets, the ones Cloudinary confirms are in THIS org's folders
+ * (Admin API, 100 ids per call). Used before a bulk delete: rows recorded
+ * before uploads were verified could name another org's asset. A chunk that
+ * can't be looked up is left out — an orphaned file is harmless, a wrongly
+ * deleted one is not.
+ */
+export async function ownedAssets(
+  items: { publicId: string; resourceType: 'image' | 'video' }[],
+  orgId: string,
+): Promise<{ publicId: string; resourceType: 'image' | 'video' }[]> {
+  if (!isCloudinaryConfigured() || items.length === 0) return []
+  ensureConfig()
+  const owned: { publicId: string; resourceType: 'image' | 'video' }[] = []
+  for (const type of ['image', 'video'] as const) {
+    const ids = items.filter((i) => i.resourceType === type).map((i) => i.publicId)
+    for (let i = 0; i < ids.length; i += 100) {
+      try {
+        const res = await cloudinary.api.resources_by_ids(ids.slice(i, i + 100), { resource_type: type })
+        for (const r of (res?.resources ?? []) as { public_id: string; folder?: string; asset_folder?: string }[]) {
+          if (assetBelongsToOrg(r, orgId)) owned.push({ publicId: r.public_id, resourceType: type })
+        }
+      } catch {
+        // skip this chunk
+      }
+    }
+  }
+  return owned
 }
 
 /** Signed URL that downloads a ZIP archive of the given public ids (one resource

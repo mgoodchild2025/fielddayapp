@@ -17,6 +17,8 @@ interface Props {
   leagueName: string
   orgId: string
   prefill?: { name: string; email: string } | null
+  /** Shown to visitors who aren't signed in: where to sign in and come back. */
+  signInHref?: string
 }
 
 type GuardianRelationship = 'parent' | 'legal_guardian'
@@ -32,7 +34,7 @@ function getAge(dob: string): number | null {
   return age
 }
 
-export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }: Props) {
+export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill, signInHref }: Props) {
   const [name, setName] = useState(prefill?.name ?? '')
   const [email, setEmail] = useState(prefill?.email ?? '')
   const [teamName, setTeamName] = useState('')
@@ -130,6 +132,15 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {signInHref && (
+        // A guest signature can't be tied to an account (anyone can type an
+        // email), so players who have one sign in first.
+        <p className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+          Already registered with an account?{' '}
+          <a href={signInHref} className="font-semibold text-brand-ink underline">Sign in first</a>{' '}
+          so this waiver is saved to your registration.
+        </p>
+      )}
       {/* Personal info */}
       <div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
         <h2 className="font-semibold text-gray-800">Your Information</h2>

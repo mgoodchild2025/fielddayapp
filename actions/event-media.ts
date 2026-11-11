@@ -6,7 +6,8 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { destroyAsset, archiveDownloadUrl } from '@/lib/cloudinary'
+import { destroyAsset, archiveDownloadUrl, describeAsset, CLOUD_NAME } from '@/lib/cloudinary'
+import { assetBelongsToOrg, assetIsInFolder, eventFolderFor } from '@/lib/cloudinary-scope'
 import { sendSms } from '@/lib/twilio'
 import { createNotifications } from '@/lib/notify'
 import { requireCurrentOrgAdmin } from '@/lib/auth'
@@ -132,7 +133,7 @@ export async function recordEventMediaUpload(input: z.infer<typeof recordSchema>
   const db = createServiceRoleClient()
   const { data: member } = await db
     .from('org_members').select('user_id')
-    .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
+    .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').maybeSingle()
   if (!member) return { error: 'Not a member of this organization.' }
 
 
@@ -140,14 +141,25 @@ export async function recordEventMediaUpload(input: z.infer<typeof recordSchema>
     .from('leagues').select('id').eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle()
   if (!league) return { error: 'Event not found.' }
 
+  // The browser tells us what it uploaded; Cloudinary tells us the truth. The
+  // public id and URL used to be stored as sent, so a member could record
+  // another org's asset (and an admin deleting that row destroyed it) or any
+  // outside URL. The asset must exist in our account, in THIS event's folder.
+  const lookup = await describeAsset(parsed.data.publicId, parsed.data.mediaType)
+  if (lookup.status === 'unavailable') return { error: "Couldn't confirm the upload — please try again in a moment." }
+  if (lookup.status === 'missing' || !assetIsInFolder(lookup.asset, eventFolderFor(org.id, parsed.data.leagueId))) {
+    return { error: 'That upload does not belong to this event.' }
+  }
+  const ownDelivery = `https://res.cloudinary.com/${CLOUD_NAME}/`
+  const thumbnailUrl = parsed.data.thumbnailUrl?.startsWith(ownDelivery) ? parsed.data.thumbnailUrl : null
 
   const { error } = await db.from('event_media').insert({
     organization_id: org.id,
     league_id: parsed.data.leagueId,
     uploaded_by: user.id,
-    cloudinary_public_id: parsed.data.publicId,
-    cloudinary_url: parsed.data.url,
-    thumbnail_url: parsed.data.thumbnailUrl ?? null,
+    cloudinary_public_id: lookup.asset.public_id,
+    cloudinary_url: lookup.asset.secure_url,
+    thumbnail_url: thumbnailUrl,
     media_type: parsed.data.mediaType,
     caption: parsed.data.caption?.trim() || null,
     width: parsed.data.width ?? null,
@@ -288,7 +300,13 @@ export async function deleteEventMedia(id: string): Promise<{ error: string | nu
   const { error } = await db.from('event_media').delete().eq('id', id).eq('organization_id', org.id)
   if (error) return { error: error.message }
 
-  await destroyAsset(row.cloudinary_public_id, row.media_type === 'video' ? 'video' : 'image')
+  // Destroy the file only if Cloudinary confirms it is this org's. Rows
+  // recorded before uploads were verified could name anyone's asset.
+  const resourceType = row.media_type === 'video' ? 'video' : 'image'
+  const lookup = await describeAsset(row.cloudinary_public_id, resourceType)
+  if (lookup.status === 'found' && assetBelongsToOrg(lookup.asset, org.id)) {
+    await destroyAsset(row.cloudinary_public_id, resourceType)
+  }
 
   revalidatePath(`/admin/events/${row.league_id}/media`)
   revalidatePath('/media')
