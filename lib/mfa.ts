@@ -1,11 +1,15 @@
 /**
- * MFA status helper — reads Authenticator Assurance Level (AAL) and enrolled
- * TOTP factors from the current session.  AAL is derived from the JWT claims,
- * so `getAuthenticatorAssuranceLevel()` requires no extra DB query.
- * `listFactors()` is a lightweight auth-service call.
+ * MFA status for the current session: enrolled TOTP factors and whether a code
+ * has been entered this session (aal2).
+ *
+ * Read from Supabase Auth's answer (getUser) and the access token it validated,
+ * never from the cookie's copy of the user — see lib/mfa-gate.ts. It looks at
+ * the user BEFORE the two-factor gate, so the sign-in flow can tell "needs a
+ * code" from "signed out"; it never authorises anything by itself.
  */
 
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getUserBeforeMfa } from '@/lib/supabase/server'
+import { tokenAal, verifiedFactors } from '@/lib/mfa-gate'
 
 export interface MfaStatus {
   /** Password-only session */
@@ -23,22 +27,26 @@ export interface MfaStatus {
 }
 
 export async function getMfaStatus(): Promise<MfaStatus> {
-  const supabase = await createServerClient()
+  return mfaStatusFor(await createServerClient())
+}
 
-  const [{ data: aalData }, { data: factors }] = await Promise.all([
-    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-    supabase.auth.mfa.listFactors(),
-  ])
-
-  const currentLevel = (aalData?.currentLevel ?? 'aal1') as 'aal1' | 'aal2'
-  const nextLevel = (aalData?.nextLevel ?? 'aal1') as 'aal1' | 'aal2'
-  const totpFactors = factors?.totp ?? []
+/** Same, for a client you already hold (the one that just signed someone in). */
+export async function mfaStatusFor(supabase: Awaited<ReturnType<typeof createServerClient>>): Promise<MfaStatus> {
+  const user = await getUserBeforeMfa(supabase)
+  const totpFactors = verifiedFactors(user).filter((f) => f.factor_type === 'totp')
   const hasTotp = totpFactors.length > 0
+
+  // The token is only needed (and only read) when there is a factor to check.
+  let currentLevel: 'aal1' | 'aal2' = 'aal1'
+  if (hasTotp) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (tokenAal(session?.access_token) === 'aal2') currentLevel = 'aal2'
+  }
   const isVerified = currentLevel === 'aal2'
 
   return {
     currentLevel,
-    nextLevel,
+    nextLevel: hasTotp ? 'aal2' : 'aal1',
     hasTotp,
     isVerified,
     needsVerify: hasTotp && !isVerified,

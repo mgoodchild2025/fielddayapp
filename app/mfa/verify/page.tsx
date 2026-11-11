@@ -10,7 +10,7 @@
 
 import { redirect } from 'next/navigation'
 import Image from 'next/image'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getUserBeforeMfa } from '@/lib/supabase/server'
 import { getMfaStatus } from '@/lib/mfa'
 import { TotpChallenge } from '@/components/mfa/totp-challenge'
 import { safeRelativePath } from '@/lib/safe-redirect'
@@ -23,8 +23,8 @@ export default async function MfaVerifyPage({ searchParams }: Props) {
   const { redirect: redirectTo } = await searchParams
   const safeRedirect = safeRelativePath(redirectTo) ?? '/dashboard'
 
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Who is waiting to enter a code — auth.getUser() says "nobody" until they do.
+  const user = await getUserBeforeMfa(await createServerClient())
   if (!user) redirect(`/login?redirect=${encodeURIComponent('/mfa/verify')}`)
 
   const mfa = await getMfaStatus()

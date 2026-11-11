@@ -9,7 +9,8 @@
  */
 
 import { randomBytes } from 'node:crypto'
-import { createServerClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { createServerClient, getUserBeforeMfa } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { recordAuditLog, type AuditAction } from '@/lib/audit'
 
@@ -188,6 +189,9 @@ export async function verifyMfa(
   })
   if (verifyErr) return { error: verifyErr.message }
 
+  // Until now every page rendered this browser as signed out (lib/mfa-gate.ts);
+  // drop the router's cached copies so the next page shows the signed-in user.
+  revalidatePath('/', 'layout')
   return { success: true }
 }
 
@@ -246,8 +250,10 @@ export async function unenrollMfa(
 export async function verifyBackupCode(
   code: string,
 ): Promise<{ success?: boolean; error?: string }> {
+  // Entered INSTEAD of a two-factor code, so the session still owes one and
+  // auth.getUser() answers "nobody" (lib/mfa-gate.ts): ask who is waiting.
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUserBeforeMfa(supabase)
   if (!user) return { error: 'Not authenticated' }
 
   const db = createServiceRoleClient()
@@ -272,8 +278,8 @@ export async function verifyBackupCode(
   await db.from('mfa_backup_codes').update({ used_at: new Date().toISOString() }).eq('id', match.id)
 
   // Unenroll all TOTP factors via admin API (service role required)
-  const { data: factors } = await supabase.auth.mfa.listFactors()
-  for (const factor of factors?.totp ?? []) {
+  // (mfa.listFactors() asks auth.getUser() itself, which is gated here.)
+  for (const factor of (user.factors ?? []).filter((f) => f.factor_type === 'totp')) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (db.auth as any).admin.mfa.deleteFactor({ userId: user.id, id: factor.id })
   }
@@ -287,6 +293,7 @@ export async function verifyBackupCode(
 
   await logMfaAudit('mfa.backup_code_used', user)
 
+  revalidatePath('/', 'layout') // as in verifyMfa: the session counts as signed in from here
   return { success: true }
 }
 

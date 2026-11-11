@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getUserBeforeMfa } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { safeRelativePath } from '@/lib/safe-redirect'
@@ -81,7 +81,8 @@ export async function GET(request: NextRequest) {
   // apex login to /dashboard would break (it requires org context).
   let dest = nextParam
   if (!dest) {
-    const { data: { user } } = await supabase.auth.getUser()
+    // Routing only — the destination page asks for the two-factor code if one is owed.
+    const user = await getUserBeforeMfa(supabase)
     const orgId = request.headers.get('x-org-id')
 
     if (orgId) {

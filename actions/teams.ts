@@ -7,7 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { assertOrgAdmin } from '@/lib/auth'
-import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail, buildCaptainAssignedEmail, buildTeamAddedEmail, buildRosterReminderEmail, buildCalendarCtaHtml } from '@/lib/email'
+import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail, buildCaptainAssignedEmail, buildRosterReminderEmail, buildCalendarCtaHtml } from '@/lib/email'
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { convertToWebP } from '@/lib/image-utils'
 import { createNotifications } from '@/lib/notify'
@@ -154,10 +154,13 @@ async function notifyCaptainAssigned({
 
 // ─── Admin: create team ───────────────────────────────────────────────────────
 
+/** A team colour is a hex value (the picker's output) — it is written into style attributes. */
+const teamColor = z.string().regex(/^#[0-9a-fA-F]{3,8}$/)
+
 const adminCreateTeamSchema = z.object({
   leagueId: z.string().uuid(),
-  name: z.string().min(2),
-  color: z.string().optional(),
+  name: z.string().trim().min(2).max(80),
+  color: teamColor.optional(),
   captainUserId: z.string().uuid().optional(),
   /** Slot label to map (e.g. "Team 3") — replaces null-team games with this team */
   slotLabel: z.string().optional(),
@@ -169,9 +172,23 @@ export async function adminCreateTeam(input: z.infer<typeof adminCreateTeamSchem
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  // Admins only. This used to rely on a database policy alone, and took the
+  // event and the captain on trust.
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { data: null, error: auth.error }
 
-  const supabase = await createServerClient()
-  const { data: team, error } = await supabase
+  const db = createServiceRoleClient()
+  const [{ data: league }, { data: captainMember }] = await Promise.all([
+    db.from('leagues').select('id').eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle(),
+    parsed.data.captainUserId
+      ? db.from('org_members').select('user_id').eq('organization_id', org.id)
+          .eq('user_id', parsed.data.captainUserId).eq('status', 'active').maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+  if (!league) return { data: null, error: 'Event not found' }
+  if (parsed.data.captainUserId && !captainMember) return { data: null, error: 'That captain is not a member of this organization.' }
+
+  const { data: team, error } = await db
     .from('teams')
     .insert({
       organization_id: org.id,
@@ -184,8 +201,6 @@ export async function adminCreateTeam(input: z.infer<typeof adminCreateTeamSchem
     .single()
 
   if (error) return { data: null, error: error.message }
-
-  const db = createServiceRoleClient()
 
   // Map template slot → real team (update matching games)
   if (parsed.data.slotLabel) {
@@ -506,118 +521,6 @@ export async function deleteTeam(teamId: string, leagueId: string) {
 
   revalidatePath(`/admin/events/${leagueId}/teams`)
   return { error: null }
-}
-
-// ─── Admin: add member by email ───────────────────────────────────────────────
-
-const adminAddMemberSchema = z.object({
-  teamId: z.string().uuid(),
-  leagueId: z.string().uuid(),
-  email: z.string().email(),
-  role: z.enum(['player', 'captain']).default('player'),
-})
-
-export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSchema>) {
-  const parsed = adminAddMemberSchema.safeParse(input)
-  if (!parsed.success) return { data: null, error: 'Invalid input', invited: false }
-
-  const headersList = await headers()
-  const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
-
-  // Look up user by email — they may not have an account yet
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('email', parsed.data.email)
-    .single()
-
-  const db = createServiceRoleClient()
-
-  if (profile) {
-    // User exists — add as active member
-
-    // Ensure org membership
-    await db.from('org_members').upsert({
-      organization_id: org.id,
-      user_id: profile.id,
-      role: parsed.data.role === 'captain' ? 'captain' : 'player',
-      status: 'active',
-    }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
-
-    // Add to team (upsert in case they're already a member — updates role)
-    const { error } = await db.from('team_members').upsert({
-      organization_id: org.id,
-      team_id: parsed.data.teamId,
-      user_id: profile.id,
-      invited_email: parsed.data.email,
-      role: parsed.data.role,
-      status: 'active',
-    }, { onConflict: 'team_id,user_id' })
-
-    if (error) return { data: null, error: error.message, invited: false }
-
-    // Notify the player they've been added
-    const [{ data: teamRow }, { data: leagueRow }] = await Promise.all([
-
-      db.from('teams').select('name, calendar_token').eq('id', parsed.data.teamId).single(),
-      db.from('leagues').select('name').eq('id', parsed.data.leagueId).single(),
-    ])
-    if (teamRow && leagueRow) {
-      const host = headersList.get('host') ?? ''
-      const proto = headersList.get('x-forwarded-proto') ?? 'http'
-      const teamUrl = `${proto}://${host}/teams/${parsed.data.teamId}`
-
-      // "Subscribe to your team's schedule" calendar CTA
-      let calendarCtaHtml = ''
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const teamCalToken = host ? await ensureCalendarToken(db as any, 'teams', parsed.data.teamId, (teamRow as any).calendar_token) : null
-      if (host && teamCalToken) {
-        const { webcalUrl, googleUrl } = calendarSubscribeUrls(host, `/api/teams/${parsed.data.teamId}/calendar.ics?token=${teamCalToken}`)
-        calendarCtaHtml = buildCalendarCtaHtml({ webcalUrl, googleUrl, heading: 'Add your team schedule to your calendar' })
-      }
-
-      // In-app notification
-      await createNotifications({
-        organization_id: org.id,
-        user_id: profile.id,
-        type: 'team_added',
-        title: `You've been added to ${teamRow.name}`,
-        body: `You've been added as ${parsed.data.role} for ${leagueRow.name}.`,
-        data: { team_url: teamUrl },
-      })
-
-      // Email
-      await sendEmail({
-        to: parsed.data.email,
-        subject: `You've been added to ${teamRow.name}`,
-        html: buildTeamAddedEmail({
-          teamName: teamRow.name,
-          orgName: org.name,
-          leagueName: leagueRow.name,
-          role: parsed.data.role,
-          teamUrl,
-          calendarCtaHtml,
-        }),
-      })
-    }
-
-    revalidatePath(`/admin/events/${parsed.data.leagueId}/teams`)
-    return { data: null, error: null, invited: false }
-  }
-
-  // No account yet — send a proper invite via the invitations flow so they get an email with an accept link
-  const { sendTeamInvite } = await import('@/actions/invitations')
-  const inviteResult = await sendTeamInvite({
-    teamId: parsed.data.teamId,
-    email: parsed.data.email,
-    role: parsed.data.role as 'captain' | 'player',
-  })
-
-  if (inviteResult.error) return { data: null, error: inviteResult.error, invited: false }
-
-  revalidatePath(`/admin/events/${parsed.data.leagueId}/teams`)
-  return { data: null, error: null, invited: true }
 }
 
 // ─── Request to join a team ──────────────────────────────────────────────────
@@ -1115,6 +1018,12 @@ export async function invitePlayerToTeam(input: z.infer<typeof invitePlayerSchem
 
 // ─── Admin: update team details ───────────────────────────────────────────────
 
+const updateTeamSchema = z.object({
+  name: z.string().trim().min(2).max(80).optional(),
+  color: teamColor.nullable().optional(),
+  logo_url: z.string().max(600).nullable().optional(),
+})
+
 export async function updateTeam(
   teamId: string,
   leagueId: string,
@@ -1123,11 +1032,32 @@ export async function updateTeam(
   const { error: authError, org } = await requireCaptainOrCoach(teamId)
   if (authError) return { error: authError }
 
+  // The object used to go into .update() as sent, so a captain could set any
+  // column (league_id, team_code, status…). Parse it — zod drops unknown keys —
+  // and write only the keys that were sent.
+  const parsed = updateTeamSchema.safeParse(updates)
+  if (!parsed.success) return { error: 'Enter a team name and pick a colour from the palette.' }
+
   const db = createServiceRoleClient()
+  const { data: current } = await db.from('teams').select('logo_url').eq('id', teamId).eq('organization_id', org.id).maybeSingle()
+  if (!current) return { error: 'Team not found' }
+
+  // A logo is this team's own upload (uploadTeamLogo), the one it already has, or none.
+  const ownLogoPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/team-logos/${org.id}/${teamId}/`
+  const logo = parsed.data.logo_url
+  if (logo != null && logo !== current.logo_url && !logo.startsWith(ownLogoPrefix)) {
+    return { error: 'Upload the logo here rather than linking to one.' }
+  }
+
+  const write: { name?: string; color?: string | null; logo_url?: string | null } = {}
+  if (parsed.data.name !== undefined) write.name = parsed.data.name
+  if (parsed.data.color !== undefined) write.color = parsed.data.color
+  if (parsed.data.logo_url !== undefined) write.logo_url = parsed.data.logo_url
+  if (Object.keys(write).length === 0) return { error: null }
 
   const { error } = await db
     .from('teams')
-    .update(updates)
+    .update(write)
     .eq('id', teamId)
     .eq('organization_id', org.id)
 
@@ -1196,7 +1126,8 @@ export async function uploadTeamLogo(teamId: string, formData: FormData) {
 
 // ─── Captain / coach: manage roster ──────────────────────────────────────────
 
-type TeamRole = 'captain' | 'coach' | 'player' | 'sub'
+const TEAM_ROLES = ['captain', 'coach', 'player', 'sub'] as const
+type TeamRole = (typeof TEAM_ROLES)[number]
 
 async function requireCaptainOrCoach(teamId: string) {
   const headersList = await headers()
@@ -1223,6 +1154,7 @@ async function requireCaptainOrCoach(teamId: string) {
 }
 
 export async function captainSetMemberRole(memberId: string, teamId: string, role: TeamRole) {
+  if (!TEAM_ROLES.includes(role)) return { error: 'Unknown role' }
   const { error, org, db } = await requireCaptainOrCoach(teamId)
   if (error) return { error }
 
