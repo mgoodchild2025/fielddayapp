@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { Database } from '@/types/database'
 import type { MerchSelection, MerchItemForStep } from './step-addons'
 import { selectOfflinePayment, selectOfflineTeamPayment } from '@/actions/payments'
-import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
+import { validateDiscountCode } from '@/actions/discounts'
 import { formatDollars } from '@/lib/money'
 import {
   PAYMENT_METHOD_LABELS,
@@ -159,8 +159,6 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
         setError(res.error)
         setLoading(false)
       } else {
-        // Offline: increment discount use count now that the spot is reserved
-        if (appliedDiscount) await incrementDiscountUse(appliedDiscount.id)
         setOfflineDone({
           instructions: res.instructions ?? offlineInstructions,
           label: res.methodLabel,

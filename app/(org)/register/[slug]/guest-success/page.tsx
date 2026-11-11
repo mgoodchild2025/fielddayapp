@@ -50,8 +50,12 @@ export default async function GuestRegistrationSuccessPage({
   let status: string | null = registration?.status ?? null
   if (sessionId && registration && registration.status !== 'active') {
 
+    // The payment must be THIS registration's. It was looked up by the Stripe
+    // session alone, so a paid session for a cheap event activated whichever
+    // registration id was in the URL.
     const { data: pay } = await db
       .from('payments').select('id, status').eq('organization_id', org.id)
+      .eq('registration_id', registration.id)
       .eq('stripe_checkout_session_id', sessionId).maybeSingle()
 
 
@@ -64,7 +68,7 @@ export default async function GuestRegistrationSuccessPage({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const orgStripe = new Stripe(ps.stripe_secret_key, { apiVersion: '2026-05-27.dahlia' as any })
         const checkout = await orgStripe.checkout.sessions.retrieve(sessionId)
-        if (checkout.payment_status === 'paid') {
+        if (checkout.payment_status === 'paid' && checkout.metadata?.registrationId === registration.id) {
           const nowIso = new Date().toISOString()
           if (pay.status !== 'paid') {
 
@@ -74,7 +78,7 @@ export default async function GuestRegistrationSuccessPage({
             }).eq('id', pay.id)
           }
 
-          await db.from('registrations').update({ status: 'active' }).eq('id', registration.id)
+          await db.from('registrations').update({ status: 'active' }).eq('id', registration.id).eq('organization_id', org.id)
           status = 'active'
         }
       } catch (err) {
