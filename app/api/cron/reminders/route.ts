@@ -12,6 +12,7 @@ import { fetchRecentUploads, youTubeWatchUrl, youTubeEmbedUrl } from '@/lib/yout
 import { createNotifications, type NotificationInsert } from '@/lib/notify'
 import { pushConfigured } from '@/lib/push'
 import { decideReminderChannels } from '@/lib/reminder-channels'
+import { escapeHtml } from '@/lib/html-escape'
 
 // Bell/push reminder kinds created by this cron. Rows auto-mark read once the
 // game or session has started (data.until) so unread reminders never pile up.
@@ -347,9 +348,9 @@ export async function GET(req: NextRequest) {
             const opponent = myTeamIsHome ? g.away_team?.name : g.home_team?.name
             const time = new Date(g.scheduled_at).toLocaleTimeString('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
             const courtLabel = formatCourtLabel(g.court, league?.sport)
-            const venue = courtLabel ? `<br><span style="color:#666;font-size:13px">${courtLabel}</span>` : ''
-            const leagueLabel = league?.name ? `<span style="color:#666;font-size:13px">${league.name}</span><br>` : ''
-            const vsLabel = opponent ? ` vs ${opponent}` : ''
+            const venue = courtLabel ? `<br><span style="color:#666;font-size:13px">${escapeHtml(courtLabel)}</span>` : ''
+            const leagueLabel = league?.name ? `<span style="color:#666;font-size:13px">${escapeHtml(league.name)}</span><br>` : ''
+            const vsLabel = opponent ? ` vs ${escapeHtml(opponent)}` : ''
             return `<tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0">${leagueLabel}<strong>${time}${vsLabel}</strong>${venue}</td></tr>`
           }).join('')
 
@@ -387,11 +388,11 @@ export async function GET(req: NextRequest) {
             to: player.email,
             subject,
             html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-              <h2 style="margin-top:0">Hi ${firstName}, you have ${myGames.length === 1 ? 'a game' : `${myGames.length} games`} ${dayLabel}!</h2>
+              <h2 style="margin-top:0">Hi ${escapeHtml(firstName)}, you have ${myGames.length === 1 ? 'a game' : `${myGames.length} games`} ${dayLabel}!</h2>
               <p style="color:#555;margin-bottom:16px">${dateLabel}</p>
               <table style="width:100%;border-collapse:collapse">${gameRows}</table>
               <p style="margin-top:24px;font-size:12px;color:#999;border-top:1px solid #f3f4f6;padding-top:16px;line-height:1.6;">
-                You&rsquo;re receiving this because you&rsquo;re registered with <strong>${orgName}</strong>, powered by Fieldday.<br>
+                You&rsquo;re receiving this because you&rsquo;re registered with <strong>${escapeHtml(orgName)}</strong>, powered by Fieldday.<br>
                 To stop receiving game reminders, update your <a href="${profileUrl}" style="color:#999">notification preferences</a> in your profile.
               </p>
             </div>`,
@@ -473,10 +474,10 @@ export async function GET(req: NextRequest) {
       subject: `Payment reminder — overdue instalment for ${leagueName}`,
       html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
         <h2 style="margin-top:0">Payment Reminder</h2>
-        <p>Hi ${profile.full_name ?? 'there'},</p>
+        <p>Hi ${escapeHtml(profile.full_name ?? 'there')},</p>
         <p>You have an overdue instalment of <strong>$${(inst.amount_cents / 100).toFixed(2)} CAD</strong>
            that was due on ${new Date(inst.due_date).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
-           for <strong>${leagueName}</strong>.</p>
+           for <strong>${escapeHtml(leagueName)}</strong>.</p>
         ${payNowUrl ? `<p><a href="${payNowUrl}" style="display:inline-block;background:#333;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">Pay now →</a></p>` : '<p>Please log in to your account to complete your payment.</p>'}
         <p style="font-size:12px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:16px;margin-top:24px;line-height:1.6;">
           You&rsquo;re receiving this because you have an active payment plan for a league registration, powered by Fieldday.
@@ -1156,26 +1157,26 @@ export async function GET(req: NextRequest) {
         }
 
         const playerListHtml = unregistered
-          .map(name => `<li style="padding:2px 0">${name}</li>`)
+          .map(name => `<li style="padding:2px 0">${escapeHtml(name)}</li>`)
           .join('')
 
         const subject = `Reminder: ${unregistered.length} player${unregistered.length !== 1 ? 's' : ''} still need${unregistered.length === 1 ? 's' : ''} to register for ${league.name}`
 
         const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-          <h2 style="margin-top:0">${league.name} starts tomorrow — ${dateLabel}</h2>
+          <h2 style="margin-top:0">${escapeHtml(league.name)} starts tomorrow — ${dateLabel}</h2>
           <p style="color:#555">Hi Captain/Coach,</p>
           <p style="color:#555">
             <strong>${unregistered.length} player${unregistered.length !== 1 ? 's' : ''}</strong> on
-            <strong>${team.name}</strong> haven't registered yet.
+            <strong>${escapeHtml(team.name)}</strong> haven't registered yet.
             Registration includes signing the waiver, which is required to participate and helps speed up check-in on game day.
           </p>
           <p style="color:#555;font-weight:600;margin-bottom:4px">Still needs to register:</p>
           <ul style="margin:0 0 16px;padding-left:20px;color:#333">${playerListHtml}</ul>
           <a href="${registerUrl}" style="display:inline-block;background:#333;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">
-            Register for ${league.name} →
+            Register for ${escapeHtml(league.name)} →
           </a>
           <p style="margin-top:24px;font-size:12px;color:#999">
-            You're receiving this as a team captain or coach with ${orgName}.<br>
+            You're receiving this as a team captain or coach with ${escapeHtml(orgName)}.<br>
             This reminder was sent 24 hours before your event.
           </p>
         </div>`
@@ -1416,7 +1417,7 @@ export async function GET(req: NextRequest) {
       `Trial expiring in 3 days: ${orgRow?.name ?? trial.organization_id}`,
       `<div style="font-family:sans-serif;max-width:560px;color:#111;">
         <h2 style="font-size:18px;">Trial expiring soon</h2>
-        <p><strong>${orgRow?.name ?? 'Unknown org'}</strong> (${orgRow?.slug ?? ''}) has a trial that expires on <strong>${trialEnd}</strong> (3 days from now).</p>
+        <p><strong>${escapeHtml(orgRow?.name ?? 'Unknown org')}</strong> (${escapeHtml(orgRow?.slug ?? '')}) has a trial that expires on <strong>${trialEnd}</strong> (3 days from now).</p>
         <p>If they haven't subscribed by then, their account will drop to the Free plan limits.</p>
         <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">View in Super Console →</a>
       </div>`
@@ -1488,8 +1489,8 @@ export async function GET(req: NextRequest) {
         subject: `Your Fieldday trial has ended — ${orgName}`,
         html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111;">
           <h2 style="margin-top:0;">Your free trial has ended</h2>
-          <p>Hi ${admin.full_name?.split(' ')[0] || 'there'},</p>
-          <p>Your 15-day free trial for <strong>${orgName}</strong> has ended. Your account has been moved to the <strong>Free plan</strong>, which includes:</p>
+          <p>Hi ${escapeHtml(admin.full_name?.split(' ')[0] || 'there')},</p>
+          <p>Your 15-day free trial for <strong>${escapeHtml(orgName)}</strong> has ended. Your account has been moved to the <strong>Free plan</strong>, which includes:</p>
           <ul style="color:#374151;line-height:1.8;">
             <li>1 active league</li>
             <li>Up to 50 players</li>
@@ -1513,7 +1514,7 @@ export async function GET(req: NextRequest) {
       `Trial ended — ${orgName} moved to Free`,
       `<div style="font-family:sans-serif;max-width:560px;color:#111;">
         <h2>Trial expired — downgraded to Free</h2>
-        <p><strong>${orgName}</strong> (${orgSlug}) did not subscribe before their trial ended. They have been automatically moved to the <strong>Free plan</strong>.</p>
+        <p><strong>${escapeHtml(orgName)}</strong> (${escapeHtml(orgSlug)}) did not subscribe before their trial ended. They have been automatically moved to the <strong>Free plan</strong>.</p>
         <p style="color:#6b7280;font-size:13px;">Previous plan: ${trial.plan_tier}</p>
         <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">View in Super Console →</a>
       </div>`
@@ -1762,13 +1763,13 @@ export async function GET(req: NextRequest) {
               to: p.email,
               subject: `Reminder: ${eventName} tomorrow`,
               html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-                <h2 style="margin-top:0">Hi ${firstName}, you're signed up for ${eventName} tomorrow!</h2>
+                <h2 style="margin-top:0">Hi ${escapeHtml(firstName)}, you're signed up for ${escapeHtml(eventName)} tomorrow!</h2>
                 <p style="color:#555;margin-bottom:16px">${dateLabel}</p>
                 <table style="width:100%;border-collapse:collapse">
-                  <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0"><strong>${timeLabel}</strong>${locationLabel ? `<br><span style="color:#666;font-size:13px">${locationLabel}</span>` : ''}</td></tr>
+                  <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0"><strong>${timeLabel}</strong>${locationLabel ? `<br><span style="color:#666;font-size:13px">${escapeHtml(locationLabel)}</span>` : ''}</td></tr>
                 </table>
                 <p style="margin-top:24px;font-size:12px;color:#999;border-top:1px solid #f3f4f6;padding-top:16px;line-height:1.6;">
-                  You&rsquo;re receiving this because you&rsquo;re registered with <strong>${orgName}</strong>, powered by Fieldday.<br>
+                  You&rsquo;re receiving this because you&rsquo;re registered with <strong>${escapeHtml(orgName)}</strong>, powered by Fieldday.<br>
                   To stop receiving reminders, update your <a href="${profileUrl}" style="color:#999">notification preferences</a> in your profile.
                 </p>
               </div>`,

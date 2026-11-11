@@ -13,6 +13,7 @@ import type { OrgContext } from '@/lib/tenant'
 import type { NavLink } from '@/actions/nav-links'
 import { canOptimizeImage } from '@/lib/image-src'
 import { getOrgBrandingCached } from '@/lib/org-cache'
+import { safeHttpUrl } from '@/lib/safe-url'
 
 interface OrgNavProps {
   org: OrgContext
@@ -102,7 +103,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
           under it. It scrolls away with the page instead. */}
       {liveStream && (
         <a
-          href={liveStream.url}
+          href={safeHttpUrl(liveStream.url) ?? '#'}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 bg-red-600 text-white text-sm font-semibold py-1.5 px-4 hover:bg-red-700 transition-colors"

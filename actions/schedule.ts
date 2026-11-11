@@ -13,6 +13,7 @@ import { notifyScheduleDelay } from '@/lib/notify-schedule-delay'
 import { recordAuditLog, getAuditActor } from '@/lib/audit'
 import { isLeagueFrozen } from '@/lib/billing'
 import { createNotifications } from '@/lib/notify'
+import { escapeHtml } from '@/lib/html-escape'
 
 // ── Notification helpers ────────────────────────────────────────────────────
 
@@ -711,10 +712,10 @@ export async function cancelGame(input: {
       emailHtml: `
         <h2 style="margin:0 0 8px;font-size:22px;">Game Cancelled</h2>
         <p style="color:#374151;margin:0 0 16px;">
-          Your game <strong>${homeName} vs ${awayName}</strong> scheduled for
-          <strong>${dateLabel} at ${timeLabel}</strong>${leagueName ? ` (${leagueName})` : ''} has been <strong>cancelled</strong>.
+          Your game <strong>${escapeHtml(homeName)} vs ${escapeHtml(awayName)}</strong> scheduled for
+          <strong>${dateLabel} at ${timeLabel}</strong>${leagueName ? ` (${escapeHtml(leagueName)})` : ''} has been <strong>cancelled</strong>.
         </p>
-        ${input.reason ? `<p style="color:#6b7280;font-style:italic;margin:0;">${input.reason}</p>` : ''}
+        ${input.reason ? `<p style="color:#6b7280;font-style:italic;margin:0;">${escapeHtml(input.reason)}</p>` : ''}
       `,
     })
   }
@@ -780,11 +781,11 @@ export async function postponeGame(input: {
       emailHtml: `
         <h2 style="margin:0 0 8px;font-size:22px;">Game Postponed</h2>
         <p style="color:#374151;margin:0 0 16px;">
-          Your game <strong>${homeName} vs ${awayName}</strong> scheduled for
-          <strong>${dateLabel} at ${timeLabel}</strong>${leagueName ? ` (${leagueName})` : ''} has been <strong>postponed</strong>.
+          Your game <strong>${escapeHtml(homeName)} vs ${escapeHtml(awayName)}</strong> scheduled for
+          <strong>${dateLabel} at ${timeLabel}</strong>${leagueName ? ` (${escapeHtml(leagueName)})` : ''} has been <strong>postponed</strong>.
           A new date will be announced soon.
         </p>
-        ${input.reason ? `<p style="color:#6b7280;font-style:italic;margin:0;">${input.reason}</p>` : ''}
+        ${input.reason ? `<p style="color:#6b7280;font-style:italic;margin:0;">${escapeHtml(input.reason)}</p>` : ''}
       `,
     })
   }
@@ -848,7 +849,7 @@ export async function restoreGame(input: {
       emailHtml: `
         <h2 style="margin:0 0 8px;font-size:22px;">Game Back On! 🎉</h2>
         <p style="color:#374151;margin:0;">
-          Your game <strong>${homeName} vs ${awayName}</strong>${leagueName ? ` (${leagueName})` : ''} is back on —
+          Your game <strong>${escapeHtml(homeName)} vs ${escapeHtml(awayName)}</strong>${leagueName ? ` (${escapeHtml(leagueName)})` : ''} is back on —
           see you <strong>${dateLabel} at ${timeLabel}</strong>.
         </p>
       `,

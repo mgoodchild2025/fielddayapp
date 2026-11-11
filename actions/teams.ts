@@ -11,6 +11,7 @@ import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDecl
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { convertToWebP } from '@/lib/image-utils'
 import { createNotifications } from '@/lib/notify'
+import { escapeHtml } from '@/lib/html-escape'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -946,9 +947,9 @@ export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchem
         const resend = getResend()
         const orgLabel = (orgBranding as { org_name?: string } | null)?.org_name ?? org.name ?? 'Fieldday'
         const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-          <p style="font-size:12px;color:#888;margin-bottom:4px">${orgLabel} · ${teamName}</p>
-          <h2 style="font-size:20px;font-weight:bold;margin-top:0">${parsed.data.subject}</h2>
-          <div style="white-space:pre-wrap;line-height:1.6;color:#333">${parsed.data.body}</div>
+          <p style="font-size:12px;color:#888;margin-bottom:4px">${escapeHtml(orgLabel)} · ${escapeHtml(teamName)}</p>
+          <h2 style="font-size:20px;font-weight:bold;margin-top:0">${escapeHtml(parsed.data.subject)}</h2>
+          <div style="white-space:pre-wrap;line-height:1.6;color:#333">${escapeHtml(parsed.data.body)}</div>
         </div>`
         const BATCH = 50
         for (let i = 0; i < emails.length; i += BATCH) {

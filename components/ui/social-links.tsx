@@ -1,3 +1,5 @@
+import { safeHttpUrl } from '@/lib/safe-url'
+
 interface SocialProps {
   social_instagram?: string | null
   social_facebook?: string | null
@@ -61,11 +63,11 @@ export function HeroSocialLinks({
   if (!social) return null
 
   const links: { href: string; icon: React.ReactNode; label: string }[] = []
-  if (social.social_instagram) links.push({ href: social.social_instagram, icon: <InstagramIcon />, label: 'Instagram' })
-  if (social.social_facebook)  links.push({ href: social.social_facebook,  icon: <FacebookIcon />,  label: 'Facebook'  })
-  if (social.social_x)         links.push({ href: social.social_x,         icon: <XIcon />,         label: 'X'         })
-  if (social.social_tiktok)    links.push({ href: social.social_tiktok,    icon: <TikTokIcon />,    label: 'TikTok'    })
-  if (social.social_youtube)   links.push({ href: social.social_youtube,   icon: <YouTubeIcon />,   label: 'YouTube'   })
+  if (safeHttpUrl(social.social_instagram)) links.push({ href: safeHttpUrl(social.social_instagram)!, icon: <InstagramIcon />, label: 'Instagram' })
+  if (safeHttpUrl(social.social_facebook))  links.push({ href: safeHttpUrl(social.social_facebook)!,  icon: <FacebookIcon />,  label: 'Facebook'  })
+  if (safeHttpUrl(social.social_x))         links.push({ href: safeHttpUrl(social.social_x)!,         icon: <XIcon />,         label: 'X'         })
+  if (safeHttpUrl(social.social_tiktok))    links.push({ href: safeHttpUrl(social.social_tiktok)!,    icon: <TikTokIcon />,    label: 'TikTok'    })
+  if (safeHttpUrl(social.social_youtube))   links.push({ href: safeHttpUrl(social.social_youtube)!,   icon: <YouTubeIcon />,   label: 'YouTube'   })
 
   if (links.length === 0) return null
 

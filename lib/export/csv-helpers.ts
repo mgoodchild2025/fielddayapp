@@ -12,6 +12,15 @@ const BOM = '\xEF\xBB\xBF'
  *                 write a header-only file so the file is readable and clearly
  *                 structured rather than containing only the raw BOM bytes.
  */
+/**
+ * A cell a spreadsheet would run as a formula: it starts with = + - @ (or a
+ * tab / CR). Players choose their names and notes, and an admin opening the
+ * export in Excel would execute `=HYPERLINK(…)`. Such cells get a leading
+ * apostrophe (shown as text). Plain signed numbers ("-12.50", "+14165551234")
+ * are left alone so amounts still sum.
+ */
+const FORMULA_START = /^(?![+-]?\d+(\.\d+)?$)[=+\-@\t\r]/
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toCsvBytes(rows: any[], columns?: string[]): Uint8Array {
   if (rows.length === 0) {
@@ -28,6 +37,7 @@ export function toCsvBytes(rows: any[], columns?: string[]): Uint8Array {
     delimiter: ',',
     newline: '\n',      // LF only
     header: true,
+    escapeFormulae: FORMULA_START,
   })
   return new TextEncoder().encode(BOM + csv)
 }

@@ -3,6 +3,7 @@ import { sendEmailBatch } from '@/lib/email'
 import { formatGameTime } from '@/lib/format-time'
 import type { TablesInsert } from '@/types/database'
 import { createNotifications } from '@/lib/notify'
+import { escapeHtml } from '@/lib/html-escape'
 
 export interface DelayedEntry {
   teamIds: string[]      // home/away (or team1/team2) ids for this game/match
@@ -79,11 +80,11 @@ export async function notifyScheduleDelay(opts: {
     const plainBody = `Your remaining ${kindLabel} today were pushed back ${minutes} minutes. Updated times:\n` +
       lines.map((l) => `• ${l.text}`).join('\n')
 
-    const htmlList = lines.map((l) => `<li style="padding:2px 0">${l.date} at <strong>${l.time}</strong>${l.court}</li>`).join('')
+    const htmlList = lines.map((l) => `<li style="padding:2px 0">${l.date} at <strong>${l.time}</strong>${escapeHtml(l.court)}</li>`).join('')
     const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
       <h2 style="margin:0 0 8px;font-size:22px;">Schedule update</h2>
       <p style="color:#374151;margin:0 0 16px;">
-        Your remaining ${kindLabel} today${leagueName ? ` for <strong>${leagueName}</strong>` : ''} have been pushed back
+        Your remaining ${kindLabel} today${leagueName ? ` for <strong>${escapeHtml(leagueName)}</strong>` : ''} have been pushed back
         <strong>${minutes} minutes</strong>. Here are your updated times:
       </p>
       <ul style="margin:0 0 16px;padding-left:20px;color:#111;">${htmlList}</ul>

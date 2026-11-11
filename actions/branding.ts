@@ -13,29 +13,59 @@ import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { verifyCnameRecords } from '@/lib/dns-check'
 import { assertOrgAdmin } from '@/lib/auth'
 import { invalidateOrgCache } from '@/lib/org-cache'
+import { safeHttpUrl } from '@/lib/safe-url'
+
+// Colours and fonts are written into a <style> block on every page of the
+// org's site (BrandProvider), so they are a fixed shape — a free string here
+// let an admin close the style tag and inject script for every visitor.
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Colours must be hex values like #FF5C00')
+const fontName = z.string().regex(/^[A-Za-z0-9 \-]{1,60}$/, 'Font names use letters, numbers and spaces only')
+// A social link is a web address or nothing (lib/safe-url.ts adds https://).
+const socialLink = (label: string) =>
+  z.string().max(300).optional().transform((v, ctx) => {
+    if (!v?.trim()) return undefined
+    const url = safeHttpUrl(v)
+    if (!url) {
+      ctx.addIssue({ code: 'custom', message: `Enter the full ${label} link, like https://${label.toLowerCase().replace(/[^a-z]/g, '')}.com/yourpage` })
+      return z.NEVER
+    }
+    return url
+  })
 
 const brandingSchema = z.object({
   orgId: z.string().uuid(),
-  primary_color: z.string(),
-  secondary_color: z.string(),
-  bg_color: z.string(),
-  text_color: z.string(),
-  heading_font: z.string(),
-  body_font: z.string(),
-  tagline: z.string().optional(),
-  contact_email: z.string().optional(),
-  custom_domain: z.string().optional(),
-  social_instagram: z.string().optional(),
-  social_facebook: z.string().optional(),
-  social_x: z.string().optional(),
-  social_tiktok: z.string().optional(),
-  social_youtube: z.string().optional(),
-  timezone: z.string().optional(),
+  primary_color: hexColor,
+  secondary_color: hexColor,
+  bg_color: hexColor,
+  text_color: hexColor,
+  heading_font: fontName,
+  body_font: fontName,
+  tagline: z.string().max(200).optional(),
+  contact_email: z.string().email('Enter a valid contact email').optional().or(z.literal('')),
+  custom_domain: z.string().max(253).optional(),
+  social_instagram: socialLink('Instagram'),
+  social_facebook: socialLink('Facebook'),
+  social_x: socialLink('X'),
+  social_tiktok: socialLink('TikTok'),
+  social_youtube: socialLink('YouTube'),
+  timezone: z.string().max(64).optional(),
 })
 
-export async function updateBranding(input: z.infer<typeof brandingSchema>) {
+const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+const HOSTNAME = /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/
+
+/** "https://Foo.com/" → "foo.com"; null when it isn't a hostname we would register. */
+function normalizeCustomDomain(input: string | undefined): { domain: string | null; error: string | null } {
+  const raw = (input ?? '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+  if (!raw) return { domain: null, error: null }
+  if (!HOSTNAME.test(raw)) return { domain: null, error: 'Enter the domain on its own, like play.yourclub.com' }
+  if (raw === PLATFORM_DOMAIN || raw.endsWith(`.${PLATFORM_DOMAIN}`)) return { domain: null, error: `That is a ${PLATFORM_DOMAIN} address — your site already has one.` }
+  return { domain: raw, error: null }
+}
+
+export async function updateBranding(input: z.input<typeof brandingSchema>) {
   const parsed = brandingSchema.safeParse(input)
-  if (!parsed.success) return { data: null, error: 'Invalid input' }
+  if (!parsed.success) return { data: null, error: parsed.error.issues[0]?.message ?? 'Invalid input' }
 
   const { orgId, ...brandingData } = parsed.data
 
@@ -66,10 +96,25 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
     .eq('organization_id', orgId)
     .maybeSingle() as { data: { custom_domain: string | null; railway_domain_id: string | null } | null }
 
-  const newDomain  = brandingData.custom_domain?.trim() || null
+  const normalized = normalizeCustomDomain(brandingData.custom_domain)
+  if (normalized.error) return { data: null, error: normalized.error }
+  const newDomain  = normalized.domain
   const oldDomain  = existing?.custom_domain ?? null
   const railwayId  = existing?.railway_domain_id ?? null
   const domainChanged = newDomain !== oldDomain
+  if (domainChanged) {
+    // The domain decides which hosts reach this org and is added to the
+    // sign-in redirect allow-list: org admins only, and never one that
+    // another organization already uses.
+    if (member.role !== 'org_admin') return { data: null, error: 'Only an organization admin can change the custom domain.' }
+    if (newDomain) {
+      const bare = newDomain.replace(/^www\./, '')
+      const { data: taken } = await service
+        .from('org_branding').select('organization_id')
+        .in('custom_domain', [bare, `www.${bare}`]).neq('organization_id', orgId).limit(1)
+      if (taken && taken.length > 0) return { data: null, error: 'That domain is already connected to another organization.' }
+    }
+  }
   // Also re-register if the domain is already saved but was never successfully
   // registered with Railway (e.g. saved before the integration was set up)
   const needsRailwayRegistration = domainChanged || (!!newDomain && !railwayId)

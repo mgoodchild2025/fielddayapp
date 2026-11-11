@@ -23,6 +23,7 @@ import { sendPlatformAlert } from '@/lib/platform-alerts'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { constructPlatformEvent, platformEnvFor } from '@/lib/stripe-platform'
 import { applySubscriptionDeletion } from '@/lib/billing-downgrade'
+import { escapeHtml } from '@/lib/html-escape'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
@@ -182,7 +183,7 @@ export async function POST(request: NextRequest) {
           `Billing failure: ${org?.name ?? sub.organization_id}`,
           `<div style="font-family:sans-serif;max-width:560px;color:#111;">
             <h2 style="color:#dc2626;">Stripe payment failed</h2>
-            <p><strong>${org?.name ?? 'Unknown org'}</strong> (${org?.slug ?? ''}) had a payment failure.</p>
+            <p><strong>${escapeHtml(org?.name ?? 'Unknown org')}</strong> (${escapeHtml(org?.slug ?? '')}) had a payment failure.</p>
             <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
               <tr><td style="padding:6px 0;color:#6b7280;width:140px;">Plan</td><td>${sub.plan_tier}</td></tr>
               <tr><td style="padding:6px 0;color:#6b7280;">Amount</td><td>${amount}</td></tr>
@@ -229,7 +230,7 @@ export async function POST(request: NextRequest) {
             `Subscription changed: ${org?.name ?? sub.organization_id} → ${newTier}`,
             `<div style="font-family:sans-serif;max-width:560px;color:#111;">
               <h2>Subscription plan changed</h2>
-              <p><strong>${org?.name ?? 'Unknown org'}</strong> (${org?.slug ?? ''}) changed their plan via the Stripe portal.</p>
+              <p><strong>${escapeHtml(org?.name ?? 'Unknown org')}</strong> (${escapeHtml(org?.slug ?? '')}) changed their plan via the Stripe portal.</p>
               <p>${oldTier} → <strong>${newTier}</strong></p>
               <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">View in Super Console →</a>
             </div>`
@@ -280,7 +281,7 @@ export async function POST(request: NextRequest) {
           `Subscription ended: ${org?.name ?? sub.organization_id} → ${outcome.tier}`,
           `<div style="font-family:sans-serif;max-width:560px;color:#111;">
             <h2>Subscription period ended</h2>
-            <p><strong>${org?.name ?? 'Unknown org'}</strong> (${org?.slug ?? ''}) ended their <strong>${sub.plan_tier}</strong> subscription and ${landed}.</p>
+            <p><strong>${escapeHtml(org?.name ?? 'Unknown org')}</strong> (${escapeHtml(org?.slug ?? '')}) ended their <strong>${sub.plan_tier}</strong> subscription and ${landed}.</p>
             <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">View in Super Console →</a>
           </div>`
         )

@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { convertToWebP } from '@/lib/image-utils'
 import { createNotifications } from '@/lib/notify'
 import { requireCurrentOrgAdmin } from '@/lib/auth'
+import { escapeHtml } from '@/lib/html-escape'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1330,7 +1331,7 @@ export async function checkAndNotifyLowStock(
       .map((admin) => {
         const rows = alerts
           .map((a) => {
-            const label = a.variantLabel ? `${a.itemName} (${a.variantLabel})` : a.itemName
+            const label = escapeHtml(a.variantLabel ? `${a.itemName} (${a.variantLabel})` : a.itemName)
             const stockText = a.currentStock === 0
               ? '<span style="color:#dc2626;font-weight:600">Out of stock</span>'
               : `<span style="color:#d97706;font-weight:600">${a.currentStock} left</span>`

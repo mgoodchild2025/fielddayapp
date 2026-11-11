@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { convertToWebP } from '@/lib/image-utils'
+import { webLink } from '@/lib/zod-web-link'
 
 export type SponsorTier = 'gold' | 'silver' | 'bronze' | 'standard'
 
@@ -198,7 +199,7 @@ export async function linkOrgSponsor(leagueId: string, sponsorId: string): Promi
 const eventOnlySchema = z.object({
   leagueId: z.string().uuid(),
   name: z.string().min(1).max(100),
-  website_url: z.string().url().optional().or(z.literal('')),
+  website_url: webLink.optional(),
   tier: z.enum(['gold', 'silver', 'bronze', 'standard']).default('standard'),
 })
 
