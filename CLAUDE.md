@@ -389,6 +389,13 @@ await requireOrgMember(org)  // or with roles: requireOrgMember(org, ['org_admin
 const supabase = await createServerClient()
 ```
 
+## Database policies & links in emails (security review, Nov 2026)
+- **The public key reaches the database directly.** `NEXT_PUBLIC_SUPABASE_URL` + the publishable key ship to every browser, so anyone can call PostgREST, Storage and `/rpc/` as `anon`, or as `authenticated` after signing up. The app itself uses the service role (which bypasses RLS) and the browser touches NO tables, RPCs or buckets — so every policy and grant should say "service role only" unless a page truly needs public read.
+- **A policy for the service role must say `TO service_role`.** Without a `TO`, a policy applies to every role, anon included: `FOR ALL USING (true)` or `USING (bucket_id = '…')` is "everyone can read, write and delete". Migration 202 fixed eleven of these (private receipt/document buckets, plan tables, reminder logs, Stripe keys, `profiles_self_update` — which let a user set their own `platform_role`).
+- **A `SECURITY DEFINER` function must `REVOKE ALL … FROM PUBLIC, anon, authenticated`** and pin `search_path`. Granting to `service_role` does not remove the default grant: `purge_organization` (deletes an org) was callable with the public key until 202. `door_try_ring` (201) is the pattern.
+- **Links in emails come from `trustedOrigin(await headers())`** (`lib/trusted-origin.ts`, `pickTrustedOrigin` tested): the org's own subdomain, or its custom domain when the request arrived on it. Never `Referer`, `Origin` or `x-forwarded-host` — a scripted request sets those freely, and a password-reset link built from `Referer` sent the victim's token to the attacker's site. Covers reset, sign-up/resend confirmation, guest claim, check-in, pickup invites and the admin "new registration" alert.
+- **Never send a secret to an address taken from the request.** The data export used to call its own `/process` endpoint with `CRON_SECRET` at the caller's `Origin` header, handing the secret to whoever asked; a leftover `/api/admin/set-password` route then accepted that secret. Both routes are gone: the archive is built in-process after the response (`after()` → `lib/export/process-job.ts`). No endpoint sets a password by shared secret.
+
 ## What NOT to do
 - Don't use `middleware.ts` — Next.js 16 uses `proxy.ts` (exports `proxy` function + `config`)
 - Don't call `requireOrgMember` on public player pages (loops unauthenticated players to /login)

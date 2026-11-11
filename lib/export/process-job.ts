@@ -1,61 +1,35 @@
-/**
- * GET /api/export/org-data/process?jobId=<id>
- *
- * Internal endpoint — called fire-and-forget by /request.
- * Builds the ZIP archive, uploads to Supabase Storage, sends email notification.
- * Protected by CRON_SECRET bearer token.
- */
-
-import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { buildArchive } from '@/lib/export/build-archive'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 
 const EXPORT_TTL_DAYS = 7
 
-function authorized(req: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret) return true
-  return req.headers.get('authorization') === `Bearer ${secret}`
-}
-
-export async function GET(req: NextRequest) {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const { searchParams } = new URL(req.url)
-  const jobId = searchParams.get('jobId')
-  if (!jobId) return NextResponse.json({ error: 'Missing jobId' }, { status: 400 })
-
+/**
+ * Build an org's data export: ZIP archive → private storage → email the admin
+ * who asked. Runs in-process, after the request that created the job has
+ * answered (`after()` in /api/export/org-data/request).
+ *
+ * It used to be a second HTTP endpoint that /request called with the cron
+ * secret, at an address taken from the caller's Origin header — which handed
+ * the secret to whoever asked. Nothing here is reachable over HTTP now.
+ *
+ * `origin` is the org's own site (lib/trusted-origin), for the download link.
+ */
+export async function processExportJob(jobId: string, origin: string): Promise<void> {
   const db = createServiceRoleClient()
 
-  // Fetch job
-
-  const { data: job, error: jobFetchError } = await db
+  // Claim the job: only a pending one, and only once.
+  const { data: job } = await db
     .from('org_export_jobs')
-    .select('id, organization_id, requested_by, status')
+    .update({ status: 'processing', started_at: new Date().toISOString() })
     .eq('id', jobId)
-    .single()
-
-  if (jobFetchError || !job) {
-    return NextResponse.json({ error: 'Job not found' }, { status: 404 })
-  }
-
-  if (job.status !== 'pending') {
-    return NextResponse.json({ message: `Job already in status: ${job.status}` })
-  }
-
-  // Mark as processing
-
-  await db.from('org_export_jobs').update({
-    status: 'processing',
-    started_at: new Date().toISOString(),
-  }).eq('id', jobId)
+    .eq('status', 'pending')
+    .select('id, organization_id, requested_by')
+    .maybeSingle()
+  if (!job) return
 
   try {
     // Get requesting user's email for manifest + notification
-
     const { data: profile } = await db
       .from('profiles')
       .select('email, full_name')
@@ -71,7 +45,6 @@ export async function GET(req: NextRequest) {
     // Upload to Supabase Storage
     const now = new Date()
     const timestamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15)
-
 
     const { data: orgRow } = await db
       .from('organizations')
@@ -97,7 +70,6 @@ export async function GET(req: NextRequest) {
     const expiresAt = new Date(now.getTime() + EXPORT_TTL_DAYS * 24 * 60 * 60 * 1000)
 
     // Mark job as ready
-
     await db.from('org_export_jobs').update({
       status: 'ready',
       storage_path: storagePath,
@@ -110,7 +82,7 @@ export async function GET(req: NextRequest) {
     if (adminEmail) {
       try {
         const resend = getResend()
-        const downloadUrl = `${process.env.NEXTAUTH_URL ?? ''}/api/export/org-data/download/${jobId}`
+        const downloadUrl = `${origin}/api/export/org-data/download/${jobId}`
 
         await resend.emails.send({
           from: FROM_EMAIL,
@@ -129,21 +101,16 @@ export async function GET(req: NextRequest) {
         console.error('[export/process] email failed:', emailErr)
       }
     }
-
-    return NextResponse.json({ success: true, jobId, sizeBytes: zipBytes.length })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[export/process] failed:', err)
 
     // Mark job as failed
-
     await db.from('org_export_jobs').update({
       status: 'failed',
       error_message: msg,
       completed_at: new Date().toISOString(),
     }).eq('id', jobId)
-
-    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 

@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
-import { originFromHeaders } from '@/lib/public-origin'
+import { trustedOrigin } from '@/lib/trusted-origin'
 import { registrationBasePriceCents } from '@/lib/registration-price'
 import { assertOrgAdmin } from '@/lib/auth'
 import { sendRegistrationConfirmation, sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
@@ -523,7 +523,7 @@ export async function activateRegistration(registrationId: string) {
   const league = Array.isArray(reg.leagues) ? reg.leagues[0] : reg.leagues
 
   if (profile?.email && league?.name) {
-    const origin = headersList.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+    const origin = await trustedOrigin(headersList)
     const checkinUrl = (reg.checkin_token && league?.checkin_enabled === true)
       ? `${origin}/checkin/${reg.checkin_token}`
       : null
@@ -622,7 +622,7 @@ export async function activateRegistration(registrationId: string) {
           })
         }
         if (recipients.length > 0) {
-          const origin = headersList.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+          const origin = await trustedOrigin(headersList)
           await sendRegistrationAdminNotification({
             to: recipients,
             playerName: profile?.full_name ?? null,
@@ -1041,7 +1041,7 @@ export async function claimGuestRegistration(input: z.infer<typeof claimGuestSch
   // a normal sign-up. (It used to be created with email_confirm: true — the
   // guest email is never verified, so anyone could register a drop-in under
   // someone else's address, claim it, and own a verified account for it.)
-  const origin = originFromHeaders(headersList)
+  const origin = await trustedOrigin(headersList)
   const isDev = process.env.NODE_ENV === 'development'
   const { data: linkData, error: createErr } = await db.auth.admin.generateLink({
     type: 'signup',

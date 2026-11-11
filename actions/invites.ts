@@ -6,6 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendEmail, buildPickupInviteEmail } from '@/lib/email'
+import { trustedOrigin } from '@/lib/trusted-origin'
 
 async function requireOrgAdmin() {
   const headersList = await headers()
@@ -74,7 +75,7 @@ export async function invitePlayerToPickup(
     return { error: insertError.message }
   }
 
-  const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const origin = await trustedOrigin(await headers())
   const inviteUrl = inviteType === 'drop_in'
     ? `${origin}/events/${league.slug}?invite=${invite.token}&mode=drop_in`
     : `${origin}/events/${league.slug}?invite=${invite.token}`

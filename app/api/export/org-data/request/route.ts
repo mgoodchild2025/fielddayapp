@@ -1,18 +1,20 @@
 /**
  * POST /api/export/org-data/request
  *
- * Creates an export job and immediately triggers async processing.
+ * Creates an export job and builds the archive once the response is sent.
  * Returns { jobId } to the client for status polling.
  *
  * Rate limit: max 3 export requests per org per 24 hours.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
+import { processExportJob } from '@/lib/export/process-job'
+import { trustedOrigin } from '@/lib/trusted-origin'
 
 const RATE_LIMIT_MAX = 3
 const RATE_LIMIT_WINDOW_HOURS = 24
@@ -35,7 +37,8 @@ export async function POST(req: NextRequest) {
       .select('role')
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
-      .single()
+      .eq('status', 'active')
+      .maybeSingle()
 
     if (!member || member.role !== 'org_admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -91,20 +94,10 @@ export async function POST(req: NextRequest) {
       metadata: { ip: ip ?? null },
     })
 
-    // Fire-and-forget: trigger the process endpoint
-    // Works on Railway (persistent server) — the fetch runs independently
-    const origin = req.headers.get('origin') ?? `https://${req.headers.get('host')}`
-    const processUrl = `${origin}/api/export/org-data/process?jobId=${job.id}`
-
-    fetch(processUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.CRON_SECRET ?? ''}`,
-        'x-org-id': org.id,
-      },
-    }).catch(err => {
-      console.error('[export/request] failed to trigger process:', err)
-    })
+    // Build the archive after this response is sent — in-process, so no secret
+    // and no address taken from the request is involved (lib/export/process-job.ts).
+    const origin = await trustedOrigin(headersList)
+    after(() => processExportJob(job.id, origin))
 
     return NextResponse.json({ jobId: job.id })
   } catch (err) {
