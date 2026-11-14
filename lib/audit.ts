@@ -27,7 +27,11 @@ export const AUDIT_ACTIONS = {
   ACCOUNT_CLOSURE_REQUESTED: 'account.closure_requested',
 
   // ── Tier 2: operational integrity (dispute resolution) ─────────────────────
+  /** Pre-Nov-2026 entries: every admin/scorekeeper save. New saves use the three below. */
   SCORE_OVERRIDDEN:      'score.overridden',
+  SCORE_ENTERED:         'score.entered',
+  SCORE_CHANGED:         'score.changed',
+  SCORE_CLEARED:         'score.cleared',
   FORFEIT_RECORDED:      'forfeit.recorded',
   GAME_CANCELLED:        'game.cancelled',
   GAME_POSTPONED:        'game.postponed',
@@ -118,7 +122,10 @@ export function auditActionLabel(action: string): string {
     'payment.manual_recorded':   'Manual payment recorded',
     'account.closure_requested': 'Account closure requested',
     // Tier 2
-    'score.overridden':      'Score overridden by admin',
+    'score.overridden':      'Score saved',
+    'score.entered':         'Score entered',
+    'score.changed':         'Score changed',
+    'score.cleared':         'Score cleared',
     'forfeit.recorded':      'Forfeit recorded',
     'game.cancelled':        'Game cancelled',
     'game.postponed':        'Game postponed',

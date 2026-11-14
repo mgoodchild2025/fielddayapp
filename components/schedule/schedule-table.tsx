@@ -42,6 +42,8 @@ interface Game {
     awayScore: number | null
     status: string
     sets: SetScore[] | null
+    /** "Entered by Sam Lee · 10:42 a.m." */
+    enteredBy?: string | null
   } | null
 }
 
@@ -555,6 +557,9 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                             ) : (
                               <span className="block text-xs font-medium text-amber-700">pending</span>
                             )}
+                            {game.result.enteredBy && (
+                              <span className="block text-xs text-gray-500 max-w-[11rem] truncate">{game.result.enteredBy}</span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-xs font-medium text-orange-600">No score</span>
@@ -695,6 +700,9 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                             awayTeamName={game.awayTeamName}
                             existingResult={game.result}
                           />
+                          {game.result?.enteredBy && (
+                            <p className="mt-1 text-xs text-gray-500">{game.result.enteredBy}</p>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">

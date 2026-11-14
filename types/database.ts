@@ -266,6 +266,8 @@ export type Database = {
           organization_id: string
           round_number: number
           scheduled_at: string | null
+          scored_at: string | null
+          scored_by: string | null
           score1: number | null
           score2: number | null
           sets: Json | null
@@ -295,6 +297,8 @@ export type Database = {
           organization_id: string
           round_number: number
           scheduled_at?: string | null
+          scored_at?: string | null
+          scored_by?: string | null
           score1?: number | null
           score2?: number | null
           sets?: Json | null
@@ -324,6 +328,8 @@ export type Database = {
           organization_id?: string
           round_number?: number
           scheduled_at?: string | null
+          scored_at?: string | null
+          scored_by?: string | null
           score1?: number | null
           score2?: number | null
           sets?: Json | null
