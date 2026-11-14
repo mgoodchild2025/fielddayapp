@@ -64,6 +64,8 @@ export type AttachedGame = {
   home: { name: string; color: string | null }
   away: { name: string; color: string | null }
   canSave: 'admin' | 'captain' | null
+  /** A volunteer scorekeeper (saves like an admin; "Done" returns to Scorekeeping). */
+  scorekeeper?: boolean
   resultStatus: string | null
 }
 
@@ -683,8 +685,10 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
   // Where "done" leads for an attached board: admins loop back to Courtside,
   // everyone else returns to the event page.
-  const exitHref = attached ? (attached.canSave === 'admin' ? '/admin/courtside' : `/events/${attached.leagueSlug}`) : null
-  const exitLabel = attached?.canSave === 'admin' ? 'Courtside' : 'Event page'
+  const exitHref = attached
+    ? attached.scorekeeper ? '/scorekeeping' : attached.canSave === 'admin' ? '/admin/courtside' : `/events/${attached.leagueSlug}`
+    : null
+  const exitLabel = attached?.scorekeeper ? 'Scorekeeping' : attached?.canSave === 'admin' ? 'Courtside' : 'Event page'
 
   // Standalone boards opened from the site menu need a way back too — history
   // when there is one, the site home otherwise. Hidden when the board runs as

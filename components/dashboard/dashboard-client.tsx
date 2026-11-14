@@ -145,6 +145,8 @@ interface Props {
   nextItem: NextItem
   /** Cancelled / postponed games in the next ~36h. */
   callOffs?: CallOffItem[]
+  /** Events this player keeps score for (volunteer scorekeeper). */
+  scorekeeping?: string[]
   /** Each active event's next session, soonest first. */
   nextSessions?: NextSessionItem[]
   /** Other games on the same day as the next game (RSVP-able, shown below the hero). */
@@ -576,7 +578,7 @@ function MyCardSection({ myCardBio, myCareer, myCardHref, hasCardBio, myCardGaps
   )
 }
 
-export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, hasCardBio = false, myCardGaps = [], showShop = false }: Props) {
+export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], scorekeeping = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, hasCardBio = false, myCardGaps = [], showShop = false }: Props) {
   // The medal celebration nudges a photo onto the card the medal now sits on.
   const medalCardNudge = myCardGaps.includes('photo')
     ? { text: "It's on your player card now. Add a photo?", href: '/profile#bio' }
@@ -731,6 +733,21 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           </span>
         </Link>
       ))}
+
+      {/* ── Scorekeeping: the volunteer's way into the day's games ── */}
+      {scorekeeping.length > 0 && (
+        <Link href="/scorekeeping"
+          className="press flex items-center gap-3 rounded-xl border bg-white px-4 py-3.5 hover:bg-gray-50">
+          <ClipboardList className="w-5 h-5 text-gray-500 shrink-0" aria-hidden />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">Scorekeeping</p>
+            <p className="text-xs text-gray-500 mt-0.5 truncate">{scorekeeping.join(' · ')}</p>
+          </div>
+          <span className="text-xs font-bold text-brand-ink shrink-0 flex items-center gap-0.5">
+            Enter scores <ChevronRight className="w-3.5 h-3.5" />
+          </span>
+        </Link>
+      )}
 
       {/* ── Called off: announced, not silently replaced by next week ── */}
       {callOffs.map((c) => (

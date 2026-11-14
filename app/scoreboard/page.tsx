@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getScoringRole } from '@/lib/score-permissions'
+import { impersonationGrantsAdmin } from '@/lib/impersonation'
 import { ScoreboardApp, type AttachedGame } from '@/components/scoreboard/scoreboard-app'
 
 // Free standalone scoreboard — no login, works on every host (apex and org
@@ -84,18 +86,22 @@ async function loadAttachedGame(gameId: string): Promise<AttachedGame | null> {
 
   // Who is looking? Admins save confirmed; captains of either team submit
   // (pending → opponent confirms); everyone else gets a score-only board.
+  // Scorekeepers save like admins (confirmed) — for their own events only.
   let canSave: 'admin' | 'captain' | null = null
+  let scorekeeper = false
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-    const [{ data: adminRow }, { data: captainRow }] = await Promise.all([
-      db.from('org_members').select('role').eq('organization_id', orgId).eq('user_id', user.id)
-        .in('role', ['org_admin', 'league_admin']).eq('status', 'active').maybeSingle(),
+    const [scoringRole, { data: captainRow }] = await Promise.all([
+      getScoringRole(db, orgId, user.id, league?.id ?? null, {
+        impersonating: impersonationGrantsAdmin(headersList.get('x-impersonating'), user),
+      }),
       db.from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain')
         .eq('status', 'active').in('team_id', [home.id, away.id]).limit(1).maybeSingle(),
     ])
-    if (adminRow) canSave = 'admin'
+    if (scoringRole) canSave = 'admin'
     else if (captainRow) canSave = 'captain'
+    scorekeeper = scoringRole === 'scorekeeper'
   }
 
   return {
@@ -110,6 +116,7 @@ async function loadAttachedGame(gameId: string): Promise<AttachedGame | null> {
     home: { name: home.name, color: home.color ?? null },
     away: { name: away.name, color: away.color ?? null },
     canSave,
+    scorekeeper,
     resultStatus: result?.status ?? null,
   }
 }
@@ -152,19 +159,18 @@ async function loadAttachedBracketMatch(matchId: string): Promise<AttachedGame |
 
   // Bracket scores are admin-entered only (recordBracketScore advances the
   // winner) — captains and spectators get a score-only board.
+  // Scorekeepers of this event too — but a played match is an organiser's to
+  // change (the winner has moved on), so theirs is a score-only board then.
   let canSave: 'admin' | null = null
+  let scorekeeper = false
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-    const { data: adminRow } = await db
-      .from('org_members')
-      .select('role')
-      .eq('organization_id', orgId)
-      .eq('user_id', user.id)
-      .in('role', ['org_admin', 'league_admin'])
-      .eq('status', 'active') // suspended admins keep nothing
-      .maybeSingle()
-    if (adminRow) canSave = 'admin'
+    const role = await getScoringRole(db, orgId, user.id, league.id, {
+      impersonating: impersonationGrantsAdmin(headersList.get('x-impersonating'), user),
+    })
+    scorekeeper = role === 'scorekeeper'
+    if (role === 'admin' || (role === 'scorekeeper' && match.status !== 'completed')) canSave = 'admin'
   }
 
   return {
@@ -179,6 +185,7 @@ async function loadAttachedBracketMatch(matchId: string): Promise<AttachedGame |
     home: { name: team1.name, color: team1.color ?? null },
     away: { name: team2.name, color: team2.color ?? null },
     canSave,
+    scorekeeper,
     resultStatus: match.status === 'completed' ? 'confirmed' : null,
   }
 }

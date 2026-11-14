@@ -76,6 +76,9 @@ interface Props {
   /** With compact: a big filled button (Courtside) instead of the flat strip
    *  that sits in the phone schedule card's toolbar. */
   large?: boolean
+  /** false for scorekeepers: they correct a score by saving the right one;
+   *  clearing a result (and un-advancing a bracket) is an organiser's call. */
+  canClear?: boolean
 }
 
 function defaultSegments(mode: ScoringMode): EditSet[] {
@@ -102,7 +105,7 @@ function setsWon(sets: EditSet[]): [number, number] {
 // ── Score entry bottom sheet ───────────────────────────────────────────────────
 
 function ScoreEntrySheet({
-  gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, onClose,
+  gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, onClose, canClear = true,
 }: Props & { onClose: () => void }) {
   const scoringMode = getScoringMode(sport)
   const isSegmented = scoringMode !== 'simple'
@@ -384,7 +387,7 @@ function ScoreEntrySheet({
             )}
           </div>
 
-          {hasExistingScore && (
+          {hasExistingScore && canClear && (
             <div className="border-t pt-3">
               {confirmClear ? (
                 <div className="flex items-center gap-3">
@@ -458,7 +461,7 @@ function ConfirmPendingButton({ gameId, leagueId, homeTeamName, awayTeamName, re
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, compact, large }: Props) {
+export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, compact, large, canClear = true }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const hasScore =
@@ -475,6 +478,7 @@ export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTea
         panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90dvh]"
       >
         <ScoreEntrySheet
+          canClear={canClear}
           gameId={gameId}
           leagueId={leagueId}
           sport={sport}

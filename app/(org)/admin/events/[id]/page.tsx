@@ -18,6 +18,8 @@ import { StatusChip, eventStatusLabel } from '@/components/ui/status-chip'
 import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
 import { OrganizersPanel } from '@/components/events/organizers-panel'
+import { ScorekeepersPanel } from '@/components/events/scorekeepers-panel'
+import { listEventScorekeepers } from '@/actions/scorekeepers'
 import { StatsVisibilityToggle } from '@/components/stats/stats-visibility-toggle'
 import { EventLogoUpload } from '@/components/events/event-logo-upload'
 import { MerchSummaryWidget } from '@/components/merchandise/merch-summary-widget'
@@ -75,6 +77,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     canCoOrganizers,
     canPaymentPlans,
     adminDocuments,
+    scorekeepers,
   ] = await Promise.all([
 
     db.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
@@ -95,6 +98,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     canAccess(org.id, 'co_organizers'),
     canAccess(org.id, 'payment_plans'),
     listAdminDocuments(org.id, id),
+    listEventScorekeepers(id),
   ])
 
   if (!league) notFound()
@@ -241,6 +245,9 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           availableAdmins={organizersData.availableAdmins}
           isOrgAdmin={isOrgAdmin && canCoOrganizers}
         />
+
+        {/* Scorekeepers — volunteers who only enter scores (shown to whoever runs this event) */}
+        {!scorekeepers.error && <ScorekeepersPanel leagueId={id} initialRows={scorekeepers.rows} />}
 
         {/* Merchandise summary — only rendered when there are orders */}
         <MerchSummaryWidget orders={merchOrders} leagueId={id} />
