@@ -741,6 +741,74 @@ export type Database = {
           },
         ]
       }
+      event_scorekeepers: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          invited_email: string
+          league_id: string
+          organization_id: string
+          status: string
+          token: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          invited_email: string
+          league_id: string
+          organization_id: string
+          status?: string
+          token?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          invited_email?: string
+          league_id?: string
+          organization_id?: string
+          status?: string
+          token?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_scorekeepers_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_scorekeepers_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_scorekeepers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_scorekeepers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pwa_launch_logs: {
         Row: {
           day: string

@@ -148,7 +148,7 @@ export async function proxy(request: NextRequest) {
       '/admin', '/dashboard', '/my-events', '/my-teams', '/profile', '/shop',
       '/reconsent', '/events', '/teams', '/players', '/champions', '/gallery',
       '/games', '/schedule', '/standings', '/checkin', '/goodbye', '/invite',
-      '/join', '/organizer-invite', '/sub-invite', '/unsubscribe', '/register/', '/door', '/api/door',
+      '/join', '/organizer-invite', '/scorekeeper-invite', '/scorekeeping', '/sub-invite', '/unsubscribe', '/register/', '/door', '/api/door',
     ]
     const { pathname } = request.nextUrl
     const orgOnly = ORG_ONLY_PREFIXES.some((prefix) =>

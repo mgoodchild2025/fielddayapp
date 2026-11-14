@@ -23,6 +23,7 @@ import type {
 import { nextSessionPerEvent } from '@/lib/next-sessions'
 import { redirectToLogin } from '@/lib/auth'
 import { getOrgBrandingCached } from '@/lib/org-cache'
+import { getMyScorekeeperEvents } from '@/lib/scorekeeper-events'
 import { canAccess } from '@/lib/features'
 import type { Metadata } from 'next'
 import { formatDollars } from '@/lib/money'
@@ -54,6 +55,8 @@ export default async function DashboardPage() {
     getPlayerCareer(db, org.id, user.id),
   ])
   identityPromise.catch(() => {})
+  const scorekeepingPromise = getMyScorekeeperEvents(org.id, user.id)
+  scorekeepingPromise.catch(() => {})
 
   // ── Base queries (always run) ─────────────────────────────────────────────
   const [
@@ -188,6 +191,9 @@ export default async function DashboardPage() {
   // ── Identity: trophy case + card — rendered in BOTH paths. A player with
   // nothing scheduled still has a career; the off-season dashboard keeps it.
   const [myMedals, { data: myBioRow }, myCareer] = await identityPromise
+  const scorekeeping = (await scorekeepingPromise)
+    .filter((e) => e.leagueStatus !== 'completed')
+    .map((e) => e.leagueName)
   const shelfCounts = myMedals.reduce(
     (acc, m) => { acc[m.placement] = (acc[m.placement] ?? 0) + 1; return acc },
     {} as Record<string, number>
@@ -228,6 +234,7 @@ export default async function DashboardPage() {
           hasCardBio={hasCardBio}
           myCardGaps={myCardGaps}
           timezone={timezone}
+          scorekeeping={scorekeeping}
           nextItem={null}
           sameDayGames={[]}
           teams={[]}
@@ -800,6 +807,7 @@ export default async function DashboardPage() {
           hasCardBio={hasCardBio}
           myCardGaps={myCardGaps}
           timezone={timezone}
+          scorekeeping={scorekeeping}
           nextItem={nextItem}
           callOffs={callOffs}
           nextSessions={nextSessionItems}

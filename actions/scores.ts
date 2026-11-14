@@ -9,6 +9,8 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { advanceBracketFromScore, reverseBracketAdvancement } from '@/lib/bracket-advance'
 import { recordAuditLog } from '@/lib/audit'
 import { isLeagueFrozen } from '@/lib/billing'
+import { getScoringRole, requireScoringRole } from '@/lib/score-permissions'
+import { canClearScores } from '@/lib/scoring-role'
 
 const submitScoreSchema = z.object({
   gameId: z.string().uuid(),
@@ -49,14 +51,8 @@ export async function submitScore(input: z.infer<typeof submitScoreSchema>) {
     .in('team_id', teamIds)
     .single()
 
-  // Also allow org/league admins
-  const { data: adminMember } = await db
-    .from('org_members')
-    .select('role')
-    .eq('organization_id', org.id)
-    .eq('user_id', user.id).eq('status', 'active')
-    .in('role', ['org_admin', 'league_admin'])
-    .single()
+  // Also allow this event's organisers and scorekeepers
+  const adminMember = await getScoringRole(db, org.id, user.id, game.league_id ?? null)
 
   if (!captainship && !adminMember) return { data: null, error: 'Only team captains or admins can submit scores' }
 
@@ -120,17 +116,7 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
 
   const db = createServiceRoleClient()
 
-  const { data: adminMember } = await db
-    .from('org_members')
-    .select('role')
-    .eq('organization_id', org.id)
-    .eq('user_id', user.id).eq('status', 'active')
-    .in('role', ['org_admin', 'league_admin'])
-    .single()
-
-  if (!adminMember) return { data: null, error: 'Admin access required' }
-
-  const { data: game } = await supabase
+  const { data: game } = await db
     .from('games')
     .select('id, league_id')
     .eq('id', parsed.data.gameId)
@@ -139,12 +125,18 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
 
   if (!game) return { data: null, error: 'Game not found' }
 
+  // Org admins, this event's organisers, and its scorekeepers.
+  const scorer = await requireScoringRole(org.id, game.league_id ?? null)
+  if ('error' in scorer) return { data: null, error: scorer.error }
+
   // Block score entry on frozen leagues
   if (game.league_id && await isLeagueFrozen(game.league_id, org.id)) {
     return { data: null, error: 'LEAGUE_FROZEN' }
   }
 
-  const { error: upsertError } = await supabase
+  // Service role: the permission check above is the gate (a scorekeeper has
+  // no admin row for the table's RLS policies to find).
+  const { error: upsertError } = await db
     .from('game_results')
     .upsert(
       {
@@ -163,7 +155,7 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
 
   if (upsertError) return { data: null, error: upsertError.message }
 
-  await supabase.from('games').update({ status: 'completed' }).eq('id', parsed.data.gameId)
+  await db.from('games').update({ status: 'completed' }).eq('id', parsed.data.gameId).eq('organization_id', org.id)
 
   const leagueId = parsed.data.leagueId ?? game.league_id
 
@@ -217,16 +209,6 @@ export async function recordForfeit(input: z.infer<typeof recordForfeitSchema>) 
   if (!user) return { data: null, error: 'Not authenticated' }
 
   const db = createServiceRoleClient()
-  const { data: adminMember } = await db
-    .from('org_members')
-    .select('role')
-    .eq('organization_id', org.id)
-    .eq('user_id', user.id).eq('status', 'active')
-    .in('role', ['org_admin', 'league_admin'])
-    .single()
-  if (!adminMember) return { data: null, error: 'Admin access required' }
-
-
   const { data: game } = await db
     .from('games')
     .select('id, league_id, home_team_id, away_team_id, league:leagues!games_league_id_fkey(sport)')
@@ -234,6 +216,9 @@ export async function recordForfeit(input: z.infer<typeof recordForfeitSchema>) 
     .eq('organization_id', org.id)
     .single()
   if (!game) return { data: null, error: 'Game not found' }
+
+  const scorer = await requireScoringRole(org.id, game.league_id ?? null)
+  if ('error' in scorer) return { data: null, error: scorer.error }
 
   const league = Array.isArray(game.league) ? game.league[0] : game.league
   const isVolleyball = VOLLEYBALL_SPORTS.has(league?.sport ?? '')
@@ -320,16 +305,6 @@ export async function adminClearScore(gameId: string): Promise<{ error: string |
 
   const db = createServiceRoleClient()
 
-  const { data: adminMember } = await db
-    .from('org_members')
-    .select('role')
-    .eq('organization_id', org.id)
-    .eq('user_id', user.id).eq('status', 'active')
-    .in('role', ['org_admin', 'league_admin'])
-    .single()
-
-  if (!adminMember) return { error: 'Admin access required' }
-
   const { data: game } = await db
     .from('games')
     .select('id, league_id')
@@ -338,6 +313,12 @@ export async function adminClearScore(gameId: string): Promise<{ error: string |
     .single()
 
   if (!game) return { error: 'Game not found' }
+
+  // Clearing (and un-advancing a bracket) stays with admins of this event —
+  // scorekeepers correct a score by saving the right one.
+  const scorer = await requireScoringRole(org.id, game.league_id ?? null)
+  if ('error' in scorer) return { error: scorer.error }
+  if (!canClearScores(scorer.role)) return { error: 'Only an organiser can clear a score. Save the correct score instead.' }
 
   // Reverse bracket advancement first — blocks if a downstream match is completed
   const { error: bracketError } = await reverseBracketAdvancement(gameId, org.id)
@@ -368,7 +349,7 @@ export async function confirmScore(gameId: string) {
 
   const { data: result } = await supabase
     .from('game_results')
-    .select('id, submitted_by, game:games!game_results_game_id_fkey(home_team_id, away_team_id)')
+    .select('id, submitted_by, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id)')
     .eq('game_id', gameId)
     .eq('organization_id', org.id)
     .single()
@@ -387,13 +368,7 @@ export async function confirmScore(gameId: string) {
     .in('team_id', teamIds)
     .single()
 
-  const { data: adminMember } = await db
-    .from('org_members')
-    .select('role')
-    .eq('organization_id', org.id)
-    .eq('user_id', user.id).eq('status', 'active')
-    .in('role', ['org_admin', 'league_admin'])
-    .single()
+  const adminMember = await getScoringRole(db, org.id, user.id, game?.league_id ?? null)
 
   if (!captainship && !adminMember) return { data: null, error: 'Unauthorized' }
 

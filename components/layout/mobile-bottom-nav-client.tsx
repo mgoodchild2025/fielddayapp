@@ -24,7 +24,7 @@ const ME: Tab = { href: '/profile', label: 'Me', Icon: CircleUser, match: ['/pro
 
 // Visitors get a slimmer bar on browsing pages; one-off flows (invites, check-in,
 // unsubscribe…) carry their own next step, so the bar stays out of the way there.
-const VISITOR_HIDDEN = ['/checkin', '/invite', '/join', '/sub-invite', '/organizer-invite', '/unsubscribe', '/goodbye']
+const VISITOR_HIDDEN = ['/checkin', '/invite', '/join', '/sub-invite', '/organizer-invite', '/scorekeeper-invite', '/unsubscribe', '/goodbye']
 
 const under = (path: string, prefix: string) => path === prefix || path.startsWith(prefix + '/')
 

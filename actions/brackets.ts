@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { requireScoringRole } from '@/lib/score-permissions'
 import { advanceWinner, advanceLoser } from '@/lib/bracket-advance'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
 import { getInflowContext, inflowSpecFromContext, clearInboundRoutes, wireLeagueTierInflows } from '@/lib/tier-inflows'
@@ -763,24 +764,37 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
   const parsed = bracketScoreSchema.safeParse(input)
   if (!parsed.success) return { error: 'Invalid input' }
 
-  const org = await getOrgAndRequireAdmin()
+  const org = await getCurrentOrg(await headers())
   const db = createServiceRoleClient()
   const d = parsed.data
 
   if (d.score1 === d.score2) return { error: 'Bracket matches cannot end in a tie' }
+
+  // Org admins, this event's organisers and its scorekeepers (playoff night).
+  const { data: bracketRow } = await db
+    .from('brackets').select('league_id')
+    .eq('id', d.bracketId).eq('organization_id', org.id).maybeSingle()
+  if (!bracketRow) return { error: 'Match not found' }
+  const scorer = await requireScoringRole(org.id, bracketRow.league_id ?? null)
+  if ('error' in scorer) return { error: scorer.error }
 
   const winnerSlot = d.score1 > d.score2 ? 1 : 2
 
 
   const { data: match } = await db
     .from('bracket_matches')
-    .select('team1_id, team2_id')
+    .select('team1_id, team2_id, status')
     .eq('id', d.matchId)
     .eq('bracket_id', d.bracketId)
     .eq('organization_id', org.id)
     .single()
 
   if (!match) return { error: 'Match not found' }
+  // The winner has already moved on through the bracket — changing it is an
+  // organiser's call (they can clear the result first).
+  if (scorer.role === 'scorekeeper' && match.status === 'completed') {
+    return { error: 'This match is already scored. Ask an organiser to change it.' }
+  }
 
   const winnerTeamId = winnerSlot === 1 ? match.team1_id : match.team2_id
   const loserTeamId = winnerSlot === 1 ? match.team2_id : match.team1_id
