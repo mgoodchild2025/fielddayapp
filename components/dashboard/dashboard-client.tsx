@@ -663,6 +663,22 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
   // Off-season only when there is genuinely nothing coming up. Sessions now
   // travel separately from nextItem (which carries games only), so a drop-in
   // player with no team must still get the normal dashboard.
+  // Volunteer scorekeepers often have no team of their own, so this shows on
+  // the off-season dashboard too (it used to be drawn only further down).
+  const scorekeepingCard = scorekeeping.length > 0 ? (
+        <Link href="/scorekeeping"
+          className="press flex items-center gap-3 rounded-xl border bg-white px-4 py-3.5 hover:bg-gray-50">
+          <ClipboardList className="w-5 h-5 text-gray-500 shrink-0" aria-hidden />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">Scorekeeping</p>
+            <p className="text-xs text-gray-500 mt-0.5 truncate">{scorekeeping.join(' · ')}</p>
+          </div>
+          <span className="text-xs font-bold text-brand-ink shrink-0 flex items-center gap-0.5">
+            Enter scores <ChevronRight className="w-3.5 h-3.5" />
+          </span>
+        </Link>
+  ) : null
+
   if (teams.length === 0 && !nextItem && nextSessions.length === 0) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 pb-24 space-y-8">
@@ -678,6 +694,8 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           )}
           <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} hasCardBio={hasCardBio} myCardGaps={myCardGaps} />
         </div>
+
+        {scorekeepingCard}
 
         <div className="rounded-xl border bg-white px-6 py-12 text-center">
           <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-gray-100">
@@ -735,19 +753,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
       ))}
 
       {/* ── Scorekeeping: the volunteer's way into the day's games ── */}
-      {scorekeeping.length > 0 && (
-        <Link href="/scorekeeping"
-          className="press flex items-center gap-3 rounded-xl border bg-white px-4 py-3.5 hover:bg-gray-50">
-          <ClipboardList className="w-5 h-5 text-gray-500 shrink-0" aria-hidden />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900">Scorekeeping</p>
-            <p className="text-xs text-gray-500 mt-0.5 truncate">{scorekeeping.join(' · ')}</p>
-          </div>
-          <span className="text-xs font-bold text-brand-ink shrink-0 flex items-center gap-0.5">
-            Enter scores <ChevronRight className="w-3.5 h-3.5" />
-          </span>
-        </Link>
-      )}
+      {scorekeepingCard}
 
       {/* ── Called off: announced, not silently replaced by next week ── */}
       {callOffs.map((c) => (
