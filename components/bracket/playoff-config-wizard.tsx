@@ -10,9 +10,9 @@ import { publishBracket, unpublishBracket, deleteBracket, seedBracket, clearBrac
 import { BracketView, type BracketData, type TeamRef } from './bracket-view'
 import { BracketBuilder } from './bracket-builder'
 import { BracketRoutingProvider, type RoutingTarget } from './bracket-routing'
-import { roundDisplayName, type TeamStanding, type BracketRecommendation } from '@/lib/bracket'
+import { roundDisplayName, validateInflowBracket, type TeamStanding, type BracketRecommendation } from '@/lib/bracket'
 import type { TierInput, PoolSeedingMethod } from '@/actions/playoff-config'
-import { applicableTemplates, describeTiers, type TierTemplateSpec } from '@/lib/playoff-templates'
+import { applicableTemplates, describeTiers, firstRoundLosers, isLosersOnlyTier, tierSeedCount, type TierTemplateSpec } from '@/lib/playoff-templates'
 import { applyRoster, rosterIsActive, EMPTY_ROSTER, type PlayoffRoster } from '@/lib/playoff-roster'
 import { PlayoffRosterPanel } from './playoff-roster-panel'
 import { listPlayoffTemplates, savePlayoffTemplate, deletePlayoffTemplate, type SavedPlayoffTemplate } from '@/actions/playoff-templates'
@@ -137,9 +137,20 @@ function TierRow({
   // earlier single-elimination tier (e.g. Gold QF losers drop into Silver).
   const dropDownSources = (allTiers ?? [])
     .map((t, i) => ({ tier: t, index: i }))
-    .filter((s) => s.index < index && s.tier.bracketType === 'single_elimination')
+    .filter((s) => s.index < index && s.tier.bracketType === 'single_elimination' && !isLosersOnlyTier(s.tier))
   const hasInflow = tier.inflowFromTierIndex !== null && tier.inflowFromTierIndex !== undefined
-  const tierTeamCount = tier.seedTo - tier.seedFrom + 1
+  const tierTeamCount = tierSeedCount(tier)
+  // "Losers only": no seeds of its own — every team arrives from the tier above.
+  const losersOnly = hasInflow && isLosersOnlyTier(tier)
+  const sourceTier = hasInflow ? (allTiers ?? [])[tier.inflowFromTierIndex as number] : undefined
+  const inflowCount = sourceTier ? firstRoundLosers(tierSeedCount(sourceTier)) : 0
+  const sourceName = sourceTier?.name || 'the tier above'
+  const shapeError = tier.bracketType === 'single_elimination' && sourceTier
+    ? validateInflowBracket({ directSeeds: tierTeamCount, inflowCount, byeSeeds: Math.min(tier.byeSeeds ?? 0, tierTeamCount) })
+    : null
+  // Seeds can only come back if the tiers above have left one to give.
+  const nextFreeSeed = Math.max(0, ...(allTiers ?? []).slice(0, index).map((t) => t.seedTo)) + 1
+  const canHaveSeeds = nextFreeSeed <= totalTeams
 
   return (
     // Phones: a card — name + remove on the first row, then seeds, format, 3rd
@@ -164,6 +175,9 @@ function TierRow({
       </div>
 
       {/* Seed from */}
+      {losersOnly ? (
+        <span className="text-xs text-gray-500 whitespace-nowrap max-sm:order-2">No seeds of its own</span>
+      ) : (
       <div className="flex items-center gap-1 text-sm text-gray-500 max-sm:order-2">
         <span className="text-xs text-gray-500">Seeds</span>
         <select
@@ -184,11 +198,19 @@ function TierRow({
           {seedOptions.filter((n) => n >= tier.seedFrom).map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
       </div>
+      )}
 
       {/* Format */}
       <select
         value={tier.bracketType}
-        onChange={(e) => onChange({ bracketType: e.target.value as TierConfig['bracketType'] })}
+        onChange={(e) => {
+          const bracketType = e.target.value as TierConfig['bracketType']
+          // Only single elimination can receive drop-downs, so a losers-only
+          // tier that changes format needs a seed range again.
+          onChange(losersOnly && bracketType !== 'single_elimination'
+            ? { bracketType, inflowFromTierIndex: null, byeSeeds: 0, seedTo: tier.seedFrom }
+            : { bracketType })
+        }}
         aria-label="Format"
         className="min-h-10 border rounded px-2 text-sm max-sm:order-2"
         title={tier.bracketType === 'custom' ? 'Hand-built: you place every match, team and route yourself' : undefined}
@@ -217,7 +239,9 @@ function TierRow({
 
       {/* Team count badge */}
       <span className="text-xs text-gray-500 whitespace-nowrap max-sm:order-2 max-sm:ml-auto">
-        {tier.seedTo - tier.seedFrom + 1} teams
+        {losersOnly
+          ? `${inflowCount} ${inflowCount === 1 ? 'loser' : 'losers'}`
+          : `${tierTeamCount} ${tierTeamCount === 1 ? 'team' : 'teams'}`}
       </span>
 
       {/* Remove */}
@@ -237,9 +261,11 @@ function TierRow({
           <span>Receives losers from</span>
           <select
             value={hasInflow ? String(tier.inflowFromTierIndex) : ''}
-            onChange={(e) => onChange({
-              inflowFromTierIndex: e.target.value === '' ? null : Number(e.target.value),
-            })}
+            onChange={(e) => onChange(e.target.value === ''
+              // Without drop-downs a losers-only tier would be empty.
+              ? { inflowFromTierIndex: null, byeSeeds: 0, ...(losersOnly ? { seedTo: tier.seedFrom } : {}) }
+              : { inflowFromTierIndex: Number(e.target.value) })}
+            aria-label="Receives losers from"
             className="border rounded px-1.5 py-1 text-xs"
           >
             <option value="">— no drop-downs —</option>
@@ -248,11 +274,29 @@ function TierRow({
             ))}
           </select>
           {hasInflow && (
+            <label
+              className="flex items-center gap-1.5 cursor-pointer text-gray-600"
+              title={losersOnly && !canHaveSeeds ? 'Every seed is already in a tier above — shorten one to give this tier seeds.' : undefined}
+            >
+              <input
+                type="checkbox"
+                checked={losersOnly}
+                disabled={losersOnly && !canHaveSeeds}
+                onChange={(e) => onChange(e.target.checked
+                  ? { seedTo: tier.seedFrom - 1, byeSeeds: 0 }
+                  : { seedFrom: nextFreeSeed, seedTo: nextFreeSeed })}
+                className="rounded"
+              />
+              Losers only
+            </label>
+          )}
+          {hasInflow && !losersOnly && (
             <>
               <span>· top</span>
               <select
                 value={Math.min(tier.byeSeeds ?? 0, tierTeamCount)}
                 onChange={(e) => onChange({ byeSeeds: Number(e.target.value) })}
+                aria-label="Seeds that skip the entry round"
                 className="border rounded px-1.5 py-1 text-xs"
               >
                 {Array.from({ length: tierTeamCount + 1 }, (_, n) => (
@@ -261,6 +305,18 @@ function TierRow({
               </select>
               <span>seed{(tier.byeSeeds ?? 0) === 1 ? '' : 's'} bye past the entry round</span>
             </>
+          )}
+          {losersOnly && !shapeError && (
+            <span className="basis-full">
+              Every team here comes from {sourceName}&apos;s first round — {inflowCount} losers play {inflowCount === 2 ? 'one match' : 'on in their own bracket'}.
+            </span>
+          )}
+          {shapeError && (
+            <span className="basis-full text-red-600">
+              {losersOnly
+                ? `${sourceName} sends down ${inflowCount} first-round ${inflowCount === 1 ? 'loser' : 'losers'}. A losers-only bracket needs 2, 4, 8 or 16 — change how many teams play in ${sourceName}, or give this tier seeds of its own.`
+                : shapeError}
+            </span>
           )}
         </div>
       )}
@@ -279,8 +335,11 @@ function TierBracketCard({
   isOrgAdmin,
   onDeleted,
   unsettledCount,
+  sourceTierName,
 }: {
   tier: ExistingTier
+  /** Name of the tier whose first-round losers drop into this one, if any. */
+  sourceTierName?: string | null
   leagueId: string
   sport?: string
   timezone?: string
@@ -297,7 +356,10 @@ function TierBracketCard({
   const [bestLoserResult, setBestLoserResult] = useState<string | null>(null)
   const [seedingOrder, setSeedingOrder] = useState<{ seed: number; name: string; wins: number; losses: number; ties: number; setWins: number }[] | null>(null)
 
-  const tierCount = tier.seedTo - tier.seedFrom + 1
+  const tierCount = tierSeedCount(tier)
+  // No seeds of its own: the bracket fills as the tier above plays round one.
+  const losersOnly = !!tier.inflowFromTierId && isLosersOnlyTier(tier)
+  const sourceName = sourceTierName || 'the tier above'
 
   // Determine if the "Advance Best Loser" button should be shown.
   // Shown when: bracket is all_play, seeded (not scaffold), and the best loser slot still has no real team.
@@ -432,7 +494,12 @@ function TierBracketCard({
                   <Printer className="w-3.5 h-3.5" />
                 </PrintLink>
               )}
-              {!isSeeded && !isCustomBracket && (
+              {losersOnly && !isSeeded && (
+                <span className="text-[11px] text-gray-500 self-center">
+                  Fills as {sourceName} plays its first round
+                </span>
+              )}
+              {!isSeeded && !isCustomBracket && !losersOnly && (
                 <button
                   onClick={handleSeed}
                   disabled={isPending}
@@ -528,8 +595,10 @@ function TierBracketCard({
         </div>
         {/* Row 2: seeds range + status badge */}
         <div className="flex items-center gap-2 pl-6">
-          <span className="text-xs text-gray-400">
-            Seeds {tier.seedFrom}–{tier.seedTo} · {tierCount} team{tierCount !== 1 ? 's' : ''}
+          <span className="text-xs text-gray-500">
+            {losersOnly
+              ? `First-round losers of ${sourceName}`
+              : `Seeds ${tier.seedFrom}–${tier.seedTo} · ${tierCount} team${tierCount !== 1 ? 's' : ''}`}
           </span>
           {tier.bracket ? (
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -560,7 +629,13 @@ function TierBracketCard({
       )}
 
       {/* Scaffold notice */}
-      {isScaffold && (
+      {isScaffold && losersOnly && !isSeeded && (
+        <div className="mx-5 mb-3 p-3 bg-gray-50 border rounded-lg text-xs text-gray-600">
+          <p className="font-semibold mb-0.5">Nothing to seed here</p>
+          <p>Each team that loses in {sourceName}&apos;s first round is placed in this bracket as soon as its score is saved.</p>
+        </div>
+      )}
+      {isScaffold && !losersOnly && (
         <div className="mx-5 mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
           <p className="font-semibold mb-0.5">Bracket positions are reserved — teams not yet assigned</p>
           {unsettledCount && unsettledCount > 0 ? (
@@ -866,8 +941,30 @@ export function PlayoffConfigWizard({
   }
 
   function addTier() {
-    const lastTo = tiers[tiers.length - 1]?.seedTo ?? 0
+    const lastTo = Math.max(...tiers.map((t) => t.seedTo), 0)
     const newFrom = lastTo + 1
+    // Every seed is already placed (all teams start in the tiers above), so
+    // the only tier left to add is one fed by a tier's first-round losers.
+    if (seededTeams.length > 0 && newFrom > seededTeams.length) {
+      const taken = new Set(tiers.map((t) => t.inflowFromTierIndex).filter((n) => n !== null && n !== undefined))
+      let srcIdx = -1
+      tiers.forEach((t, idx) => {
+        if (t.bracketType === 'single_elimination' && !isLosersOnlyTier(t) && !taken.has(idx)) srcIdx = idx
+      })
+      if (srcIdx >= 0) {
+        const name = tiers.some((t) => t.name === 'Consolation') ? `Consolation ${tiers.length + 1}` : 'Consolation'
+        setTiers((prev) => [...prev, {
+          name,
+          seedFrom: newFrom,
+          seedTo: newFrom - 1,
+          bracketType: 'single_elimination',
+          thirdPlaceGame: false,
+          inflowFromTierIndex: srcIdx,
+          byeSeeds: 0,
+        }])
+        return
+      }
+    }
     const newTo = Math.min(newFrom + 3, seededTeams.length || newFrom + 3)
     const nameIndex = tiers.length
     const names = TIER_PRESETS[tiers.length + 1] ?? []
@@ -1038,6 +1135,9 @@ export function PlayoffConfigWizard({
             isOrgAdmin={isOrgAdmin}
             onDeleted={() => setRefreshKey((k) => k + 1)}
             unsettledCount={unsettledCount}
+            sourceTierName={tier.inflowFromTierId
+              ? existingConfig.tiers.find((s) => s.id === tier.inflowFromTierId)?.name ?? null
+              : null}
           />
         ))}
       </div>
@@ -1166,8 +1266,12 @@ export function PlayoffConfigWizard({
                   <div key={i} className="px-4 py-3 flex gap-4">
                     <span className="text-xs font-semibold text-gray-700 w-20 shrink-0">{tier.name || `Tier ${i + 1}`}</span>
                     <div className="flex flex-wrap gap-x-3 gap-y-1">
-                      {tierTeams.length === 0 ? (
-                        <span className="text-xs text-gray-300">No teams in this range</span>
+                      {isLosersOnlyTier(tier) && tier.inflowFromTierIndex !== null && tier.inflowFromTierIndex !== undefined ? (
+                        <span className="text-xs text-gray-500">
+                          First-round losers of {tiers[tier.inflowFromTierIndex]?.name || 'the tier above'}
+                        </span>
+                      ) : tierTeams.length === 0 ? (
+                        <span className="text-xs text-gray-500">No teams in this range</span>
                       ) : tierTeams.map((t, ti) => (
                         <span key={t.teamId} className="text-xs text-gray-600">
                           <span className="text-gray-400">{tier.seedFrom + ti}.</span> {t.teamName}

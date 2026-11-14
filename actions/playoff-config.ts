@@ -18,6 +18,7 @@ import {
   type InflowSlotRef,
 } from '@/lib/bracket'
 import { wireLeagueTierInflows, sourceLoserCount, clearInboundRoutes } from '@/lib/tier-inflows'
+import { isLosersOnlyTier } from '@/lib/playoff-templates'
 import { EMPTY_ROSTER, type PlayoffRoster } from '@/lib/playoff-roster'
 import { getLeagueConfirmedResults } from '@/lib/league-results'
 
@@ -350,8 +351,21 @@ export async function savePlayoffConfig(input: {
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
-  // Validate tiers: no overlapping seed ranges
-  const sortedTiers = [...input.tiers].sort((a, b) => a.seedFrom - b.seedFrom)
+  // Never trust the shape: a TypeScript parameter type is not checked at runtime.
+  for (const t of input.tiers) {
+    if (!Number.isInteger(t.seedFrom) || !Number.isInteger(t.seedTo) || t.seedFrom < 1 || t.seedTo < t.seedFrom - 1) {
+      return { error: `Tier "${t.name}" has an invalid seed range.`, configId: null }
+    }
+    // An empty seed range is a "losers only" tier — it must have a tier to
+    // receive its teams from, or the bracket would have nobody in it.
+    if (isLosersOnlyTier(t) && (t.inflowFromTierIndex === null || t.inflowFromTierIndex === undefined)) {
+      return { error: `Tier "${t.name}" has no seeds — give it a seed range, or have it receive another tier's losers.`, configId: null }
+    }
+  }
+
+  // Validate tiers: no overlapping seed ranges (losers-only tiers hold no
+  // seeds, so they can't overlap anything)
+  const sortedTiers = input.tiers.filter((t) => !isLosersOnlyTier(t)).sort((a, b) => a.seedFrom - b.seedFrom)
   for (let i = 1; i < sortedTiers.length; i++) {
     if (sortedTiers[i].seedFrom <= sortedTiers[i - 1].seedTo) {
       return { error: 'Tier seed ranges must not overlap.', configId: null }
@@ -373,6 +387,11 @@ export async function savePlayoffConfig(input: {
     // no generated entry round for drop-downs to land in.
     if (input.tiers[i].bracketType !== 'single_elimination') {
       return { error: `Tier "${input.tiers[i].name}" must be single elimination to receive drop-downs.`, configId: null }
+    }
+    // A first-round loser can only go to one place.
+    const other = input.tiers.findIndex((t, j) => j < i && t.inflowFromTierIndex === src)
+    if (other >= 0) {
+      return { error: `"${input.tiers[src].name}" already sends its first-round losers to "${input.tiers[other].name}" — "${input.tiers[i].name}" needs a different source.`, configId: null }
     }
   }
 
@@ -633,8 +652,9 @@ export async function generateAllTierBrackets(
     }
 
     const teamsAdvancing = tier.seed_to - tier.seed_from + 1
-    // Inflow tiers can be as small as one direct seed (drop-downs fill the rest).
-    if (teamsAdvancing < (tier.inflow_from_tier_id ? 1 : 2)) {
+    // Inflow tiers need no seeds of their own: a "losers only" tier (empty
+    // seed range) is filled entirely by the drop-downs.
+    if (teamsAdvancing < (tier.inflow_from_tier_id ? 0 : 2)) {
       skipped++
       continue
     }

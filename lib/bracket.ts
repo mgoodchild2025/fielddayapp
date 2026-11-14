@@ -432,6 +432,9 @@ export function validateInflowBracket(opts: InflowBracketOptions): string | null
     return `The entry round has ${entryTeams} teams (${inflowCount} drop-downs + ${directSeeds - byeSeeds} seeds) — it must be an even number. Adjust the byes or the seed range.`
   }
   const mainSize = entryTeams / 2 + byeSeeds
+  // Two drop-downs and nothing else: the entry round IS the final (a 6-team
+  // top tier has two first-round losers, who play one consolation match).
+  if (mainSize === 1) return null
   if (mainSize < 2 || (mainSize & (mainSize - 1)) !== 0) {
     return `After the entry round, ${mainSize} teams remain (${entryTeams / 2} winners + ${byeSeeds} byes) — that must be a power of 2 (2, 4, 8, …). Adjust the byes or the seed range.`
   }
@@ -448,6 +451,26 @@ export function generateInflowBracketSpec(
   const entryTeams = inflowCount + (directSeeds - byeSeeds)
   const entryMatches = entryTeams / 2
   const mainSize = entryMatches + byeSeeds
+
+  // One match in all: two drop-downs meet in the final, no main bracket below.
+  if (mainSize === 1) {
+    return {
+      bracketSize: 2,
+      rounds: [1],
+      matches: [{
+        roundNumber: 1, matchNumber: 1, team1Seed: null, team2Seed: null, isBye: false,
+        winnerToRoundNumber: null, winnerToMatchNumber: null, winnerToSlot: null,
+        loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null,
+        team1InflowIndex: 1, team2InflowIndex: 2,
+      }],
+      thirdPlaceMatch: null,
+      inflowSlots: [
+        { roundNumber: 1, matchNumber: 1, slot: 1, inflowIndex: 1 },
+        { roundNumber: 1, matchNumber: 1, slot: 2, inflowIndex: 2 },
+      ],
+    }
+  }
+
   const entryRound = mainSize          // one power level above the main first round
   const mainFirstRound = mainSize / 2  // e.g. 2 = semis when mainSize is 4
 

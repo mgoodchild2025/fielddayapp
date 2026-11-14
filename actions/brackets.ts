@@ -324,6 +324,12 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     .select('seed_from, seed_to, config_id')
     .eq('bracket_id', bracketId)
     .maybeSingle()
+  // A "losers only" tier (empty seed range) has no seeds to assign: its teams
+  // arrive as the tier above plays its first round. Rebuilding it here would
+  // only throw away teams that have already dropped in.
+  if (tierRow && (tierRow.seed_to as number) < (tierRow.seed_from as number)) {
+    return { error: 'This bracket fills itself with the first-round losers of the tier above — there is nothing to seed.' }
+  }
   // seed_from is 1-based; convert to 0-based skip count (0 = no skip = top of standings)
   const seedOffset = tierRow?.seed_from ? Math.max(0, (tierRow.seed_from as number) - 1) : 0
 

@@ -352,6 +352,48 @@ describe('validateInflowBracket', () => {
 })
 
 describe('generateInflowBracketSpec', () => {
+  it('builds a losers-only bracket (no seeds of its own) from 4 drop-downs', () => {
+    // 8 teams all start in the top tier; its 4 first-round losers play semis + a final.
+    expect(validateInflowBracket({ directSeeds: 0, inflowCount: 4, byeSeeds: 0 })).toBeNull()
+    const spec = generateInflowBracketSpec({ directSeeds: 0, inflowCount: 4, byeSeeds: 0 })
+
+    expect(spec.bracketSize).toBe(4)
+    expect(spec.rounds).toEqual([2, 1])
+    expect(spec.matches).toHaveLength(3)
+    expect(spec.matches.every((m) => m.team1Seed === null && m.team2Seed === null)).toBe(true)
+    expect(spec.inflowSlots.map((s) => [s.roundNumber, s.matchNumber, s.slot, s.inflowIndex])).toEqual([
+      [2, 1, 1, 1], [2, 1, 2, 2], [2, 2, 1, 3], [2, 2, 2, 4],
+    ])
+    expectAllReferencesResolve(spec)
+    expectNoSlotCollisions(spec)
+  })
+
+  it('builds a losers-only bracket from 8 drop-downs (quarters, semis, final)', () => {
+    const spec = generateInflowBracketSpec({ directSeeds: 0, inflowCount: 8, byeSeeds: 0 })
+    expect(spec.rounds).toEqual([4, 2, 1])
+    expect(spec.matches).toHaveLength(7)
+    expect(spec.inflowSlots).toHaveLength(8)
+    expectAllReferencesResolve(spec)
+    expectNoSlotCollisions(spec)
+  })
+
+  it('two drop-downs and nothing else play a single final', () => {
+    // A 6-team top tier (two byes) has two first-round losers.
+    expect(validateInflowBracket({ directSeeds: 0, inflowCount: 2, byeSeeds: 0 })).toBeNull()
+    const spec = generateInflowBracketSpec({ directSeeds: 0, inflowCount: 2, byeSeeds: 0, thirdPlaceGame: true })
+    expect(spec.rounds).toEqual([1])
+    expect(spec.matches).toHaveLength(1)
+    expect(spec.matches[0]).toMatchObject({ roundNumber: 1, matchNumber: 1, winnerToRoundNumber: null })
+    expect(spec.thirdPlaceMatch).toBeNull()
+    expect(spec.inflowSlots).toHaveLength(2)
+  })
+
+  it('refuses a losers-only bracket the drop-downs cannot fill', () => {
+    expect(validateInflowBracket({ directSeeds: 0, inflowCount: 6, byeSeeds: 0 })).toMatch(/power of 2/)
+    expect(validateInflowBracket({ directSeeds: 0, inflowCount: 3, byeSeeds: 0 })).toMatch(/even number/)
+    expect(validateInflowBracket({ directSeeds: 0, inflowCount: 1, byeSeeds: 0 })).toMatch(/at least 2/)
+  })
+
   it('lays out the Silver tier of the 10-team scenario', () => {
     // Seeds 9-10 (tier-relative 1-2) bye to the semis; 4 Gold-QF losers play R1.
     const spec = generateInflowBracketSpec({ directSeeds: 2, inflowCount: 4, byeSeeds: 2 })
