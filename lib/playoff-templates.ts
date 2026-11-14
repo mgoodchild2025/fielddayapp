@@ -10,7 +10,33 @@
  * picker only offers applicable formats.
  */
 
-import { validateInflowBracket } from '@/lib/bracket'
+import { nextPowerOf2, validateInflowBracket } from '@/lib/bracket'
+
+/**
+ * A "losers only" tier has no seeds of its own: it is filled entirely by the
+ * first-round losers of the tier it receives from (everyone starts in the top
+ * bracket, losers drop to a consolation bracket). It is stored as an EMPTY
+ * seed range — seedTo = seedFrom − 1 — so every `seedTo − seedFrom + 1` count
+ * in the generators reads 0 without a special case.
+ */
+export function isLosersOnlyTier(t: { seedFrom: number; seedTo: number }): boolean {
+  return t.seedTo < t.seedFrom
+}
+
+/** Seeds a tier takes straight from the standings (0 for a losers-only tier). */
+export function tierSeedCount(t: { seedFrom: number; seedTo: number }): number {
+  return Math.max(0, t.seedTo - t.seedFrom + 1)
+}
+
+/**
+ * First-round matches of a single-elim draw that produce a real loser (byes
+ * don't). Same rule as `sourceLoserCount` in lib/tier-inflows.ts.
+ */
+export function firstRoundLosers(teams: number): number {
+  if (teams < 2) return 0
+  const size = nextPowerOf2(teams)
+  return size / 2 - (size - teams)
+}
 
 export interface TierTemplateSpec {
   name: string
@@ -128,6 +154,20 @@ export const BUILTIN_TEMPLATES: PlayoffTemplate[] = [
     build: (n) => (n >= 5 ? solveGoldSilverDropDown(n) : null),
   },
   {
+    id: 'championship-consolation',
+    name: 'Championship + Consolation',
+    description: 'Every team starts in the Championship bracket. First-round losers drop into a Consolation bracket of their own.',
+    build: (n) => {
+      if (n < 4) return null
+      const losers = firstRoundLosers(n)
+      if (validateInflowBracket({ directSeeds: 0, inflowCount: losers, byeSeeds: 0 }) !== null) return null
+      return [
+        tier('Championship', 1, n),
+        tier('Consolation', n + 1, n, { inflowFromTierIndex: 0 }),
+      ]
+    },
+  },
+  {
     id: 'gold-silver-bronze',
     name: 'Gold / Silver / Bronze split',
     description: 'Three separate single-elimination brackets by seeding third.',
@@ -159,6 +199,10 @@ export function applicableTemplates(teamCount: number): { template: PlayoffTempl
 export function describeTiers(tiers: TierTemplateSpec[]): string {
   return tiers
     .map((t) => {
+      if (isLosersOnlyTier(t)) {
+        const src = t.inflowFromTierIndex !== null ? tiers[t.inflowFromTierIndex] : undefined
+        return `${t.name} (first-round losers${src ? ` of ${src.name}` : ''})`
+      }
       const range = t.seedFrom === t.seedTo ? `${t.seedFrom}` : `${t.seedFrom}–${t.seedTo}`
       const bits: string[] = []
       if (t.inflowFromTierIndex !== null) bits.push('drop-downs in')

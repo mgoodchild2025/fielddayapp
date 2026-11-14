@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applicableTemplates, BUILTIN_TEMPLATES, describeTiers } from './playoff-templates'
+import { applicableTemplates, BUILTIN_TEMPLATES, describeTiers, firstRoundLosers, isLosersOnlyTier, tierSeedCount } from './playoff-templates'
 import { validateInflowBracket } from './bracket'
 
 function get(id: string) {
@@ -79,5 +79,37 @@ describe('describeTiers', () => {
   it('summarizes the 10-team drop-down layout', () => {
     const tiers = get('gold-silver-dropdown').build(10)!
     expect(describeTiers(tiers)).toBe('Gold 1–8 · Silver 9–10 (drop-downs in, 2 byes)')
+  })
+})
+
+describe('championship-consolation template (losers-only tier)', () => {
+  const t = get('championship-consolation')
+
+  it('puts every team in the top tier and gives the second tier no seeds', () => {
+    const tiers = t.build(8)!
+    expect(tiers[0]).toMatchObject({ name: 'Championship', seedFrom: 1, seedTo: 8, inflowFromTierIndex: null })
+    expect(tiers[1]).toMatchObject({ name: 'Consolation', seedFrom: 9, seedTo: 8, inflowFromTierIndex: 0, byeSeeds: 0 })
+    expect(isLosersOnlyTier(tiers[1])).toBe(true)
+    expect(tierSeedCount(tiers[1])).toBe(0)
+    expect(isLosersOnlyTier(tiers[0])).toBe(false)
+  })
+
+  it('is offered only when the losers fill a bracket (2, 4, 8, … of them)', () => {
+    const offered: number[] = []
+    for (let n = 2; n <= 16; n++) if (t.build(n)) offered.push(n)
+    // 5 teams → 1 loser, 7 → 3, 9 → 1, 11 → 3, 13 → 5, 14 → 6, 15 → 7
+    expect(offered).toEqual([4, 6, 8, 10, 12, 16])
+  })
+
+  it('counts first-round losers, not byes', () => {
+    expect(firstRoundLosers(8)).toBe(4)
+    expect(firstRoundLosers(6)).toBe(2)  // seeds 1-2 bye
+    expect(firstRoundLosers(12)).toBe(4) // seeds 1-4 bye
+    expect(firstRoundLosers(1)).toBe(0)
+    expect(firstRoundLosers(0)).toBe(0)
+  })
+
+  it('is described without a seed range', () => {
+    expect(describeTiers(t.build(8)!)).toBe('Championship 1–8 · Consolation (first-round losers of Championship)')
   })
 })

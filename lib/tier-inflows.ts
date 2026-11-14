@@ -14,6 +14,7 @@ type Db = ReturnType<typeof createServiceRoleClient>
 
 /** First-round matches of a single-elim tier that produce a real loser (byes don't). */
 export function sourceLoserCount(teams: number): number {
+  if (teams < 2) return 0
   const size = nextPowerOf2(teams)
   return size / 2 - (size - teams)
 }
