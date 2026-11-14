@@ -1,4 +1,4 @@
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
@@ -6,6 +6,7 @@ import { getAdminScope } from '@/lib/admin-scope'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { loadCourtsideDay } from '@/lib/courtside-day'
+import { COURT_COOKIE, readCourtCookie } from '@/lib/courtside-order'
 import { CourtsideLists } from '@/components/courtside/courtside-lists'
 import { CourtsideDoors, type CourtsideDoor } from '@/components/door/courtside-doors'
 import type { Metadata } from 'next'
@@ -108,7 +109,7 @@ export default async function CourtsidePage({
         </div>
       )}
 
-      <CourtsideLists day={day} tz={tz} canClear emptyHint="Use the arrows above to check another day." />
+      <CourtsideLists day={day} tz={tz} canClear emptyHint="Use the arrows above to check another day." initialCourt={readCourtCookie((await cookies()).get(COURT_COOKIE)?.value, day.date)} />
     </div>
   )
 }

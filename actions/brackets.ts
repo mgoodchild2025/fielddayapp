@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { requireScoringRole } from '@/lib/score-permissions'
+import { recordAuditLog } from '@/lib/audit'
 import { advanceWinner, advanceLoser } from '@/lib/bracket-advance'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
 import { getInflowContext, inflowSpecFromContext, clearInboundRoutes, wireLeagueTierInflows } from '@/lib/tier-inflows'
@@ -783,7 +784,7 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
 
   const { data: match } = await db
     .from('bracket_matches')
-    .select('team1_id, team2_id, status')
+    .select('team1_id, team2_id, status, score1, score2, team1:teams!bracket_matches_team1_id_fkey(name), team2:teams!bracket_matches_team2_id_fkey(name)')
     .eq('id', d.matchId)
     .eq('bracket_id', d.bracketId)
     .eq('organization_id', org.id)
@@ -808,10 +809,30 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
       sets: d.sets ?? null,
       winner_team_id: winnerTeamId,
       status: 'completed',
+      scored_by: scorer.userId,
+      scored_at: new Date().toISOString(),
     })
     .eq('id', d.matchId)
 
   if (updateError) return { error: updateError.message }
+
+  const wasScored = match.status === 'completed' && match.score1 !== null
+  const teamName = (t: unknown) => ((Array.isArray(t) ? t[0] : t) as { name?: string } | null)?.name ?? 'TBD'
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: scorer.userId,
+    actorLabel: scorer.email,
+    action: wasScored ? 'score.changed' : 'score.entered',
+    targetType: 'bracket_match',
+    targetId: d.matchId,
+    targetLabel: `${teamName(match.team1)} vs ${teamName(match.team2)} (playoff)`,
+    metadata: {
+      league_id: d.leagueId,
+      score: `${d.score1}–${d.score2}`,
+      scorer_role: scorer.role,
+      ...(wasScored ? { previous: `${match.score1}–${match.score2}` } : {}),
+    },
+  })
 
   await advanceWinner(db, org.id, d.bracketId, d.matchId, winnerTeamId)
   if (loserTeamId) {
@@ -1743,8 +1764,9 @@ export async function declareMatchWinner(input: {
 
   const loserTeamId = input.winnerTeamId === match.team1_id ? match.team2_id : match.team1_id
 
+  const { data: { user } } = await (await createServerClient()).auth.getUser()
   const { error } = await db.from('bracket_matches')
-    .update({ winner_team_id: input.winnerTeamId, status: 'completed' })
+    .update({ winner_team_id: input.winnerTeamId, status: 'completed', scored_by: user?.id ?? null, scored_at: new Date().toISOString() })
     .eq('id', match.id)
   if (error) return { error: error.message }
 
@@ -1810,7 +1832,7 @@ export async function clearBracketMatchResult(input: {
 
   const { error } = await db.from('bracket_matches')
     .update({
-      score1: null, score2: null, sets: null, winner_team_id: null,
+      score1: null, score2: null, sets: null, winner_team_id: null, scored_by: null, scored_at: null,
       status: match.team1_id && match.team2_id ? 'ready' : 'pending',
     })
     .eq('id', match.id)

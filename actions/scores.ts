@@ -12,6 +12,14 @@ import { isLeagueFrozen } from '@/lib/billing'
 import { getScoringRole, requireScoringRole } from '@/lib/score-permissions'
 import { canClearScores } from '@/lib/scoring-role'
 
+const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null)
+
+/** "Hawks vs Owls" — the audit log's snapshot label (survives team renames/deletes). */
+function matchupLabel(game: { home?: unknown; away?: unknown }): string {
+  const name = (t: unknown) => (one(t as { name: string } | { name: string }[] | null)?.name ?? 'TBD')
+  return `${name(game.home)} vs ${name(game.away)}`
+}
+
 const submitScoreSchema = z.object({
   gameId: z.string().uuid(),
   homeScore: z.coerce.number().min(0),
@@ -118,7 +126,7 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
 
   const { data: game } = await db
     .from('games')
-    .select('id, league_id')
+    .select('id, league_id, home:teams!games_home_team_id_fkey(name), away:teams!games_away_team_id_fkey(name), game_results(home_score, away_score, status)')
     .eq('id', parsed.data.gameId)
     .eq('organization_id', org.id)
     .single()
@@ -133,6 +141,10 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
   if (game.league_id && await isLeagueFrozen(game.league_id, org.id)) {
     return { data: null, error: 'LEAGUE_FROZEN' }
   }
+
+  // Was there a score already? Decides "entered" vs "changed" in the audit log.
+  const before = one(game.game_results)
+  const hadScore = !!before && before.home_score !== null
 
   // Service role: the permission check above is the gate (a scorekeeper has
   // no admin row for the table's RLS policies to find).
@@ -163,10 +175,17 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
     orgId: org.id,
     actorUserId: user.id,
     actorLabel: user.email ?? null,
-    action: 'score.overridden',
+    action: hadScore ? 'score.changed' : 'score.entered',
     targetType: 'game',
     targetId: parsed.data.gameId,
-    metadata: { league_id: leagueId, home_score: parsed.data.homeScore, away_score: parsed.data.awayScore },
+    targetLabel: matchupLabel(game),
+    metadata: {
+      league_id: leagueId,
+      home_score: parsed.data.homeScore,
+      away_score: parsed.data.awayScore,
+      scorer_role: scorer.role,
+      ...(hadScore ? { previous: `${before!.home_score}–${before!.away_score}`, previous_status: before!.status } : {}),
+    },
   })
 
   if (leagueId) revalidatePath(`/admin/events/${leagueId}/schedule`)
@@ -211,7 +230,7 @@ export async function recordForfeit(input: z.infer<typeof recordForfeitSchema>) 
   const db = createServiceRoleClient()
   const { data: game } = await db
     .from('games')
-    .select('id, league_id, home_team_id, away_team_id, league:leagues!games_league_id_fkey(sport)')
+    .select('id, league_id, home_team_id, away_team_id, league:leagues!games_league_id_fkey(sport), home:teams!games_home_team_id_fkey(name), away:teams!games_away_team_id_fkey(name)')
     .eq('id', parsed.data.gameId)
     .eq('organization_id', org.id)
     .single()
@@ -277,6 +296,7 @@ export async function recordForfeit(input: z.infer<typeof recordForfeitSchema>) 
     action: 'forfeit.recorded',
     targetType: 'game',
     targetId: parsed.data.gameId,
+    targetLabel: matchupLabel(game),
     metadata: { league_id: leagueId, forfeit_side: parsed.data.forfeitSide, forfeit_team_id: forfeitTeamId, home_score: homeScore, away_score: awayScore },
   })
 
@@ -307,7 +327,7 @@ export async function adminClearScore(gameId: string): Promise<{ error: string |
 
   const { data: game } = await db
     .from('games')
-    .select('id, league_id')
+    .select('id, league_id, home:teams!games_home_team_id_fkey(name), away:teams!games_away_team_id_fkey(name), game_results(home_score, away_score)')
     .eq('id', gameId)
     .eq('organization_id', org.id)
     .single()
@@ -327,6 +347,18 @@ export async function adminClearScore(gameId: string): Promise<{ error: string |
   // Delete the game result and reset game status
   await db.from('game_results').delete().eq('game_id', gameId)
   await db.from('games').update({ status: 'scheduled' }).eq('id', gameId)
+
+  const cleared = one(game.game_results)
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: scorer.userId,
+    actorLabel: scorer.email,
+    action: 'score.cleared',
+    targetType: 'game',
+    targetId: gameId,
+    targetLabel: matchupLabel(game),
+    metadata: { league_id: game.league_id, ...(cleared && cleared.home_score !== null ? { previous: `${cleared.home_score}–${cleared.away_score}` } : {}) },
+  })
 
   if (game.league_id) {
     revalidatePath(`/admin/events/${game.league_id}/schedule`)

@@ -79,6 +79,9 @@ interface Props {
   /** false for scorekeepers: they correct a score by saving the right one;
    *  clearing a result (and un-advancing a bracket) is an organiser's call. */
   canClear?: boolean
+  /** "Court 3 · 10:30 a.m." — shown big at the top of the sheet so the scorer
+   *  checks it's the game in front of them before saving. */
+  contextLabel?: string
 }
 
 function defaultSegments(mode: ScoringMode): EditSet[] {
@@ -105,7 +108,7 @@ function setsWon(sets: EditSet[]): [number, number] {
 // ── Score entry bottom sheet ───────────────────────────────────────────────────
 
 function ScoreEntrySheet({
-  gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, onClose, canClear = true,
+  gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, onClose, canClear = true, contextLabel,
 }: Props & { onClose: () => void }) {
   const scoringMode = getScoringMode(sport)
   const isSegmented = scoringMode !== 'simple'
@@ -230,8 +233,18 @@ function ScoreEntrySheet({
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pt-3 pb-5 space-y-5">
           {/* Header */}
           <div>
-            <h3 className="font-semibold text-base text-gray-900">Enter score</h3>
-            <p className="text-sm text-gray-500 mt-0.5 truncate">{homeTeamName} vs {awayTeamName}</p>
+            {contextLabel ? (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Enter score</p>
+                <h3 className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{contextLabel}</h3>
+                <p className="text-base font-semibold text-gray-800 mt-0.5 truncate">{homeTeamName} vs {awayTeamName}</p>
+              </>
+            ) : (
+              <>
+                <h3 className="font-semibold text-base text-gray-900">Enter score</h3>
+                <p className="text-sm text-gray-500 mt-0.5 truncate">{homeTeamName} vs {awayTeamName}</p>
+              </>
+            )}
           </div>
 
           {isSegmented ? (
@@ -461,7 +474,7 @@ function ConfirmPendingButton({ gameId, leagueId, homeTeamName, awayTeamName, re
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, compact, large, canClear = true }: Props) {
+export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, compact, large, canClear = true, contextLabel }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const hasScore =
@@ -479,6 +492,7 @@ export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTea
       >
         <ScoreEntrySheet
           canClear={canClear}
+          contextLabel={contextLabel}
           gameId={gameId}
           leagueId={leagueId}
           sport={sport}

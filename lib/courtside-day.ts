@@ -1,5 +1,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { parseLocalToUtc } from '@/lib/format-time'
+import { gameEnteredBy, matchEnteredBy } from '@/lib/score-entered-by'
+import { loadScorerNames } from '@/lib/scorer-names'
 
 /**
  * One day's scoring list for Courtside (admins) and Scorekeeping (volunteers):
@@ -21,6 +23,10 @@ export type CourtsideGame = {
   away: CourtsideTeam
   league: { id: string; name: string; sport: string | null } | null
   result: { home_score: number | null; away_score: number | null; status: string; sets: { home: number; away: number }[] | null } | null
+  /** "Entered by Sam Lee · 10:42 a.m." — who put the score in (null when unscored). */
+  enteredBy: string | null
+  /** Start time in the org's zone, formatted on the server ("10:30 a.m."). */
+  timeLabel: string
 }
 
 export type CourtsideBracketMatch = {
@@ -35,6 +41,8 @@ export type CourtsideBracketMatch = {
   team1: CourtsideTeam
   team2: CourtsideTeam
   bracket: { id: string; name: string; league_id: string; bracket_size: number; round_names: Record<string, string> | null } | null
+  enteredBy: string | null
+  timeLabel: string
 }
 
 export type CourtsideItem =
@@ -52,6 +60,8 @@ export type CourtsideDayData = {
   unscored: CourtsideItem[]
   awaiting: CourtsideItem[]
   scored: CourtsideItem[]
+  /** Server time when loaded — the client plans "on now" from it (no hydration drift). */
+  nowMs: number
   /** UTC bounds of the day, for callers loading more (e.g. sessions). */
   dayStart: string
   dayEnd: string
@@ -94,7 +104,7 @@ export async function loadCourtsideDay(opts: {
       home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
       away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
       league:leagues!games_league_id_fkey(id, name, sport),
-      game_results(home_score, away_score, status, sets)
+      game_results(home_score, away_score, status, sets, submitted_by, submitted_at, confirmed_by, confirmed_at)
     `)
     .eq('organization_id', orgId)
     // Postponed games aren't being played tonight — same rule as the
@@ -110,7 +120,7 @@ export async function loadCourtsideDay(opts: {
   const bracketQuery = db
     .from('bracket_matches')
     .select(`
-      id, scheduled_at, court, status, round_number, match_number, score1, score2,
+      id, scheduled_at, court, status, round_number, match_number, score1, score2, scored_by, scored_at,
       team1:teams!bracket_matches_team1_id_fkey(id, name, color, logo_url),
       team2:teams!bracket_matches_team2_id_fkey(id, name, color, logo_url),
       bracket:brackets!bracket_matches_bracket_id_fkey(id, name, league_id, bracket_size, round_names)
@@ -127,6 +137,18 @@ export async function loadCourtsideDay(opts: {
   const [{ data: gamesRaw }, { data: bracketRaw }] = await Promise.all([gamesQuery, bracketQuery])
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
+  // Who entered each score: one profiles read for the whole day.
+  const scorerIds = new Set<string>()
+  for (const g of (gamesRaw ?? []) as any[]) {
+    const r = one(g.game_results) as any
+    if (r?.submitted_by) scorerIds.add(r.submitted_by)
+    if (r?.confirmed_by) scorerIds.add(r.confirmed_by)
+  }
+  for (const m of (bracketRaw ?? []) as any[]) if (m.scored_by) scorerIds.add(m.scored_by)
+  const names = await loadScorerNames(scorerIds)
+  const timeFmt = new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz })
+  const timeOf = (iso: string) => timeFmt.format(new Date(iso))
+
   const games: CourtsideGame[] = ((gamesRaw ?? []) as any[]).map((g) => ({
     id: g.id,
     scheduled_at: g.scheduled_at,
@@ -137,12 +159,16 @@ export async function loadCourtsideDay(opts: {
     away: one(g.away_team),
     league: one(g.league),
     result: one(g.game_results),
+    enteredBy: gameEnteredBy(one(g.game_results), names, tz),
+    timeLabel: timeOf(g.scheduled_at),
   }))
   const bracketMatches: CourtsideBracketMatch[] = ((bracketRaw ?? []) as any[]).map((m) => ({
     ...m,
     team1: one(m.team1),
     team2: one(m.team2),
     bracket: one(m.bracket),
+    enteredBy: m.status === 'completed' ? matchEnteredBy(m, names, tz) : null,
+    timeLabel: timeOf(m.scheduled_at),
   }))
     // One day's matches — narrowing the event here is cheap and exact.
     .filter((m) => leagueIds === null || (!!m.bracket && leagueIds.includes(m.bracket.league_id)))
@@ -172,5 +198,6 @@ export async function loadCourtsideDay(opts: {
     scored: merge(games.filter((g) => hasScore(g) && g.result!.status !== 'pending'), bracketMatches.filter((m) => m.status === 'completed')),
     dayStart,
     dayEnd,
+    nowMs: Date.now(),
   }
 }

@@ -1,4 +1,4 @@
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import Link from 'next/link'
 import { ClipboardList } from 'lucide-react'
 import type { Metadata } from 'next'
@@ -10,6 +10,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { EmptyState } from '@/components/ui/empty-state'
 import { loadCourtsideDay } from '@/lib/courtside-day'
+import { COURT_COOKIE, readCourtCookie } from '@/lib/courtside-order'
 import { CourtsideLists } from '@/components/courtside/courtside-lists'
 import { getMyScorekeeperEvents } from '@/lib/scorekeeper-events'
 
@@ -81,7 +82,7 @@ export default async function ScorekeepingPage({
                 <Link href={`/scorekeeping?date=${day.nextDate}`} aria-label="Next day"
                   className="press inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg border bg-white text-gray-600 font-bold">›</Link>
               </div>
-              <CourtsideLists day={day} tz={tz} canClear={false} emptyHint="Use the arrows above to check another day." />
+              <CourtsideLists day={day} tz={tz} canClear={false} emptyHint="Use the arrows above to check another day." initialCourt={readCourtCookie((await cookies()).get(COURT_COOKIE)?.value, day.date)} />
             </>
           )}
         </div>

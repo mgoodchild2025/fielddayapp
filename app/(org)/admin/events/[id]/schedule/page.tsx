@@ -11,6 +11,8 @@ import { DelayScheduleControl } from '@/components/schedule/delay-schedule-contr
 import { ScheduleImport } from '@/components/schedule/schedule-import'
 import { RoundRobinGenerator } from '@/components/schedule/round-robin-generator'
 import { ScheduleTable } from '@/components/schedule/schedule-table'
+import { loadScorerNames } from '@/lib/scorer-names'
+import { gameEnteredBy } from '@/lib/score-entered-by'
 import { WeekPhasesEditor } from '@/components/schedule/week-phases-editor'
 import { SchedulePhaseSummary } from '@/components/schedule/schedule-phase-summary'
 import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
@@ -50,7 +52,7 @@ export default async function AdminSchedulePage({ params, searchParams }: { para
         home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(name),
         away_team:teams!games_away_team_id_fkey(name),
-        game_results(home_score, away_score, status, sets)
+        game_results(home_score, away_score, status, sets, submitted_by, submitted_at, confirmed_by, confirmed_at)
       `)
       .eq('league_id', id)
       .eq('organization_id', org.id)
@@ -102,6 +104,13 @@ export default async function AdminSchedulePage({ params, searchParams }: { para
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const poolNameById = new Map<string, string>((pools ?? []).map((p: any) => [p.id as string, p.name as string]))
 
+  // Who entered each score ("Entered by Sam Lee · 10:42 a.m.").
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scorerNames = await loadScorerNames((games ?? []).flatMap((g: any) => {
+    const r = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
+    return r ? [r.submitted_by, r.confirmed_by] : []
+  }))
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedGames = (games ?? []).map((game: any) => {
     const home = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
@@ -138,6 +147,7 @@ export default async function AdminSchedulePage({ params, searchParams }: { para
             status: result.status,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             sets: (result as any).sets ?? null,
+            enteredBy: result.home_score !== null ? gameEnteredBy(result, scorerNames, timezone) : null,
           }
         : null,
     }
