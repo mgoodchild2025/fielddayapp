@@ -422,6 +422,9 @@ const supabase = await createServerClient()
 - Don't call `requireOrgMember` on public player pages (loops unauthenticated players to /login)
 - Don't use `CREATE POLICY IF NOT EXISTS` in SQL — use `DROP POLICY IF EXISTS` + `CREATE POLICY`
 
+## Captain emails (before an event)
+Two cron emails go to captains/coaches before `leagues.season_start_date` (section 6 + 6b of `app/api/cron/reminders/route.ts`): the **48h prep digest** (`lib/emails/captain-prep.ts`, org toggle `captain_prep_email_enabled`, "Send test email" on Admin → Settings → Notifications) and the **24h "still need to register"** reminder (`lib/emails/captain-registration-reminder.ts`, events with a waiver only). Both check the event's **minimum team size** via `lib/roster-minimum.ts` (pure, tested): ready = registered + waiver signed; captains count, coaches don't; a minimum ≤1 is no check. A team below the minimum gets a red "N players short" headline + meter (or "N waivers away" when the unsigned registrations would cover it) and the subject says so; the 24h email now also goes to a fully registered team that is short. Both share `lib/emails/captain-email-layout.ts` — table-based, inline styles, org brand colours (re-validated, `readableTextOn`/`inkOnWhite`), a ≤480px media query for phones.
+
 ## Phone alerts (Web Push) & install
 - **`lib/notify.ts#createNotifications` is the ONE way to insert `notifications` rows** — it inserts (service role) and fans out Web Push via `lib/push.ts` (fire-and-forget, never throws; no-op when `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` are unset). Never write `db.from('notifications').insert(...)` directly.
 - `push_subscriptions` (migration 191): one row per browser × org site, unique on `endpoint`. **Subscriptions are per-origin**, so fan-out matches on BOTH `user_id` and `organization_id`. 404/410 from the push service deletes the row; other failures stamp `failed_at`.

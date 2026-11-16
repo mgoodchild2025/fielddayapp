@@ -6,6 +6,7 @@ import { deliverAnnouncement } from '@/lib/announcement-delivery'
 import { formatCourtLabel } from '@/lib/venue-label'
 import { sendPlatformAlert } from '@/lib/platform-alerts'
 import { buildCaptainPrepEmail, type PrepPlayer } from '@/lib/emails/captain-prep'
+import { buildCaptainRegistrationReminderEmail } from '@/lib/emails/captain-registration-reminder'
 import { fetchUpcomingPlayoffReminderRows } from '@/lib/playoff-games'
 import { purgeLeagueData } from '@/lib/purge-league'
 import { fetchRecentUploads, youTubeWatchUrl, youTubeEmbedUrl } from '@/lib/youtube'
@@ -1035,7 +1036,7 @@ export async function GET(req: NextRequest) {
 
   const { data: waiverLeagues } = await supabase
     .from('leagues')
-    .select('id, name, slug, organization_id, season_start_date')
+    .select('id, name, slug, organization_id, season_start_date, min_team_size')
     .in('status', ['active', 'registration_open'])
     .not('waiver_version_id', 'is', null)
     .not('season_start_date', 'is', null)
@@ -1046,14 +1047,15 @@ export async function GET(req: NextRequest) {
     const wlOrgIds = [...new Set((waiverLeagues as { organization_id: string }[]).map(l => l.organization_id))]
 
     const [{ data: wlBranding }, { data: wlOrgs }] = await Promise.all([
-      supabase.from('org_branding').select('organization_id, timezone').in('organization_id', wlOrgIds),
+      supabase.from('org_branding').select('organization_id, timezone, primary_color, secondary_color, logo_url').in('organization_id', wlOrgIds),
       supabase.from('organizations').select('id, name, slug').in('id', wlOrgIds),
     ])
 
     const wlTimezoneByOrg = new Map((wlBranding ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
+    const wlBrandByOrg    = new Map((wlBranding ?? []).map(b => [b.organization_id, { primary: b.primary_color, secondary: b.secondary_color, logoUrl: b.logo_url }]))
     const wlOrgById       = new Map((wlOrgs ?? []).map(o => [o.id, { name: o.name, slug: o.slug }]))
 
-    type WLLeague = { id: string; name: string; slug: string; organization_id: string; season_start_date: string }
+    type WLLeague = { id: string; name: string; slug: string; organization_id: string; season_start_date: string; min_team_size: number | null }
 
     for (const league of (waiverLeagues as WLLeague[]) ?? []) {
       const timezone = wlTimezoneByOrg.get(league.organization_id) ?? 'America/Toronto'
@@ -1097,12 +1099,17 @@ export async function GET(req: NextRequest) {
 
       const { data: wlRegs } = await supabase
         .from('registrations')
-        .select('user_id')
+        .select('user_id, waiver_signature_id')
         .eq('league_id', league.id)
         .eq('organization_id', league.organization_id)
         .in('status', ['active', 'pending'])
 
-      const registeredUserIds = new Set((wlRegs ?? []).map((r) => r.user_id))
+      // user_id → waiver signed? (every league here has a waiver)
+      const signedByUser = new Map<string, boolean>()
+      for (const r of (wlRegs ?? []) as { user_id: string | null; waiver_signature_id: string | null }[]) {
+        if (r.user_id) signedByUser.set(r.user_id, signedByUser.get(r.user_id) === true || !!r.waiver_signature_id)
+      }
+      const teamUrlBase = `https://${orgSlug}.${platformDomain}/teams/`
 
       // Fetch already-sent log entries for this league's teams
 
@@ -1134,16 +1141,31 @@ export async function GET(req: NextRequest) {
         const leaders = members.filter(m => ['captain', 'coach'].includes(m.role))
         if (leaders.length === 0) continue
 
-        // Find players who haven't registered yet
-        const unregistered = members
-          .filter(m => !['captain', 'coach'].includes(m.role)) // players only
-          .filter(m => m.user_id && !registeredUserIds.has(m.user_id))
-          .map(m => {
-            const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
-            return p?.full_name ?? 'Unknown Player'
-          })
+        // Players and captains count toward the roster; coaches don't play.
+        const nameOf = (m: WLMember) => {
+          const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+          return p?.full_name ?? p?.email ?? 'Unknown Player'
+        }
+        const playing = members.filter(m => m.role !== 'coach' && m.user_id)
+        const notRegistered = playing.filter(m => !signedByUser.has(m.user_id)).map(nameOf)
+        const needsWaiver = playing.filter(m => signedByUser.get(m.user_id) === false).map(nameOf)
+        const readyCount = playing.filter(m => signedByUser.get(m.user_id) === true).length
 
-        if (unregistered.length === 0) continue // everyone's registered — no email needed
+        // Null = nothing to say (everyone registered and the minimum is met)
+        const email = buildCaptainRegistrationReminderEmail({
+          orgName,
+          brand: wlBrandByOrg.get(league.organization_id),
+          leagueName: league.name,
+          teamName: team.name,
+          dateLabel,
+          teamUrl: `${teamUrlBase}${team.id}`,
+          registerUrl,
+          minTeamSize: league.min_team_size,
+          readyCount,
+          needsWaiver,
+          notRegistered,
+        })
+        if (!email) continue
 
         // Claim the send slot before sending
 
@@ -1156,38 +1178,13 @@ export async function GET(req: NextRequest) {
           continue
         }
 
-        const playerListHtml = unregistered
-          .map(name => `<li style="padding:2px 0">${escapeHtml(name)}</li>`)
-          .join('')
-
-        const subject = `Reminder: ${unregistered.length} player${unregistered.length !== 1 ? 's' : ''} still need${unregistered.length === 1 ? 's' : ''} to register for ${league.name}`
-
-        const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-          <h2 style="margin-top:0">${escapeHtml(league.name)} starts tomorrow — ${dateLabel}</h2>
-          <p style="color:#555">Hi Captain/Coach,</p>
-          <p style="color:#555">
-            <strong>${unregistered.length} player${unregistered.length !== 1 ? 's' : ''}</strong> on
-            <strong>${escapeHtml(team.name)}</strong> haven't registered yet.
-            Registration includes signing the waiver, which is required to participate and helps speed up check-in on game day.
-          </p>
-          <p style="color:#555;font-weight:600;margin-bottom:4px">Still needs to register:</p>
-          <ul style="margin:0 0 16px;padding-left:20px;color:#333">${playerListHtml}</ul>
-          <a href="${registerUrl}" style="display:inline-block;background:#333;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">
-            Register for ${escapeHtml(league.name)} →
-          </a>
-          <p style="margin-top:24px;font-size:12px;color:#999">
-            You're receiving this as a team captain or coach with ${escapeHtml(orgName)}.<br>
-            This reminder was sent 24 hours before your event.
-          </p>
-        </div>`
-
         for (const leader of leaders) {
           const p = Array.isArray(leader.profiles) ? leader.profiles[0] : leader.profiles
           if (!p?.email) continue
-          waiverReminderEmails.push({ from: FROM_EMAIL, to: p.email, subject, html })
+          waiverReminderEmails.push({ from: FROM_EMAIL, to: p.email, subject: email.subject, html: email.html })
         }
 
-        results.push(`waiver reminder queued for team ${team.id} (${unregistered.length} unregistered, ${leaders.length} leader${leaders.length !== 1 ? 's' : ''})`)
+        results.push(`waiver reminder queued for team ${team.id} (${notRegistered.length} unregistered, ${readyCount}/${league.min_team_size ?? '-'} ready, ${leaders.length} leader${leaders.length !== 1 ? 's' : ''})`)
       }
     }
   }
@@ -1214,7 +1211,7 @@ export async function GET(req: NextRequest) {
 
   const { data: cpLeagues } = await supabase
     .from('leagues')
-    .select('id, name, slug, organization_id, season_start_date, waiver_version_id, venue_name, venue_address')
+    .select('id, name, slug, organization_id, season_start_date, waiver_version_id, venue_name, venue_address, min_team_size')
     .in('status', ['active', 'registration_open'])
     .not('season_start_date', 'is', null)
     .gte('season_start_date', cp48Start)
@@ -1224,7 +1221,7 @@ export async function GET(req: NextRequest) {
     const cpOrgIds = [...new Set((cpLeagues as { organization_id: string }[]).map(l => l.organization_id))]
 
     const [{ data: cpBranding }, { data: cpOrgs }, { data: cpNotif }] = await Promise.all([
-      supabase.from('org_branding').select('organization_id, timezone').in('organization_id', cpOrgIds),
+      supabase.from('org_branding').select('organization_id, timezone, primary_color, secondary_color, logo_url').in('organization_id', cpOrgIds),
       supabase.from('organizations').select('id, name, slug').in('id', cpOrgIds),
 
       supabase
@@ -1234,13 +1231,14 @@ export async function GET(req: NextRequest) {
     ])
 
     const cpTzByOrg   = new Map((cpBranding ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
+    const cpBrandByOrg = new Map((cpBranding ?? []).map(b => [b.organization_id, { primary: b.primary_color, secondary: b.secondary_color, logoUrl: b.logo_url }]))
     const cpOrgById   = new Map((cpOrgs ?? []).map(o => [o.id, { name: o.name, slug: o.slug }]))
     const cpEnabledByOrg = new Map((cpNotif ?? []).map((s: { organization_id: string; captain_prep_email_enabled: boolean }) => [s.organization_id, s.captain_prep_email_enabled]))
 
     type CPLeague = {
       id: string; name: string; slug: string; organization_id: string
       season_start_date: string; waiver_version_id: string | null
-      venue_name: string | null; venue_address: string | null
+      venue_name: string | null; venue_address: string | null; min_team_size: number | null
     }
 
     for (const league of (cpLeagues as CPLeague[]) ?? []) {
@@ -1324,7 +1322,7 @@ export async function GET(req: NextRequest) {
 
         for (const m of members) {
           const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
-          const player: PrepPlayer = { name: p?.full_name ?? p?.email ?? 'Unknown Player', email: p?.email ?? null }
+          const player: PrepPlayer = { name: p?.full_name ?? p?.email ?? 'Unknown Player', email: p?.email ?? null, isCoach: m.role === 'coach' }
           const reg = m.user_id ? regByUser.get(m.user_id) : undefined
           if (!reg) {
             notRegistered.push(player)
@@ -1351,6 +1349,9 @@ export async function GET(req: NextRequest) {
 
         const { subject, html } = buildCaptainPrepEmail({
           orgName, orgSlug, platformDomain,
+          brand: cpBrandByOrg.get(league.organization_id),
+          minTeamSize: league.min_team_size,
+          requiresWaiver,
           leagueName: league.name, leagueSlug: league.slug,
           teamName: team.name, teamId: team.id,
           dateLabel,

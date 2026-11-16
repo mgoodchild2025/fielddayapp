@@ -320,7 +320,8 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
               Sent to team captains and coaches <strong>48 hours before</strong> an event starts.
               Includes the event details and a roster status breakdown — who&apos;s registered,
               who still needs to sign the waiver, who hasn&apos;t registered, and who&apos;s been
-              invited but hasn&apos;t joined — plus instructions for inviting players.
+              invited but hasn&apos;t joined — and warns the captain when the team is below the
+              event&apos;s minimum team size, plus instructions for inviting players.
             </p>
           </div>
           <Toggle checked={captainPrepEnabled} onChange={setCaptainPrepEnabled} label="Captain prep email" />
