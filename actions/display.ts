@@ -6,7 +6,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import type {
-  DisplayConfig, DisplayData, DisplayGame, DisplayStanding, DisplayBracketMatch, ZoneConfig,
+  DisplayConfig, DisplayData, DisplayGame, DisplayStanding, DisplayBracketMatch, ZoneConfig, DisplayTeamCard, DisplayMatchup,
 } from '@/lib/display-types'
 import { defaultConfig, ZONE_COUNT } from '@/lib/display-types'
 import type { Json } from '@/types/database'
@@ -15,6 +15,10 @@ import {
   sortStandings, isVolleyballSport, accumulateGameResult, emptyTeamStat,
   type PtsMethod, type VolleyballMode, type TeamStat, type TeamStatTotals, countsForStandings } from '@/lib/standings'
 import { getLeagueConfirmedResults } from '@/lib/league-results'
+import {
+  displayName, sortRoster, headToHeadLine, pairKey, safeTeamColor,
+  MATCHUP_LEAD_MS, MATCHUP_TAIL_MS, type MeetingResult, type RosterNameStyle,
+} from '@/lib/team-cards'
 
 // ── Config persistence ────────────────────────────────────────────────────────
 
@@ -106,6 +110,9 @@ export async function getDisplayData(
   const needsBracket   = zoneTypes.has('bracket')
   const needsSponsors  = zoneTypes.has('sponsors') || config.sponsor_banner?.enabled === true || config.sponsor_interstitial?.enabled === true
   const needsShowcase  = zoneTypes.has('showcase')
+  const showcaseZoneCfg = config.zones.find((z) => z.type === 'showcase') as Extract<ZoneConfig, { type: 'showcase' }> | undefined
+  // Team intro cards read the standings (record + place), so they compute them too
+  const wantTeamCards  = needsShowcase && showcaseZoneCfg?.source === 'teams'
 
   // Base queries always needed
   const [{ data: leagueRow }, { data: brandingRow }, { data: poolsData }, { data: orgRow }] = await Promise.all([
@@ -240,7 +247,9 @@ export async function getDisplayData(
 
   let standings: DisplayStanding[] = []
   let poolStandings: DisplayStanding[] = []
-  if (needsStandings) {
+  // Most recent result per pair of teams — the matchup slide's "Last meeting"
+  const lastMeeting = new Map<string, MeetingResult>()
+  if (needsStandings || wantTeamCards) {
 
     const [{ data: teamsData }, { data: resultsData }] = await Promise.all([
       db.from('teams').select('id, name, color, logo_url, pool_id')
@@ -262,6 +271,13 @@ export async function getDisplayData(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const g = Array.isArray(r.game) ? r.game[0] : r.game as any
       if (!g || g.league_id !== leagueId) continue
+      if (g.home_team_id && g.away_team_id && g.scheduled_at) {
+        const key = pairKey(g.home_team_id, g.away_team_id)
+        const prev = lastMeeting.get(key)
+        if (!prev || prev.at < g.scheduled_at) {
+          lastMeeting.set(key, { homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, homeScore: r.home_score, awayScore: r.away_score, at: g.scheduled_at })
+        }
+      }
       if (!countsForStandings(g)) continue // exhibition
       const { home_team_id: ht, away_team_id: at } = g
       if (!ht || !at || !teamIds.has(ht) || !teamIds.has(at)) continue
@@ -427,12 +443,21 @@ export async function getDisplayData(
   // (show_on_displays) and aren't admin-hidden. Photos: the event's approved
   // gallery. Both re-read on the display's refresh cycle, so a photo approved
   // courtside joins the rotation within a minute.
-  const showcase: DisplayData['showcase'] = { bios: [], photos: [], banners: [], nextGame: null }
+  const showcase: DisplayData['showcase'] = { bios: [], photos: [], teams: [], matchups: [], banners: [], nextGame: null }
   if (needsShowcase) {
-    const showcaseZone = config.zones.find((z) => z.type === 'showcase') as Extract<ZoneConfig, { type: 'showcase' }> | undefined
+    const showcaseZone = showcaseZoneCfg
     const wantBanners = showcaseZone?.source === 'banners'
-    const wantBios = !wantBanners && showcaseZone?.source !== 'photos'
+    const wantBios = !wantBanners && !wantTeamCards && showcaseZone?.source !== 'photos'
     const wantPhotos = !wantBanners && showcaseZone?.source !== 'bios'
+
+    if (wantTeamCards) {
+      const t = await loadTeamCards(db, {
+        orgId, leagueId, standings, poolStandings, lastMeeting,
+        names: showcaseZone?.names === 'short' ? 'short' : 'full',
+      })
+      showcase.teams = t.teams
+      showcase.matchups = t.matchups
+    }
 
     if (wantBanners) {
       // The Hall of Champions on the gym TV: org-wide golds, newest first
@@ -464,13 +489,23 @@ export async function getDisplayData(
     if (wantPhotos) {
       const { data: media } = await db
         .from('event_media')
-        .select('cloudinary_url, thumbnail_url, caption, media_type')
+        .select('cloudinary_url, thumbnail_url, caption, media_type, uploaded_by')
         .eq('league_id', leagueId).eq('organization_id', orgId)
         .eq('status', 'approved')
         .eq('media_type', 'image') // photos only in v1 — video risks buffering on gym wifi
         .order('created_at', { ascending: false })
         .limit(60)
-      showcase.photos = (media ?? []).map((m) => ({ url: m.cloudinary_url, caption: m.caption ?? null }))
+      // Credit the uploader on screen ("📸 Sam L.") — seeing your name on the
+      // TV is what makes people upload the next one. Short name only.
+      const uploaderIds = [...new Set((media ?? []).map((m) => m.uploaded_by).filter((id): id is string => !!id))]
+      const { data: uploaders } = uploaderIds.length > 0
+        ? await db.from('profiles').select('id, full_name').in('id', uploaderIds)
+        : { data: [] as { id: string; full_name: string | null }[] }
+      const uploaderName = new Map((uploaders ?? []).map((u) => [u.id, u.full_name]))
+      showcase.photos = (media ?? []).map((m) => {
+        const full = m.uploaded_by ? uploaderName.get(m.uploaded_by) : null
+        return { url: m.cloudinary_url, caption: m.caption ?? null, credit: full ? displayName(full, 'short') : null }
+      })
     }
 
     if (wantBios) {
@@ -621,3 +656,110 @@ export async function getDisplayScreens(
   return data ?? []
 }
 
+
+// ── Team intro + matchup cards (showcase source 'teams') ─────────────────────
+// Built from what every event has — teams, rosters, pools, results — so the
+// TV fills even when nobody set up a player card. Photos appear only for
+// players who turned their card on (show_on_displays, not admin-hidden).
+
+async function loadTeamCards(
+  db: ReturnType<typeof createServiceRoleClient>,
+  opts: {
+    orgId: string; leagueId: string
+    standings: DisplayStanding[]; poolStandings: DisplayStanding[]
+    lastMeeting: Map<string, MeetingResult>
+    names: RosterNameStyle
+  },
+): Promise<{ teams: DisplayTeamCard[]; matchups: DisplayMatchup[] }> {
+  const { orgId, leagueId } = opts
+  const now = Date.now()
+  const [{ data: teamRows }, { data: poolRows }, { data: gameRows }] = await Promise.all([
+    db.from('teams').select('id, name, color, logo_url, pool_id')
+      .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active')
+      .order('name'),
+    db.from('pools').select('id, name').eq('league_id', leagueId).eq('organization_id', orgId),
+    db.from('games').select('id, scheduled_at, court, home_team_id, away_team_id')
+      .eq('league_id', leagueId).eq('organization_id', orgId)
+      .eq('status', 'scheduled')
+      .not('home_team_id', 'is', null).not('away_team_id', 'is', null)
+      .gte('scheduled_at', new Date(now - MATCHUP_TAIL_MS).toISOString())
+      .lte('scheduled_at', new Date(now + MATCHUP_LEAD_MS).toISOString())
+      .order('scheduled_at', { ascending: true })
+      .limit(12),
+  ])
+  const teams = teamRows ?? []
+  if (teams.length === 0) return { teams: [], matchups: [] }
+  const teamIds = teams.map((t) => t.id)
+
+  const { data: members } = await db
+    .from('team_members')
+    .select('team_id, user_id, role, position')
+    .in('team_id', teamIds)
+    .eq('status', 'active')
+    .not('user_id', 'is', null)
+  const userIds = [...new Set((members ?? []).map((m) => m.user_id as string))]
+  const [{ data: profiles }, { data: bios }] = userIds.length > 0
+    ? await Promise.all([
+        db.from('profiles').select('id, full_name, avatar_url').in('id', userIds),
+        db.from('player_bios')
+          .select('user_id, jersey_number, position, hero_photo_url, show_on_displays, hidden_by_admin')
+          .eq('organization_id', orgId)
+          .in('user_id', userIds),
+      ])
+    : [{ data: [] as { id: string; full_name: string | null; avatar_url: string | null }[] },
+       { data: [] as { user_id: string; jersey_number: string | null; position: string | null; hero_photo_url: string | null; show_on_displays: boolean; hidden_by_admin: boolean }[] }]
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
+  const bioByUser = new Map((bios ?? []).map((b) => [b.user_id, b]))
+
+  const rosterByTeam = new Map<string, DisplayTeamCard['roster']>()
+  for (const m of members ?? []) {
+    const p = profileById.get(m.user_id as string)
+    const bio = bioByUser.get(m.user_id as string)
+    // An admin-hidden card shares nothing beyond the name
+    const usable = bio && !bio.hidden_by_admin ? bio : null
+    const onDisplays = usable?.show_on_displays === true
+    const list = rosterByTeam.get(m.team_id) ?? []
+    list.push({
+      name: displayName(p?.full_name, opts.names),
+      number: usable?.jersey_number ?? null,
+      position: m.position ?? usable?.position ?? null,
+      role: m.role === 'captain' ? 'captain' : m.role === 'coach' ? 'coach' : 'player',
+      photoUrl: onDisplays ? (usable?.hero_photo_url ?? p?.avatar_url ?? null) : null,
+    })
+    rosterByTeam.set(m.team_id, list)
+  }
+
+  const poolName = new Map((poolRows ?? []).map((p) => [p.id, p.name]))
+  const overall = new Map(opts.standings.map((s) => [s.team_id, s]))
+  const inPool = new Map(opts.poolStandings.map((s) => [s.team_id, s]))
+
+  const cards: DisplayTeamCard[] = teams.map((t) => {
+    // Pool play: the pool record and place; otherwise the overall table
+    const s = (t.pool_id ? inPool.get(t.id) : undefined) ?? overall.get(t.id)
+    return {
+      id: t.id,
+      name: t.name,
+      color: safeTeamColor(t.color),
+      logoUrl: t.logo_url ?? null,
+      poolName: t.pool_id ? (poolName.get(t.pool_id) ?? null) : null,
+      rank: s?.rank ?? null,
+      played: s?.played ?? 0, won: s?.won ?? 0, lost: s?.lost ?? 0, drawn: s?.drawn ?? 0,
+      roster: sortRoster(rosterByTeam.get(t.id) ?? []),
+    }
+  })
+  // Pool by pool, best first — the order a broadcast would run them in
+  cards.sort((a, b) =>
+    (a.poolName ?? '').localeCompare(b.poolName ?? '') || (a.rank ?? 999) - (b.rank ?? 999) || a.name.localeCompare(b.name))
+
+  const nameOf = (id: string) => teams.find((t) => t.id === id)?.name ?? 'Team'
+  const matchups: DisplayMatchup[] = (gameRows ?? []).map((g) => ({
+    gameId: g.id,
+    scheduledAt: g.scheduled_at,
+    court: g.court ?? null,
+    homeTeamId: g.home_team_id as string,
+    awayTeamId: g.away_team_id as string,
+    headToHead: headToHeadLine(opts.lastMeeting.get(pairKey(g.home_team_id as string, g.away_team_id as string)), nameOf),
+  }))
+
+  return { teams: cards, matchups }
+}
