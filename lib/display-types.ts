@@ -225,8 +225,12 @@ export interface DisplayData {
       /** Set when the player's team medalled in this event — drives the gold card treatment. */
       champion: { placement: 'gold' | 'silver' | 'bronze' | 'tier_champion'; label: string } | null
     }[]
-    /** `credit` is the uploader's short name ("Sam L."), shown on the slide. */
-    photos: { url: string; caption: string | null; credit: string | null }[]
+    /** `credit` is the uploader's short name ("Sam L."), shown on the slide.
+     *  Videos carry `video` (TV-ready MP4 url, poster, length) and play muted. */
+    photos: {
+      url: string; caption: string | null; credit: string | null
+      video?: { src: string; poster: string | null; durationSeconds: number | null } | null
+    }[]
     /** Teams source: one intro card per team. */
     teams: DisplayTeamCard[]
     /** Teams source: games starting soon (both teams set), one matchup slide each. */

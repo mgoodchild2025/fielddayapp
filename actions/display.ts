@@ -15,6 +15,7 @@ import {
   sortStandings, isVolleyballSport, accumulateGameResult, emptyTeamStat,
   type PtsMethod, type VolleyballMode, type TeamStat, type TeamStatTotals, countsForStandings } from '@/lib/standings'
 import { getLeagueConfirmedResults } from '@/lib/league-results'
+import { tvVideoUrl } from '@/lib/tv-media'
 import {
   displayName, sortRoster, headToHeadLine, pairKey, safeTeamColor,
   MATCHUP_LEAD_MS, MATCHUP_TAIL_MS, type MeetingResult, type RosterNameStyle,
@@ -489,10 +490,12 @@ export async function getDisplayData(
     if (wantPhotos) {
       const { data: media } = await db
         .from('event_media')
-        .select('cloudinary_url, thumbnail_url, caption, media_type, uploaded_by')
+        .select('cloudinary_url, thumbnail_url, caption, media_type, uploaded_by, duration_seconds')
         .eq('league_id', leagueId).eq('organization_id', orgId)
         .eq('status', 'approved')
-        .eq('media_type', 'image') // photos only in v1 — video risks buffering on gym wifi
+        // Videos too: delivered as a 1280px MP4 (tvVideoUrl) so gym wifi copes,
+        // played muted, capped at MAX_VIDEO_SLIDE_S
+        .in('media_type', ['image', 'video'])
         .order('created_at', { ascending: false })
         .limit(60)
       // Credit the uploader on screen ("📸 Sam L.") — seeing your name on the
@@ -504,7 +507,15 @@ export async function getDisplayData(
       const uploaderName = new Map((uploaders ?? []).map((u) => [u.id, u.full_name]))
       showcase.photos = (media ?? []).map((m) => {
         const full = m.uploaded_by ? uploaderName.get(m.uploaded_by) : null
-        return { url: m.cloudinary_url, caption: m.caption ?? null, credit: full ? displayName(full, 'short') : null }
+        const isVideo = m.media_type === 'video'
+        return {
+          url: isVideo ? (m.thumbnail_url ?? m.cloudinary_url) : m.cloudinary_url,
+          caption: m.caption ?? null,
+          credit: full ? displayName(full, 'short') : null,
+          video: isVideo
+            ? { src: tvVideoUrl(m.cloudinary_url), poster: m.thumbnail_url ?? null, durationSeconds: m.duration_seconds == null ? null : Number(m.duration_seconds) }
+            : null,
+        }
       })
     }
 

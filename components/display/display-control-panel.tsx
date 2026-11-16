@@ -70,13 +70,15 @@ const ZONE_TYPES: { value: ZoneConfig['type']; label: string; icon: LucideIcon }
 // ── Zone editor ───────────────────────────────────────────────────────────────
 
 function ZoneEditor({
-  label, zone, onChange, pools, bracketTiers,
+  label, zone, onChange, pools, bracketTiers, eventUrl,
 }: {
   label: string
   zone: ZoneConfig
   onChange: (z: ZoneConfig) => void
   pools: { id: string; name: string }[]
   bracketTiers: { name: string }[]
+  /** The public event page — QR shortcuts point at it (or its Media tab). */
+  eventUrl: string
 }) {
   const sel = (type: ZoneConfig['type']) => {
     switch (type) {
@@ -228,6 +230,22 @@ function ZoneEditor({
               placeholder="https://..."
               className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white placeholder-gray-400"
             />
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {([
+                { label: 'Event page', url: eventUrl, text: 'Scan for the schedule' },
+                { label: '📸 Photo uploads', url: `${eventUrl}?tab=media`, text: '📸 Get on the big screen' },
+              ]).map((q) => (
+                <button
+                  key={q.label}
+                  type="button"
+                  aria-pressed={zone.url === q.url}
+                  onClick={() => onChange({ ...zone, url: q.url, label: q.text })}
+                  className={`rounded-md border px-2 py-1 text-xs ${zone.url === q.url ? 'border-blue-400 bg-blue-500/20 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                >
+                  {q.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
             <label className="block text-xs text-gray-200 mb-1">Label (shown below QR)</label>
@@ -509,7 +527,7 @@ function ScreenEditor({
               layout: 'main_sidebar',
               zones: [
                 { type: 'showcase', source: 'photos', transition: 'kenburns', seconds: 8, order: 'newest' },
-                { type: 'qr_code', url: displayBaseUrl.replace(/\/display$/, ''), label: '📸 Get on the big screen' },
+                { type: 'qr_code', url: displayBaseUrl.replace(/\/display$/, '') + '?tab=media', label: '📸 Get on the big screen' },
               ],
             })}
             className="text-xs font-medium text-gray-300 border border-gray-600 rounded-md px-2.5 py-1 hover:bg-gray-700"
@@ -523,7 +541,7 @@ function ScreenEditor({
               layout: 'main_sidebar',
               zones: [
                 { type: 'showcase', source: 'teams', transition: 'fade', seconds: 10, order: 'newest', names: 'full' },
-                { type: 'qr_code', url: displayBaseUrl.replace(/\/display$/, ''), label: '📸 Get on the big screen' },
+                { type: 'qr_code', url: displayBaseUrl.replace(/\/display$/, '') + '?tab=media', label: '📸 Get on the big screen' },
               ],
             })}
             className="text-xs font-medium text-gray-300 border border-gray-600 rounded-md px-2.5 py-1 hover:bg-gray-700"
@@ -565,6 +583,7 @@ function ScreenEditor({
               onChange={(z) => setZone(i, z)}
               pools={pools}
               bracketTiers={bracketTiers}
+              eventUrl={displayBaseUrl.replace(/\/display$/, '')}
             />
           ))}
         </div>

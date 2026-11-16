@@ -32,6 +32,9 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://*.supabase.co https://res.cloudinary.com https://upload-widget.cloudinary.com https://i.ytimg.com https://*.cdninstagram.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com",
       "font-src 'self' data: https://fonts.gstatic.com",
+      // Event videos (gallery lightbox + TV showcase) stream from Cloudinary;
+      // without this, default-src blocked every <video> from res.cloudinary.com
+      "media-src 'self' blob: https://res.cloudinary.com",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://cloudflareinsights.com https://api.cloudinary.com https://res.cloudinary.com https://www.instagram.com https://www.tiktok.com",
       "frame-src 'self' blob: https://js.stripe.com https://hooks.stripe.com https://*.supabase.co https://www.youtube.com https://www.youtube-nocookie.com https://upload-widget.cloudinary.com https://www.instagram.com https://www.tiktok.com",
       "object-src 'none'",
