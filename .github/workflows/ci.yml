@@ -25,6 +25,9 @@ jobs:
 
       - name: Type-check
         run: pnpm type-check
+        env:
+          # tsc outgrew Node 20's default heap on the runner (OOM since #412)
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Lint
         run: pnpm lint
