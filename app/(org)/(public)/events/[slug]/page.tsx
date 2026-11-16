@@ -1754,9 +1754,24 @@ export default async function EventDetailPage({
             <div className="bg-white rounded-xl border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h2 className="font-semibold text-gray-900">Event gallery</h2>
-                <p className="text-sm text-gray-500">Share your photos and videos — uploads appear here once an organizer approves them.</p>
+                <p className="text-sm text-gray-500">
+                  {league.media_auto_approve
+                    ? 'Share your photos and videos — they appear here and on the event screens right away.'
+                    : 'Share your photos and videos — uploads appear here once an organizer approves them.'}
+                </p>
               </div>
-              {cloudinaryReady && <EventMediaUpload leagueId={league.id} orgId={org.id} apiKey={cloudinaryKey} cloudName={CLOUD_NAME} />}
+              {cloudinaryReady && (user ? (
+                <EventMediaUpload leagueId={league.id} orgId={org.id} apiKey={cloudinaryKey} cloudName={CLOUD_NAME} />
+              ) : (
+                // Signed-out visitors (most people scanning the TV's QR code)
+                // sign in first and come straight back to this tab.
+                <Link
+                  href={`/login?redirect=${encodeURIComponent(`/events/${slug}?tab=media`)}`}
+                  className="press inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold bg-brand-primary text-on-brand"
+                >
+                  Sign in to add photos
+                </Link>
+              ))}
             </div>
             <EventMediaGallery items={eventMedia} />
             {curatedSocial.length > 0 && (

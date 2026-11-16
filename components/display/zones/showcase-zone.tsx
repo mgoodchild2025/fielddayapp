@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DisplayData, ZoneConfig } from '@/lib/display-types'
 import { PlayerBioCard } from '@/components/bios/player-bio-card'
 import { bannerTint } from '@/lib/banner-tints'
 import { teamsPlaylist } from '@/lib/team-cards'
+import { videoSlideSeconds } from '@/lib/tv-media'
 import { MatchupSlide, TeamIntroSlide, TEAM_SLIDE_KEYFRAMES } from './team-slides'
 
 /**
@@ -18,7 +19,7 @@ type Bio = DisplayData['showcase']['bios'][number]
 
 type Slide =
   | { kind: 'bio'; bio: Bio; lineupTeam?: string | null }
-  | { kind: 'photo'; url: string; caption: string | null; credit?: string | null }
+  | { kind: 'photo'; url: string; caption: string | null; credit?: string | null; video?: DisplayData['showcase']['photos'][number]['video'] }
   | { kind: 'matchup'; game: NonNullable<DisplayData['showcase']['nextGame']> }
   | { kind: 'team'; team: DisplayData['showcase']['teams'][number] }
   | { kind: 'teamMatchup'; matchup: DisplayData['showcase']['matchups'][number] }
@@ -54,7 +55,7 @@ function buildPlaylist(
       shuffle: order === 'shuffle' ? seededShuffle : undefined,
     }).map((s): Slide => s.kind === 'team' ? { kind: 'team', team: s.team }
       : s.kind === 'matchup' ? { kind: 'teamMatchup', matchup: s.matchup }
-      : { kind: 'photo', url: s.photo.url, caption: s.photo.caption, credit: s.photo.credit })
+      : { kind: 'photo', url: s.photo.url, caption: s.photo.caption, credit: s.photo.credit, video: s.photo.video })
   }
   // Championship banners: the Hall of Champions sweeping the gym TV.
   // Newest-first is chronology — shuffle applies when chosen.
@@ -96,7 +97,7 @@ function buildPlaylist(
 
   const restBios = showcase.bios.filter((b) => !lineupUserKeys.has(b.name + (b.teamId ?? '')))
   const bios: Slide[] = source !== 'photos' ? restBios.map((bio) => ({ kind: 'bio' as const, bio })) : []
-  const photos: Slide[] = source !== 'bios' ? showcase.photos.map((p) => ({ kind: 'photo' as const, url: p.url, caption: p.caption, credit: p.credit })) : []
+  const photos: Slide[] = source !== 'bios' ? showcase.photos.map((p) => ({ kind: 'photo' as const, url: p.url, caption: p.caption, credit: p.credit, video: p.video })) : []
 
   // Deterministic-ish shuffle from the seed so re-renders within a refresh
   // cycle keep the same order.
@@ -151,18 +152,29 @@ export function ShowcaseZone({
 
   const seconds = Math.min(60, Math.max(4, config.seconds || 8))
 
+  // Each slide sets its own time: a video stays up for its length (capped),
+  // everything else for the zone's seconds. A video that ends or fails moves
+  // on at once; `advancing` stops the timer and `ended` both firing.
+  const current = playlist.length > 0 ? playlist[index % playlist.length] : undefined
+  const slideSeconds = current?.kind === 'photo' && current.video ? videoSlideSeconds(current.video.durationSeconds) : seconds
+  const advancing = useRef(false)
+  const advance = useCallback(() => {
+    if (advancing.current) return
+    advancing.current = true
+    setEntering(false)
+    // brief exit beat, then advance + re-enter
+    setTimeout(() => {
+      setIndex((i) => (i + 1) % Math.max(1, playlist.length))
+      setEntering(true)
+      advancing.current = false
+    }, 400)
+  }, [playlist.length])
+
   useEffect(() => {
     if (playlist.length <= 1) return
-    const t = setInterval(() => {
-      setEntering(false)
-      // brief exit beat, then advance + re-enter
-      setTimeout(() => {
-        setIndex((i) => (i + 1) % playlist.length)
-        setEntering(true)
-      }, 400)
-    }, seconds * 1000)
-    return () => clearInterval(t)
-  }, [playlist.length, seconds])
+    const t = setTimeout(advance, slideSeconds * 1000)
+    return () => clearTimeout(t)
+  }, [index, slideSeconds, playlist.length, advance])
 
   // Preload the next photo
   useEffect(() => {
@@ -173,8 +185,9 @@ export function ShowcaseZone({
       return
     }
     if (next.kind === 'photo') {
+      // A video's poster (the first frame); the video itself streams on show
       const img = new Image()
-      img.src = next.url
+      img.src = next.video?.poster ?? next.url
     } else if (next.kind === 'bio' && next.bio.photoUrl) {
       const img = new Image()
       img.src = next.bio.photoUrl
@@ -278,13 +291,37 @@ export function ShowcaseZone({
           </div>
         ) : slide.kind === 'photo' ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={slide.url}
-              alt={slide.caption ?? 'Event photo'}
-              className="showcase-anim h-full w-full object-cover"
-              style={t === 'kenburns' ? { animation: `showcase-kenburns ${seconds + 2}s linear both` } : undefined}
-            />
+            {slide.video ? (
+              <>
+                {/* Portrait phone videos: blurred poster fills the sides */}
+                {slide.video.poster && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={slide.video.poster} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl" />
+                )}
+                <video
+                  key={slide.video.src}
+                  src={slide.video.src}
+                  poster={slide.video.poster ?? undefined}
+                  autoPlay
+                  muted
+                  playsInline
+                  loop={playlist.length <= 1}
+                  preload="auto"
+                  onEnded={playlist.length > 1 ? advance : undefined}
+                  onError={playlist.length > 1 ? advance : undefined}
+                  aria-label={slide.caption ?? 'Event video'}
+                  className="relative h-full w-full object-contain"
+                />
+              </>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={slide.url}
+                alt={slide.caption ?? 'Event photo'}
+                className="showcase-anim h-full w-full object-cover"
+                style={t === 'kenburns' ? { animation: `showcase-kenburns ${seconds + 2}s linear both` } : undefined}
+              />
+            )}
             {slide.caption && (
               <p className="showcase-anim absolute bottom-4 left-4 max-w-[70%] rounded bg-black/60 px-3 py-1.5 text-sm text-white"
                  style={{ animation: 'showcase-chyron .6s ease-out .4s both' }}>
@@ -294,7 +331,7 @@ export function ShowcaseZone({
             {slide.credit && (
               <p className="showcase-anim absolute bottom-4 right-4 rounded-full bg-black/65 px-3.5 py-1.5 text-base font-semibold text-white"
                  style={{ animation: 'showcase-chyron .6s ease-out .6s both' }}>
-                📸 {slide.credit}
+                {slide.video ? '🎥' : '📸'} {slide.credit}
               </p>
             )}
           </>
