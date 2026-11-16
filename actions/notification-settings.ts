@@ -182,11 +182,18 @@ export async function sendCaptainPrepTestEmail(): Promise<{ error: string | null
   const { data: { user } } = await supabase.auth.getUser()
   if (!user?.email) return { error: 'Could not determine your email address.' }
 
+  const { data: branding } = await createServiceRoleClient()
+    .from('org_branding')
+    .select('primary_color, secondary_color, logo_url')
+    .eq('organization_id', org.id)
+    .maybeSingle()
+
   const { subject, html } = buildCaptainPrepEmail(
     sampleCaptainPrepData({
       orgName: org.name ?? 'Your Organization',
       orgSlug: org.slug ?? '',
       platformDomain: PLATFORM_DOMAIN,
+      brand: branding ? { primary: branding.primary_color, secondary: branding.secondary_color, logoUrl: branding.logo_url } : null,
     })
   )
 

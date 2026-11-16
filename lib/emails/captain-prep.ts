@@ -4,13 +4,21 @@
  * Shared builder used by both the cron job and the "Send test email"
  * button so the test sample matches what captains actually receive.
  */
+import { escapeHtml } from '@/lib/html-escape'
+import { plural, rosterMinimum } from '@/lib/roster-minimum'
+import {
+  banner, button, emailShell, minimumMeter, peopleSection, resolveBrand, statTiles,
+  type EmailBrand, type ListPerson, type Tone,
+} from './captain-email-layout'
 
-export type PrepPlayer = { name: string; email?: string | null }
+/** `isCoach`: coaches are listed but never counted toward the minimum team size. */
+export type PrepPlayer = { name: string; email?: string | null; isCoach?: boolean }
 
 export interface CaptainPrepData {
   orgName: string
   orgSlug: string
   platformDomain: string
+  brand?: EmailBrand | null
   leagueName: string
   leagueSlug: string
   teamName: string
@@ -18,101 +26,132 @@ export interface CaptainPrepData {
   dateLabel: string          // human-readable event start, e.g. "Saturday, June 7"
   venueName?: string | null
   venueAddress?: string | null
+  /** The event's minimum team size (`leagues.min_team_size`). Null/≤1 = no check. */
+  minTeamSize?: number | null
+  /** False hides the waiver column/wording. Defaults to true. */
+  requiresWaiver?: boolean
   registered: PrepPlayer[]        // registered AND waiver signed (or no waiver required)
   needsWaiver: PrepPlayer[]       // registered but waiver not yet signed
   notRegistered: PrepPlayer[]     // on the roster but not registered
   invitedPending: PrepPlayer[]    // invited by email, hasn't joined/registered
 }
 
-function row(label: string, count: number, color: string) {
-  return `<tr>
-    <td style="padding:6px 0;color:#6b7280;font-size:14px;">${label}</td>
-    <td style="padding:6px 0;text-align:right;font-weight:700;font-size:14px;color:${color};">${count}</td>
-  </tr>`
-}
+const players = (list: PrepPlayer[]) => list.filter(p => !p.isCoach).length
 
-function playerList(players: PrepPlayer[], emptyText: string): string {
-  if (players.length === 0) {
-    return `<p style="color:#9ca3af;font-size:13px;margin:4px 0 0;">${emptyText}</p>`
-  }
-  return `<ul style="margin:4px 0 0;padding-left:20px;color:#374151;font-size:14px;line-height:1.7;">
-    ${players.map(p => `<li>${escapeHtml(p.name)}${p.email ? ` <span style="color:#9ca3af;">— ${escapeHtml(p.email)}</span>` : ''}</li>`).join('')}
-  </ul>`
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+function toPeople(list: PrepPlayer[]): ListPerson[] {
+  return list.map(p => ({
+    name: p.name,
+    note: [p.isCoach ? 'Coach' : null, p.email && p.email !== p.name ? p.email : null].filter(Boolean).join(' · ') || null,
+  }))
 }
 
 export function buildCaptainPrepEmail(d: CaptainPrepData): { subject: string; html: string } {
+  const brand = resolveBrand(d.brand)
   const base = `https://${d.orgSlug}.${d.platformDomain}`
   const teamUrl = `${base}/teams/${d.teamId}`
   const registerUrl = `${base}/register/${d.leagueSlug}`
+  const requiresWaiver = d.requiresWaiver !== false
 
   const outstanding = d.needsWaiver.length + d.notRegistered.length + d.invitedPending.length
+  const ready = players(d.registered)
+  const min = rosterMinimum(
+    { ready, needsWaiver: players(d.needsWaiver), notRegistered: players(d.notRegistered) + d.invitedPending.length },
+    d.minTeamSize,
+  )
 
-  const subject = outstanding > 0
-    ? `${d.leagueName} starts ${d.dateLabel} — ${outstanding} player${outstanding !== 1 ? 's' : ''} need action`
-    : `${d.leagueName} starts ${d.dateLabel} — ${d.teamName} is all set`
+  // ── Headline: one sentence that tells the captain where they stand ────────
+  let tone: Tone
+  let title: string
+  let body: string | undefined
+  if (min.verdict === 'short') {
+    tone = 'bad'
+    title = `${d.teamName} is ${plural(min.short, 'player')} short`
+    body = `${d.leagueName} needs at least ${min.minimum} players ready per team, and you have ${ready}. `
+      + (outstanding > 0
+        ? `Get the teammates below signed up, or invite more players before ${d.dateLabel}.`
+        : `Invite more players before ${d.dateLabel}.`)
+  } else if (min.verdict === 'short_waivers') {
+    tone = 'warn'
+    title = `${plural(min.short, 'waiver')} away from the minimum`
+    body = `You have ${ready} of the ${min.minimum} players you need. ${plural(players(d.needsWaiver), 'registered player has', 'registered players have')} still to sign the waiver.`
+  } else if (outstanding > 0) {
+    tone = min.verdict === 'enough' ? 'good' : 'warn'
+    title = min.verdict === 'enough'
+      ? `You have enough players to play`
+      : `${plural(outstanding, 'teammate')} still ${outstanding === 1 ? 'needs' : 'need'} to finish signing up`
+    body = min.verdict === 'enough'
+      ? `${plural(outstanding, 'teammate')} still ${outstanding === 1 ? 'needs' : 'need'} to finish signing up before ${d.dateLabel}.`
+      : undefined
+  } else {
+    tone = 'good'
+    title = `Everyone on ${d.teamName} is ready to play`
+    body = `Nothing to do — see you ${d.dateLabel}.`
+  }
 
-  const venueLine = d.venueName || d.venueAddress
-    ? `<p style="color:#6b7280;font-size:14px;margin:2px 0;">📍 ${escapeHtml(d.venueName ?? '')}${d.venueName && d.venueAddress ? ' · ' : ''}${escapeHtml(d.venueAddress ?? '')}</p>`
-    : ''
+  const subject = min.short > 0
+    ? `${d.teamName} needs ${plural(min.short, 'more player')} ready — ${d.leagueName} starts ${d.dateLabel}`
+    : outstanding > 0
+      ? `${d.leagueName} starts ${d.dateLabel} — ${plural(outstanding, 'player')} ${outstanding === 1 ? 'needs' : 'need'} action`
+      : `${d.leagueName} starts ${d.dateLabel} — ${d.teamName} is all set`
 
-  const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111;">
-    <p style="font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#9ca3af;margin:0 0 4px;">${escapeHtml(d.orgName)}</p>
-    <h2 style="margin:0 0 4px;font-size:22px;">Your event starts in 2 days</h2>
-    <p style="color:#374151;font-size:15px;margin:0 0 2px;"><strong>${escapeHtml(d.leagueName)}</strong> · ${escapeHtml(d.teamName)}</p>
-    <p style="color:#6b7280;font-size:14px;margin:2px 0;">🗓️ ${escapeHtml(d.dateLabel)}</p>
-    ${venueLine}
+  const venue = [d.venueName, d.venueAddress].filter(Boolean).join(' · ')
+  const detail = (icon: string, text: string) =>
+    `<tr><td style="padding:2px 0;font-size:14px;color:#374151;">${icon}&nbsp; ${escapeHtml(text)}</td></tr>`
 
-    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 18px;margin:20px 0;">
-      <p style="margin:0 0 8px;font-weight:600;font-size:14px;">Roster status</p>
-      <table style="width:100%;border-collapse:collapse;">
-        ${row('✅ Registered &amp; waiver signed', d.registered.length, '#16a34a')}
-        ${row('⚠️ Registered — waiver not signed', d.needsWaiver.length, '#d97706')}
-        ${row('❌ On roster — not registered', d.notRegistered.length, '#dc2626')}
-        ${row('✉️ Invited — not joined yet', d.invitedPending.length, '#6b7280')}
-      </table>
+  const meterTone: Tone = min.verdict === 'enough' ? 'good' : min.verdict === 'short_waivers' ? 'warn' : 'bad'
+
+  const tiles = [
+    { value: d.registered.length, label: 'Ready', tone: 'good' as Tone },
+    ...(requiresWaiver ? [{ value: d.needsWaiver.length, label: 'Waiver to sign', tone: 'warn' as Tone }] : []),
+    { value: d.notRegistered.length, label: 'Not registered', tone: 'bad' as Tone },
+    { value: d.invitedPending.length, label: 'Invited', tone: 'info' as Tone },
+  ]
+
+  const bodyHtml = `
+    <p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${brand.ink};">Starts in 2 days</p>
+    <h1 style="margin:0 0 2px;font-size:24px;line-height:1.25;color:#111827;">${escapeHtml(d.teamName)}</h1>
+    <p style="margin:0 0 12px;font-size:15px;color:#4b5563;">${escapeHtml(d.leagueName)}</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
+      ${detail('🗓️', d.dateLabel)}
+      ${venue ? detail('📍', venue) : ''}
+    </table>
+
+    ${banner(tone, tone === 'good' ? '✅' : '⚠️', title, body)}
+
+    ${min.minimum !== null ? minimumMeter(ready, min.minimum, meterTone) : ''}
+
+    ${statTiles(tiles)}
+
+    ${peopleSection('bad', 'Still need to register', toPeople(d.notRegistered), 'On your roster, but not signed up for this event yet.')}
+    ${peopleSection('warn', 'Need to sign the waiver', toPeople(d.needsWaiver), 'Registered — they just need to sign before they can play.')}
+    ${peopleSection('info', "Invited, haven't joined", toPeople(d.invitedPending), 'They have an invite email. You can resend it from your team page.')}
+    ${peopleSection('good', 'Ready to play', toPeople(d.registered))}
+
+    <div style="margin:8px 0 20px;">
+      ${button(brand, teamUrl, outstanding > 0 || min.short > 0 ? 'Open your team page' : 'View your team')}
     </div>
 
-    ${d.needsWaiver.length > 0 ? `
-    <p style="font-weight:600;font-size:14px;margin:18px 0 0;color:#d97706;">Need to sign the waiver</p>
-    ${playerList(d.needsWaiver, '')}` : ''}
+    ${outstanding > 0 || min.short > 0 ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #f3f4f6;border-radius:12px;">
+      <tr><td style="padding:16px 18px;">
+        <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#111827;">How to get everyone signed up</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:1.55;color:#374151;">
+          <tr><td valign="top" style="padding:3px 10px 3px 0;font-weight:700;color:${brand.ink};">1</td><td style="padding:3px 0;">Tap <strong>Remind</strong> next to anyone on your team page — they get an email and an app alert.</td></tr>
+          <tr><td valign="top" style="padding:3px 10px 3px 0;font-weight:700;color:${brand.ink};">2</td><td style="padding:3px 0;">Need more players? Use <strong>Invite Player</strong> on the team page to add them by email.</td></tr>
+          <tr><td valign="top" style="padding:3px 10px 3px 0;font-weight:700;color:${brand.ink};">3</td><td style="padding:3px 0;">Or share the registration link in your team chat:<br><a href="${escapeHtml(registerUrl)}" style="color:${brand.ink};word-break:break-all;">${escapeHtml(registerUrl)}</a></td></tr>
+        </table>
+        ${requiresWaiver ? `<p style="margin:10px 0 0;font-size:12px;color:#6b7280;">Registering includes signing the waiver, which everyone needs before they can play.</p>` : ''}
+      </td></tr>
+    </table>` : ''}
+  `
 
-    ${d.notRegistered.length > 0 ? `
-    <p style="font-weight:600;font-size:14px;margin:18px 0 0;color:#dc2626;">Still need to register</p>
-    ${playerList(d.notRegistered, '')}` : ''}
-
-    ${d.invitedPending.length > 0 ? `
-    <p style="font-weight:600;font-size:14px;margin:18px 0 0;color:#374151;">Invited — haven't joined</p>
-    ${playerList(d.invitedPending, '')}` : ''}
-
-    ${d.registered.length > 0 ? `
-    <p style="font-weight:600;font-size:14px;margin:18px 0 0;color:#16a34a;">Ready to play</p>
-    ${playerList(d.registered, '')}` : ''}
-
-    <div style="margin:24px 0 8px;">
-      <a href="${teamUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;margin-right:8px;">
-        Manage your team →
-      </a>
-    </div>
-
-    <div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:10px;padding:14px 16px;margin:16px 0;">
-      <p style="margin:0 0 6px;font-weight:600;font-size:14px;color:#1e40af;">How to get everyone signed up</p>
-      <ol style="margin:0;padding-left:18px;color:#1e3a8a;font-size:13px;line-height:1.7;">
-        <li>Open your <a href="${teamUrl}" style="color:#1d4ed8;">team page</a> and use <strong>Invite Player</strong> to add teammates by email.</li>
-        <li>Each invited player gets a link to create an account and register.</li>
-        <li>Registration includes signing the waiver — required before they can play.</li>
-        <li>Or share this direct registration link: <a href="${registerUrl}" style="color:#1d4ed8;">${registerUrl}</a></li>
-      </ol>
-    </div>
-
-    <p style="margin-top:24px;font-size:12px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:16px;line-height:1.6;">
-      You're receiving this as a team captain or coach with <strong>${escapeHtml(d.orgName)}</strong>, powered by Fieldday.<br>
-      This prep reminder is sent 48 hours before your event start.
-    </p>
-  </div>`
+  const html = emailShell({
+    orgName: d.orgName,
+    brand,
+    preheader: body ? `${title}. ${body}` : title,
+    bodyHtml,
+    footerNote: `You're getting this as a captain or coach of ${d.teamName}. It's sent 2 days before your event starts.`,
+  })
 
   return { subject, html }
 }
@@ -122,11 +161,13 @@ export function sampleCaptainPrepData(opts: {
   orgName: string
   orgSlug: string
   platformDomain: string
+  brand?: EmailBrand | null
 }): CaptainPrepData {
   return {
     orgName: opts.orgName,
     orgSlug: opts.orgSlug,
     platformDomain: opts.platformDomain,
+    brand: opts.brand,
     leagueName: 'Sample Spring League',
     leagueSlug: 'sample-spring-league',
     teamName: 'The Sample Squad',
@@ -134,6 +175,7 @@ export function sampleCaptainPrepData(opts: {
     dateLabel: 'Saturday, June 7',
     venueName: 'Community Sports Centre',
     venueAddress: '123 Example St',
+    minTeamSize: 5,
     registered: [
       { name: 'Alex Rivera', email: 'alex@example.com' },
       { name: 'Jordan Lee', email: 'jordan@example.com' },
