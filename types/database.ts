@@ -2403,6 +2403,7 @@ export type Database = {
           advertised: boolean
           age_group: string | null
           bracket_visibility: string
+          media_auto_approve: boolean
           calendar_token: string | null
           checkin_enabled: boolean
           created_at: string | null
@@ -2476,6 +2477,7 @@ export type Database = {
           advertised?: boolean
           age_group?: string | null
           bracket_visibility?: string
+          media_auto_approve?: boolean
           calendar_token?: string | null
           checkin_enabled?: boolean
           created_at?: string | null
@@ -2549,6 +2551,7 @@ export type Database = {
           advertised?: boolean
           age_group?: string | null
           bracket_visibility?: string
+          media_auto_approve?: boolean
           calendar_token?: string | null
           checkin_enabled?: boolean
           created_at?: string | null

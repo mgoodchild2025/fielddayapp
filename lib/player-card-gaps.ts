@@ -40,6 +40,6 @@ export function displayShowsBios(config: unknown): boolean {
   if (!Array.isArray(zones)) return false
   return zones.some((z) => {
     const zone = z as { type?: string; source?: string } | null
-    return zone?.type === 'showcase' && (zone.source === 'bios' || zone.source === 'both')
+    return zone?.type === 'showcase' && (zone.source === 'bios' || zone.source === 'both' || zone.source === 'teams')
   })
 }

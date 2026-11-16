@@ -40,6 +40,7 @@ export function ShareInbox({
   const [progress, setProgress] = useState<Record<string, Progress>>({})
   const [busy, setBusy] = useState(false)
   const [finished, setFinished] = useState(false)
+  const [wentLive, setWentLive] = useState(false)
 
   useEffect(() => {
     let urls: string[] = []
@@ -87,6 +88,7 @@ export function ShareInbox({
     // render's stale snapshot, so uploaded files were kept in the index (their
     // blobs already deleted) and every retry failed — the inbox never cleared.
     const doneIds = new Set<string>()
+    let anyLive = false
     for (const it of items) {
       setProgress((p) => ({ ...p, [it.id]: { state: 'uploading', fraction: 0 } }))
       try {
@@ -113,6 +115,7 @@ export function ShareInbox({
           durationSeconds: up.durationSeconds,
         })
         if (r.error) throw new Error(r.error)
+        if (r.approved) anyLive = true
         await cache.delete(`/share-inbox/${it.id}`)
         doneIds.add(it.id)
         setProgress((p) => ({ ...p, [it.id]: { state: 'done', fraction: 1 } }))
@@ -122,6 +125,7 @@ export function ShareInbox({
     }
     if (doneIds.size === items.length) {
       await clearInbox()
+      setWentLive(anyLive)
       setFinished(true)
     } else {
       // Keep only the files that didn't upload, so Retry has something to send.
@@ -141,8 +145,17 @@ export function ShareInbox({
     return (
       <div className="rounded-xl border bg-white p-6 text-center">
         <p className="text-3xl">📸</p>
-        <h2 className="mt-2 font-semibold text-gray-900">Thanks! Your upload is pending approval.</h2>
-        <p className="mt-1 text-sm text-gray-500">An admin will review it before it appears on the event page.</p>
+        {wentLive ? (
+          <>
+            <h2 className="mt-2 font-semibold text-gray-900">Thanks! You&rsquo;re live.</h2>
+            <p className="mt-1 text-sm text-gray-500">Your photos join the event gallery and the TV within a minute.</p>
+          </>
+        ) : (
+          <>
+            <h2 className="mt-2 font-semibold text-gray-900">Thanks! Your upload is pending approval.</h2>
+            <p className="mt-1 text-sm text-gray-500">An admin will review it before it appears on the event page.</p>
+          </>
+        )}
         {event && (
           <Link href={`/events/${event.slug}`} className="mt-4 inline-block px-4 py-2 rounded-md text-sm font-semibold text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
             Go to {event.name}

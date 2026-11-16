@@ -119,8 +119,10 @@ const recordSchema = z.object({
 })
 
 /** Record a completed Cloudinary upload. Any logged-in org member may upload;
- *  the item starts 'pending' until an admin approves it. */
-export async function recordEventMediaUpload(input: z.infer<typeof recordSchema>): Promise<{ error: string | null }> {
+ *  the item starts 'pending' until an admin approves it — unless the event
+ *  has "Publish uploads straight away" on (leagues.media_auto_approve), when
+ *  it goes live at once (`approved: true`) and no approval alert is sent. */
+export async function recordEventMediaUpload(input: z.infer<typeof recordSchema>): Promise<{ error: string | null; approved?: boolean }> {
   const parsed = recordSchema.safeParse(input)
   if (!parsed.success) return { error: 'Invalid upload data.' }
 
@@ -138,8 +140,9 @@ export async function recordEventMediaUpload(input: z.infer<typeof recordSchema>
 
 
   const { data: league } = await db
-    .from('leagues').select('id').eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle()
+    .from('leagues').select('id, media_auto_approve').eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle()
   if (!league) return { error: 'Event not found.' }
+  const autoApprove = league.media_auto_approve === true
 
   // The browser tells us what it uploaded; Cloudinary tells us the truth. The
   // public id and URL used to be stored as sent, so a member could record
@@ -165,15 +168,41 @@ export async function recordEventMediaUpload(input: z.infer<typeof recordSchema>
     width: parsed.data.width ?? null,
     height: parsed.data.height ?? null,
     duration_seconds: parsed.data.durationSeconds ?? null,
-    status: 'pending',
+    status: autoApprove ? 'approved' : 'pending',
+    ...(autoApprove ? { approved_at: new Date().toISOString() } : {}),
   })
   if (error) return { error: error.message }
+
+  if (autoApprove) {
+    revalidatePath(`/admin/events/${parsed.data.leagueId}/media`)
+    revalidatePath('/media')
+    return { error: null, approved: true }
+  }
 
   // Alert admins that media is waiting (in-app + SMS). Fire-and-forget —
   // never block or fail the upload on notification delivery.
   notifyAdminsOfPendingMedia(db, { id: org.id, slug: org.slug }, parsed.data.leagueId, user.id).catch(() => {})
 
   revalidatePath(`/admin/events/${parsed.data.leagueId}/media`)
+  return { error: null, approved: false }
+}
+
+/** Event setting: publish player uploads straight away (tournament day). */
+export async function setMediaAutoApprove(leagueId: string, on: boolean): Promise<{ error: string | null }> {
+  if (!z.string().uuid().safeParse(leagueId).success || typeof on !== 'boolean') return { error: 'Invalid request.' }
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const adminId = await requireMediaAdmin(org.id)
+  if (!adminId) return { error: 'Unauthorized' }
+
+  const db = createServiceRoleClient()
+  const { data, error } = await db
+    .from('leagues').update({ media_auto_approve: on })
+    .eq('id', leagueId).eq('organization_id', org.id)
+    .select('id')
+  if (error) return { error: error.message }
+  if (!data || data.length === 0) return { error: 'Event not found.' }
+  revalidatePath(`/admin/events/${leagueId}/media`)
   return { error: null }
 }
 

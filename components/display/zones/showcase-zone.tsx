@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import type { DisplayData, ZoneConfig } from '@/lib/display-types'
 import { PlayerBioCard } from '@/components/bios/player-bio-card'
 import { bannerTint } from '@/lib/banner-tints'
+import { teamsPlaylist } from '@/lib/team-cards'
+import { MatchupSlide, TeamIntroSlide, TEAM_SLIDE_KEYFRAMES } from './team-slides'
 
 /**
  * Showcase zone (S2): rotates player bio cards and/or approved event photos
@@ -16,8 +18,10 @@ type Bio = DisplayData['showcase']['bios'][number]
 
 type Slide =
   | { kind: 'bio'; bio: Bio; lineupTeam?: string | null }
-  | { kind: 'photo'; url: string; caption: string | null }
+  | { kind: 'photo'; url: string; caption: string | null; credit?: string | null }
   | { kind: 'matchup'; game: NonNullable<DisplayData['showcase']['nextGame']> }
+  | { kind: 'team'; team: DisplayData['showcase']['teams'][number] }
+  | { kind: 'teamMatchup'; matchup: DisplayData['showcase']['matchups'][number] }
   | { kind: 'banner'; banner: DisplayData['showcase']['banners'][number] }
 
 /** Starting lineups play when the next game is within this window. */
@@ -25,11 +29,33 @@ const LINEUP_WINDOW_MS = 45 * 60 * 1000
 
 function buildPlaylist(
   showcase: DisplayData['showcase'],
-  source: 'bios' | 'photos' | 'both' | 'banners',
+  source: 'bios' | 'photos' | 'both' | 'banners' | 'teams',
   order: 'shuffle' | 'newest',
   seed: number,
   lineups: boolean
 ): Slide[] {
+  const seededShuffle = <T,>(arr: T[]): T[] => {
+    const a = [...arr]
+    let s = seed
+    for (let i = a.length - 1; i > 0; i--) {
+      s = (s * 9301 + 49297) % 233280
+      const j = Math.floor((s / 233280) * (i + 1))
+      ;[a[i], a[j]] = [a[j], a[i]]
+    }
+    return a
+  }
+  // Team intros (+ matchups for games about to start, + event photos)
+  if (source === 'teams') {
+    return teamsPlaylist({
+      matchups: showcase.matchups,
+      teams: showcase.teams,
+      photos: showcase.photos,
+      nowMs: Date.now(),
+      shuffle: order === 'shuffle' ? seededShuffle : undefined,
+    }).map((s): Slide => s.kind === 'team' ? { kind: 'team', team: s.team }
+      : s.kind === 'matchup' ? { kind: 'teamMatchup', matchup: s.matchup }
+      : { kind: 'photo', url: s.photo.url, caption: s.photo.caption, credit: s.photo.credit })
+  }
   // Championship banners: the Hall of Champions sweeping the gym TV.
   // Newest-first is chronology — shuffle applies when chosen.
   if (source === 'banners') {
@@ -70,7 +96,7 @@ function buildPlaylist(
 
   const restBios = showcase.bios.filter((b) => !lineupUserKeys.has(b.name + (b.teamId ?? '')))
   const bios: Slide[] = source !== 'photos' ? restBios.map((bio) => ({ kind: 'bio' as const, bio })) : []
-  const photos: Slide[] = source !== 'bios' ? showcase.photos.map((p) => ({ kind: 'photo' as const, url: p.url, caption: p.caption })) : []
+  const photos: Slide[] = source !== 'bios' ? showcase.photos.map((p) => ({ kind: 'photo' as const, url: p.url, caption: p.caption, credit: p.credit })) : []
 
   // Deterministic-ish shuffle from the seed so re-renders within a refresh
   // cycle keep the same order.
@@ -141,7 +167,11 @@ export function ShowcaseZone({
   // Preload the next photo
   useEffect(() => {
     const next = playlist[(index + 1) % playlist.length]
-    if (!next || next.kind === 'matchup' || next.kind === 'banner') return
+    if (!next || next.kind === 'matchup' || next.kind === 'banner' || next.kind === 'teamMatchup') return
+    if (next.kind === 'team') {
+      if (next.team.logoUrl) { const img = new Image(); img.src = next.team.logoUrl }
+      return
+    }
     if (next.kind === 'photo') {
       const img = new Image()
       img.src = next.url
@@ -154,7 +184,9 @@ export function ShowcaseZone({
   if (playlist.length === 0) {
     return (
       <div className={`flex h-full items-center justify-center text-sm ${theme === 'dark' ? 'text-white/70' : 'text-gray-500'}`}>
-        Nothing to showcase yet — approve event photos or have players opt in their bio cards.
+        {config.source === 'teams'
+          ? 'No teams in this event yet.'
+          : 'Nothing to showcase yet — approve event photos or have players opt in their bio cards.'}
       </div>
     )
   }
@@ -172,6 +204,7 @@ export function ShowcaseZone({
         @keyframes showcase-fade-in { from { opacity: 0; } to { opacity: 1; } }
         @keyframes showcase-slide-in { from { opacity: 0; transform: translateX(6%); } to { opacity: 1; transform: translateX(0); } }
         @keyframes showcase-chyron { from { opacity: 0; transform: translateY(1.2rem); } to { opacity: 1; transform: translateY(0); } }
+        ${TEAM_SLIDE_KEYFRAMES}
         @media (prefers-reduced-motion: reduce) {
           .showcase-anim { animation: none !important; transition: none !important; }
         }
@@ -188,7 +221,16 @@ export function ShowcaseZone({
           transition: 'opacity .4s ease-in',
         }}
       >
-        {slide.kind === 'banner' ? (
+        {slide.kind === 'team' ? (
+          <TeamIntroSlide team={slide.team} />
+        ) : slide.kind === 'teamMatchup' ? (
+          <MatchupSlide
+            matchup={slide.matchup}
+            home={showcase.teams.find((t) => t.id === slide.matchup.homeTeamId)}
+            away={showcase.teams.find((t) => t.id === slide.matchup.awayTeamId)}
+            timeLabel={new Date(slide.matchup.scheduledAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}
+          />
+        ) : slide.kind === 'banner' ? (
           <div className="flex h-full items-start justify-center pt-[4%]">
             <div
               className="w-[min(46vh,80%)] px-8 pb-24 pt-12 text-center text-[#f5efdd] shadow-2xl"
@@ -244,9 +286,15 @@ export function ShowcaseZone({
               style={t === 'kenburns' ? { animation: `showcase-kenburns ${seconds + 2}s linear both` } : undefined}
             />
             {slide.caption && (
-              <p className="showcase-anim absolute bottom-4 left-4 max-w-[80%] rounded bg-black/60 px-3 py-1.5 text-sm text-white"
+              <p className="showcase-anim absolute bottom-4 left-4 max-w-[70%] rounded bg-black/60 px-3 py-1.5 text-sm text-white"
                  style={{ animation: 'showcase-chyron .6s ease-out .4s both' }}>
                 {slide.caption}
+              </p>
+            )}
+            {slide.credit && (
+              <p className="showcase-anim absolute bottom-4 right-4 rounded-full bg-black/65 px-3.5 py-1.5 text-base font-semibold text-white"
+                 style={{ animation: 'showcase-chyron .6s ease-out .6s both' }}>
+                📸 {slide.credit}
               </p>
             )}
           </>

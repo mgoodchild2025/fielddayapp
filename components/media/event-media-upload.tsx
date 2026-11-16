@@ -41,7 +41,7 @@ export function EventMediaUpload({ leagueId, orgId, apiKey, cloudName }: { leagu
     })
     setBusy(false)
     if (res.error) setMsg(res.error)
-    else { setMsg('Thanks! Your upload is pending approval.'); router.refresh() }
+    else { setMsg(res.approved ? 'Thanks! Your upload is live — it joins the gallery and the TV within a minute.' : 'Thanks! Your upload is pending approval.'); router.refresh() }
   }
 
   return (

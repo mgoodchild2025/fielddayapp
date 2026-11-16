@@ -246,18 +246,20 @@ function ZoneEditor({
         <div className="space-y-2">
           <div>
             <label className="block text-xs text-gray-200 mb-1">Show</label>
-            <div className="flex gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
               {([
+                { value: 'teams', label: 'Team intros' },
                 { value: 'bios', label: 'Player bios' },
                 { value: 'photos', label: 'Event photos' },
-                { value: 'both', label: 'Both' },
+                { value: 'both', label: 'Bios + photos' },
                 { value: 'banners', label: '🏆 Banners' },
               ] as const).map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
                   onClick={() => onChange({ ...zone, source: opt.value })}
-                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs ${
+                  aria-pressed={zone.source === opt.value}
+                  className={`flex-1 whitespace-nowrap rounded-md border px-2 py-1.5 text-xs ${
                     zone.source === opt.value ? 'border-blue-400 bg-blue-500/20 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-700'
                   }`}
                 >
@@ -268,10 +270,35 @@ function ZoneEditor({
             <p className="text-[11px] text-gray-300 mt-1">
               {zone.source === 'banners'
                 ? 'The Hall of Champions: every championship banner the org has hung, org-wide.'
-                : 'Bios rotate only players who opted in on their profile.'}
+                : zone.source === 'teams'
+                  ? 'A broadcast-style intro for every team (logo, pool, record, roster), an “Up next” matchup before each game, and event photos in between. Needs nothing from players; photos appear only for players who turned their card on.'
+                  : 'Bios rotate only players who opted in on their profile.'}
             </p>
           </div>
-          {zone.source !== 'photos' && zone.source !== 'banners' && (
+          {zone.source === 'teams' && (
+            <div>
+              <label className="block text-xs text-gray-200 mb-1">Roster names</label>
+              <div className="flex gap-1.5">
+                {([
+                  { value: 'full', label: 'Full names' },
+                  { value: 'short', label: 'First name + initial' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={(zone.names ?? 'full') === opt.value}
+                    onClick={() => onChange({ ...zone, names: opt.value })}
+                    className={`flex-1 rounded-md border px-2 py-1.5 text-xs ${
+                      (zone.names ?? 'full') === opt.value ? 'border-blue-400 bg-blue-500/20 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {zone.source !== 'photos' && zone.source !== 'banners' && zone.source !== 'teams' && (
             <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -471,8 +498,9 @@ function ScreenEditor({
 
       {/* Layout picker */}
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <p className="text-sm font-semibold text-gray-200">Layout</p>
+          <div className="flex flex-wrap gap-2">
           {/* One-click Photo Wall: full-bleed photo showcase + a QR inviting uploads.
               The QR points at the public event page, where the gallery lives. */}
           <button
@@ -481,7 +509,7 @@ function ScreenEditor({
               layout: 'main_sidebar',
               zones: [
                 { type: 'showcase', source: 'photos', transition: 'kenburns', seconds: 8, order: 'newest' },
-                { type: 'qr_code', url: displayBaseUrl.replace(/\/display$/, ''), label: '📸 Add your photos' },
+                { type: 'qr_code', url: displayBaseUrl.replace(/\/display$/, ''), label: '📸 Get on the big screen' },
               ],
             })}
             className="text-xs font-medium text-gray-300 border border-gray-600 rounded-md px-2.5 py-1 hover:bg-gray-700"
@@ -489,6 +517,21 @@ function ScreenEditor({
           >
             📸 Photo wall preset
           </button>
+          <button
+            type="button"
+            onClick={() => setConfig({
+              layout: 'main_sidebar',
+              zones: [
+                { type: 'showcase', source: 'teams', transition: 'fade', seconds: 10, order: 'newest', names: 'full' },
+                { type: 'qr_code', url: displayBaseUrl.replace(/\/display$/, ''), label: '📸 Get on the big screen' },
+              ],
+            })}
+            className="text-xs font-medium text-gray-300 border border-gray-600 rounded-md px-2.5 py-1 hover:bg-gray-700"
+            title="Set this screen to team intros and matchups, with photos in between, plus a QR code players scan to add photos"
+          >
+            🏟️ Team intros preset
+          </button>
+          </div>
         </div>
         <div className="grid grid-cols-4 gap-2">
           {LAYOUTS.map((l) => (

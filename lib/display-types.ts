@@ -25,7 +25,9 @@ export type ZoneConfig =
   | { type: 'live' }
   | { type: 'live_scores' }
   | { type: 'sponsors' }
-  | { type: 'showcase'; source: 'bios' | 'photos' | 'both' | 'banners'; transition: 'fade' | 'slide' | 'kenburns'; seconds: number; order: 'shuffle' | 'newest'; lineups?: boolean }
+  | { type: 'showcase'; source: 'bios' | 'photos' | 'both' | 'banners' | 'teams'; transition: 'fade' | 'slide' | 'kenburns'; seconds: number; order: 'shuffle' | 'newest'; lineups?: boolean
+      /** Teams source: roster names in full ("Sam Lee") or short ("Sam L."). */
+      names?: 'full' | 'short' }
   | { type: 'empty' }
 
 export interface SponsorBannerConfig {
@@ -170,6 +172,34 @@ export interface DisplaySponsor {
   tier:         'gold' | 'silver' | 'bronze' | 'standard'
 }
 
+export interface DisplayTeamCard {
+  id: string
+  name: string
+  /** #rrggbb or null. */
+  color: string | null
+  logoUrl: string | null
+  poolName: string | null
+  /** Place in its pool (or overall without pools). */
+  rank: number | null
+  played: number; won: number; lost: number; drawn: number
+  roster: {
+    name: string; number: string | null; position: string | null
+    role: 'captain' | 'player' | 'coach'
+    /** Only players who turned their card on get a photo. */
+    photoUrl: string | null
+  }[]
+}
+
+export interface DisplayMatchup {
+  gameId: string
+  scheduledAt: string
+  court: string | null
+  homeTeamId: string
+  awayTeamId: string
+  /** "Last meeting: Spikers won 21–18", or null. */
+  headToHead: string | null
+}
+
 export interface DisplayData {
   league:    { id: string; name: string; sport: string }
   org:       { name: string; logo_url: string | null }
@@ -195,7 +225,12 @@ export interface DisplayData {
       /** Set when the player's team medalled in this event — drives the gold card treatment. */
       champion: { placement: 'gold' | 'silver' | 'bronze' | 'tier_champion'; label: string } | null
     }[]
-    photos: { url: string; caption: string | null }[]
+    /** `credit` is the uploader's short name ("Sam L."), shown on the slide. */
+    photos: { url: string; caption: string | null; credit: string | null }[]
+    /** Teams source: one intro card per team. */
+    teams: DisplayTeamCard[]
+    /** Teams source: games starting soon (both teams set), one matchup slide each. */
+    matchups: DisplayMatchup[]
     /** Championship banners (org-wide golds) for the 'banners' source. */
     banners: { year: string; teamName: string; leagueName: string; color: string | null; logoUrl: string | null }[]
     /** Next scheduled game with both teams set — drives starting-lineup intros. */

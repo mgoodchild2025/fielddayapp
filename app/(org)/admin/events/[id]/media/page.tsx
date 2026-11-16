@@ -11,6 +11,7 @@ import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/clou
 import { EventMediaModeration } from '@/components/media/event-media-moderation'
 import { EventMediaUpload } from '@/components/media/event-media-upload'
 import { AdminCurateSocial } from '@/components/media/admin-curate-social'
+import { MediaAutoApproveToggle } from '@/components/media/media-auto-approve-toggle'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Event media' }
@@ -30,7 +31,7 @@ export default async function EventMediaAdminPage({ params }: { params: Promise<
   const db = createServiceRoleClient()
 
   const { data: league } = await db
-    .from('leagues').select('id').eq('id', id).eq('organization_id', org.id).single()
+    .from('leagues').select('id, media_auto_approve').eq('id', id).eq('organization_id', org.id).single()
   if (!league) notFound()
 
   const [items, curated] = await Promise.all([
@@ -56,6 +57,8 @@ export default async function EventMediaAdminPage({ params }: { params: Promise<
           <code> CLOUDINARY_API_KEY</code> and <code>CLOUDINARY_API_SECRET</code> to enable uploads.
         </div>
       )}
+
+      {isCloudinaryConfigured() && <MediaAutoApproveToggle leagueId={id} initial={league.media_auto_approve === true} />}
 
       <EventMediaModeration items={items} />
 
