@@ -139,7 +139,7 @@ export function getRoundName(roundNumber: number, bracketSize: number, matchNumb
 // E.g. 8-team: [[1,8],[4,5],[3,6],[2,7]]
 // The order of matches determines which winners face each other next round.
 
-function generateFirstRoundPairings(bracketSize: number): [number, number][] {
+export function generateFirstRoundPairings(bracketSize: number): [number, number][] {
   if (bracketSize === 2) return [[1, 2]]
   const sub = generateFirstRoundPairings(bracketSize / 2)
   return sub.flatMap(([a, b]) => [

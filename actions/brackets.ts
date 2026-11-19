@@ -23,11 +23,14 @@ import {
   seedFromStandings,
   seedFromDivisionStandings,
   seedFromPoolStandings,
+  generateFirstRoundPairings,
+  nextPowerOf2,
   type TeamStanding,
   type BracketMatchSpec,
   sameRoundConflict,
 } from '@/lib/bracket'
 import { getLeagueConfirmedResults } from '@/lib/league-results'
+import { orderByPoolPlace, separateFirstRoundPools, rankPlaceGroup } from '@/lib/pool-places'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -419,7 +422,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   } else if (
     bracket.seeding_method === 'pool_results' ||
     bracket.seeding_method === 'pool_results_alternating' ||
-    bracket.seeding_method === 'pool_tiers'
+    bracket.seeding_method === 'pool_tiers' ||
+    bracket.seeding_method === 'pool_places'
   ) {
     // Use pool-play game results for standings (not regular season games)
     const { standings: poolStandingsAll, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'pool_only')
@@ -433,8 +437,21 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
       .eq('organization_id', org.id)
       .order('sort_order', { ascending: true })
 
+    const rankGroup = (group: TeamStanding[]) => rankPlaceGroup(group, ptsMethod, volleyballMode)
+    const sortedPools = (pools ?? []).map((pool: { id: string }) =>
+      seedFromStandings(standings.filter((t) => t.poolId === pool.id), Number.MAX_SAFE_INTEGER, ptsMethod, volleyballMode))
+
     if (pools && pools.length > 0) {
-      if (bracket.seeding_method === 'pool_tiers') {
+      if (bracket.seeding_method === 'pool_places') {
+        // Every pool winner, then every runner-up, … — within a place, best
+        // record first. This tier takes its slice (Gold 1–8, Silver 9–12), so
+        // "top 2 per pool + the best 2 third places" falls out of the order.
+        const slice = orderByPoolPlace(sortedPools, rankGroup, (t) => t.teamId).slice(seedOffset, seedOffset + bracket.teams_advancing)
+        const placed = bracket.bracket_type === 'single_elimination'
+          ? separateFirstRoundPools(slice, generateFirstRoundPairings(nextPowerOf2(Math.max(2, slice.length))))
+          : slice
+        seededTeams = placed.map((e, i) => ({ ...e.team, seed: i + 1 }))
+      } else if (bracket.seeding_method === 'pool_tiers') {
         // Each tier maps to one pool by index.
         // Look up which index this bracket's tier has among all tiers for this league.
 
@@ -490,7 +507,19 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
           teams: standings.filter((t) => t.poolId === pool.id),
         }))
         const order = bracket.seeding_method === 'pool_results_alternating' ? 'alternating' : 'block'
-        seededTeams = seedFromPoolStandings(poolStandings, bracket.teams_advancing, order, advancePerPool)
+        if (seedOffset > 0) {
+          // A lower tier (Silver, seeds 9+): the tiers above took their teams
+          // with this same rule; this tier gets the teams left over, by pool
+          // place then record. It used to rerun the top tier's pick, so Silver
+          // was seeded with Gold's teams.
+          const above = new Set(seedFromPoolStandings(poolStandings, seedOffset, order, advancePerPool).map((t) => t.teamId))
+          const rest = sortedPools.map((pool) => pool.filter((t) => !above.has(t.teamId)))
+          seededTeams = orderByPoolPlace(rest, rankGroup, (t) => t.teamId)
+            .slice(0, bracket.teams_advancing)
+            .map((e, i) => ({ ...e.team, seed: i + 1 }))
+        } else {
+          seededTeams = seedFromPoolStandings(poolStandings, bracket.teams_advancing, order, advancePerPool)
+        }
       }
     }
   } else if (bracket.seeding_method === 'pool_results_flat') {
