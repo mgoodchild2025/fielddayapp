@@ -21,6 +21,9 @@ export type CourtsideGame = {
   is_exhibition: boolean | null
   home: CourtsideTeam
   away: CourtsideTeam
+  /** The typed name (CSV import / placeholder) when a side has no team linked. */
+  homeLabel: string | null
+  awayLabel: string | null
   league: { id: string; name: string; sport: string | null } | null
   result: { home_score: number | null; away_score: number | null; status: string; sets: { home: number; away: number }[] | null } | null
   /** "Entered by Sam Lee · 10:42 a.m." — who put the score in (null when unscored). */
@@ -100,7 +103,7 @@ export async function loadCourtsideDay(opts: {
   let gamesQuery = db
     .from('games')
     .select(`
-      id, scheduled_at, court, status, league_id, is_exhibition,
+      id, scheduled_at, court, status, league_id, is_exhibition, home_team_label, away_team_label,
       home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
       away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
       league:leagues!games_league_id_fkey(id, name, sport),
@@ -157,6 +160,8 @@ export async function loadCourtsideDay(opts: {
     is_exhibition: g.is_exhibition ?? null,
     home: one(g.home_team),
     away: one(g.away_team),
+    homeLabel: g.home_team_label ?? null,
+    awayLabel: g.away_team_label ?? null,
     league: one(g.league),
     result: one(g.game_results),
     enteredBy: gameEnteredBy(one(g.game_results), names, tz),

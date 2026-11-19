@@ -202,7 +202,7 @@ const whereWhen = (c: string | null, time: string) => [courtLabel(c), time].filt
 
 function orderOf(item: CourtsideItem): OrderItem {
   return item.kind === 'game'
-    ? { id: item.row.id, when: item.when, court: item.row.court, teams: [item.row.home?.name ?? 'TBD', item.row.away?.name ?? 'TBD'] }
+    ? { id: item.row.id, when: item.when, court: item.row.court, teams: [item.row.home?.name ?? item.row.homeLabel ?? 'TBD', item.row.away?.name ?? item.row.awayLabel ?? 'TBD'] }
     : { id: item.row.id, when: item.when, court: item.row.court, teams: [item.row.team1?.name ?? 'TBD', item.row.team2?.name ?? 'TBD'] }
 }
 
@@ -220,17 +220,19 @@ function CardHeader({ courtName, time, right }: { courtName: string | null; time
   )
 }
 
-function Teams({ a, b, score }: { a: CourtsideGame['home']; b: CourtsideGame['home']; score: string | null }) {
+function Teams({ a, b, score, aLabel, bLabel }: { a: CourtsideGame['home']; b: CourtsideGame['home']; score: string | null; aLabel?: string | null; bLabel?: string | null }) {
+  const aName = a?.name ?? aLabel ?? 'TBD'
+  const bName = b?.name ?? bLabel ?? 'TBD'
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 min-w-0 flex items-center gap-2">
-        <TeamAvatar logoUrl={a?.logo_url ?? null} color={a?.color ?? null} name={a?.name ?? 'TBD'} size="sm" />
-        <span className="truncate text-base font-semibold">{a?.name ?? 'TBD'}</span>
+        <TeamAvatar logoUrl={a?.logo_url ?? null} color={a?.color ?? null} name={aName} size="sm" />
+        <span className="truncate text-base font-semibold">{aName}</span>
       </div>
       <span className="shrink-0 px-2 text-lg font-bold tabular-nums">{score ?? 'vs'}</span>
       <div className="flex-1 min-w-0 flex items-center justify-end gap-2 text-right">
-        <span className="truncate text-base font-semibold">{b?.name ?? 'TBD'}</span>
-        <TeamAvatar logoUrl={b?.logo_url ?? null} color={b?.color ?? null} name={b?.name ?? 'TBD'} size="sm" />
+        <span className="truncate text-base font-semibold">{bName}</span>
+        <TeamAvatar logoUrl={b?.logo_url ?? null} color={b?.color ?? null} name={bName} size="sm" />
       </div>
     </div>
   )
@@ -238,6 +240,31 @@ function Teams({ a, b, score }: { a: CourtsideGame['home']; b: CourtsideGame['ho
 
 function EnteredBy({ text }: { text: string | null }) {
   return text ? <p className="mt-2 text-xs text-gray-500">{text}</p> : null
+}
+
+/**
+ * A side with a typed name but no team (a CSV name that didn't match): it
+ * can't be scored — a result needs real teams to count — so say why and
+ * where to fix it instead of a silent "TBD".
+ */
+function UnlinkedNote({ ctx, g }: { ctx: CardCtx; g: CourtsideGame }) {
+  const names = [!g.home ? g.homeLabel : null, !g.away ? g.awayLabel : null].filter(Boolean) as string[]
+  if (names.length === 0) return null
+  const who = names.join(' and ')
+  return (
+    <div role="note" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+      <p>
+        <span className="font-semibold">{who}</span> {names.length > 1 ? 'aren’t' : 'isn’t'} linked to a team yet, so this game can’t be scored.
+      </p>
+      {ctx.canClear && g.league_id ? (
+        <a href={`/admin/events/${g.league_id}/schedule`} className="mt-1 inline-block font-semibold underline">
+          Link it on the schedule →
+        </a>
+      ) : (
+        <p className="mt-1">Ask an organizer to link it on the event’s schedule.</p>
+      )}
+    </div>
+  )
 }
 
 function GameCard({ ctx, g, highlight }: { ctx: CardCtx; g: CourtsideGame; highlight?: boolean }) {
@@ -249,8 +276,9 @@ function GameCard({ ctx, g, highlight }: { ctx: CardCtx; g: CourtsideGame; highl
         time={g.timeLabel}
         right={<span className="inline-flex items-center gap-1.5"><ExhibitionBadge isExhibition={!!g.is_exhibition} />{g.league?.name}</span>}
       />
-      <Teams a={g.home} b={g.away} score={scored ? `${g.result!.home_score} – ${g.result!.away_score}` : null} />
+      <Teams a={g.home} b={g.away} aLabel={g.homeLabel} bLabel={g.awayLabel} score={scored ? `${g.result!.home_score} – ${g.result!.away_score}` : null} />
       <EnteredBy text={g.enteredBy} />
+      <UnlinkedNote ctx={ctx} g={g} />
       {g.home && g.away && (
         <div className="mt-3">
           <AdminScoreEntry

@@ -1,5 +1,6 @@
 'use server'
 
+import { findTeamByName } from '@/lib/team-name-match'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
@@ -426,6 +427,16 @@ export async function assignSlotToTeam(input: {
     .in('role', ['org_admin', 'league_admin'])
     .single()
   if (!adminMember) return { error: 'Admin access required', count: 0 }
+
+  // Only this event's own teams can fill its slots.
+  const teamIds = [...new Set(input.assignments.map((a) => a.teamId))]
+  const { data: ownTeams } = await db
+    .from('teams')
+    .select('id')
+    .eq('organization_id', org.id)
+    .eq('league_id', input.leagueId)
+    .in('id', teamIds)
+  if ((ownTeams ?? []).length !== teamIds.length) return { error: 'That team isn’t in this event', count: 0 }
 
   // Apply each assignment — update both home and away slots in parallel
   const updates = input.assignments.flatMap(({ slotLabel, teamId }) => [
@@ -1189,12 +1200,13 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
       .eq('organization_id', org.id),
   ])
 
-  const teamMap = new Map(teams?.map((t: { name: string; id: string }) => [t.name.toLowerCase(), t.id]))
+  const teamList = (teams ?? []) as { id: string; name: string }[]
   const poolMap = new Map(pools?.map((p: { name: string; id: string }) => [p.name.toLowerCase(), p.id]))
 
   const games = rows.map((row) => {
-    const homeId = teamMap.get(row.home_team?.toLowerCase()) ?? null
-    const awayId = teamMap.get(row.away_team?.toLowerCase()) ?? null
+    // Curly quotes / stray spaces from a spreadsheet still find the team.
+    const homeId = findTeamByName(row.home_team, teamList)?.id ?? null
+    const awayId = findTeamByName(row.away_team, teamList)?.id ?? null
     const poolId = row.pool?.trim() ? (poolMap.get(row.pool.trim().toLowerCase()) ?? null) : null
     return {
       organization_id: org.id,

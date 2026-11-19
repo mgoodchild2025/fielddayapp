@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { assignSlotToTeam } from '@/actions/schedule'
 import { toast } from 'sonner'
+import { findTeamByName } from '@/lib/team-name-match'
 
 interface Team {
   id: string
@@ -21,7 +22,8 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [assignments, setAssignments] = useState<Record<string, string>>(
-    () => Object.fromEntries(slotLabels.map(l => [l, '']))
+    // A name that only differs by a curly quote or a space is pre-picked.
+    () => Object.fromEntries(slotLabels.map(l => [l, findTeamByName(l, teams)?.id ?? '']))
   )
   const [error, setError] = useState<string | null>(null)
 
@@ -77,7 +79,7 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
       </div>
       <p className="text-xs text-gray-500 mb-3">
         {hasTeams
-          ? 'Map imported team names to real teams.'
+          ? 'These games show a typed name but aren’t linked to a team yet, so Courtside, standings and captains can’t see them. Pick the team for each name and save.'
           : 'These team names were imported from your CSV. Create teams (or wait for players to register) to map them.'}
       </p>
 
@@ -90,7 +92,7 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
       <div className="space-y-2 mb-3">
         {slotLabels.map(slot => (
           <div key={slot} className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-700 shrink-0 truncate max-w-[6rem]" title={slot}>
+            <span className="text-xs font-medium text-gray-700 shrink-0 truncate max-w-[9rem]" title={slot}>
               {slot}
             </span>
             {hasTeams ? (
