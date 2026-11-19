@@ -78,10 +78,12 @@ function seedLabel(
   seed: number,
   poolNames: string[],
   seedOffset: number,
-  labelMode: 'block' | 'alternating' | 'single' = 'alternating',
-  perPool?: number
+  labelMode: 'block' | 'alternating' | 'single' | 'places' = 'alternating',
+  perPool?: number,
+  poolSizes?: number[],
 ): string {
   const globalSeed = seed + seedOffset
+  if (labelMode === 'places' && poolSizes && poolSizes.length > 0) return placeSeedLabel(globalSeed, poolSizes)
   if (poolNames.length === 0) return `Seed ${globalSeed}`
 
   if (labelMode === 'single' || poolNames.length === 1) {
@@ -102,6 +104,18 @@ function seedLabel(
   return `${ORDINALS[rank] ?? `${rank + 1}th`} - ${poolNames[poolIndex]}`
 }
 
+/** "Pool winner #2", "Runner-up #1", "3rd place #2" — pool-places seeding's scaffold labels. */
+function placeSeedLabel(globalSeed: number, poolSizes: number[]): string {
+  const places: number[] = []
+  const deepest = Math.max(0, ...poolSizes)
+  for (let p = 1; p <= deepest; p++) for (const size of poolSizes) if (p <= size) places.push(p)
+  const place = places[globalSeed - 1]
+  if (!place) return `Seed ${globalSeed}`
+  const k = places.slice(0, globalSeed).filter((x) => x === place).length
+  const name = place === 1 ? 'Pool winner' : place === 2 ? 'Runner-up' : `${ORDINALS[place - 1] ?? `${place}th`} place`
+  return `${name} #${k}`
+}
+
 async function insertBracketWithMatches(
   db: ReturnType<typeof createServiceRoleClient>,
   orgId: string,
@@ -114,8 +128,9 @@ async function insertBracketWithMatches(
     poolNames: string[]  // empty = "Seed N" labels; single = pool_tiers per-pool; multiple = block/alternating
     seedOffset: number   // tier.seed_from - 1; 0 for the top tier
     seedingMethod?: string  // if provided, stored on the bracket row
-    labelMode?: 'block' | 'alternating' | 'single'
+    labelMode?: 'block' | 'alternating' | 'single' | 'places'
     perPool?: number  // for block label calculation
+    poolSizes?: number[]  // for 'places' labels: team count per pool
     /** Cross-tier drop-down: this bracket also receives another tier's losers. */
     inflow?: {
       count: number
@@ -196,10 +211,10 @@ async function insertBracketWithMatches(
         team2_id: null,
         team1_label: isBestLoserSlot1 ? 'Best Loser'
           : m.team1InflowIndex ? (inflow?.labels[m.team1InflowIndex - 1] ?? 'Drop-down')
-          : (m.team1Seed ? seedLabel(m.team1Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null),
+          : (m.team1Seed ? seedLabel(m.team1Seed, poolNames, seedOffset, opts.labelMode, opts.perPool, opts.poolSizes) : null),
         team2_label: m.isBye ? 'Bye' : (isBestLoserSlot2 ? 'Best Loser'
           : m.team2InflowIndex ? (inflow?.labels[m.team2InflowIndex - 1] ?? 'Drop-down')
-          : (m.team2Seed ? seedLabel(m.team2Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null)),
+          : (m.team2Seed ? seedLabel(m.team2Seed, poolNames, seedOffset, opts.labelMode, opts.perPool, opts.poolSizes) : null)),
         // Store global seed (e.g. 9 for the 1st seed of Tier 2 with seed_from=9)
         // so the bracket view shows the correct overall rank, not a tier-relative rank.
         team1_seed: isBestLoserSlot1 ? null : (m.team1Seed ? m.team1Seed + seedOffset : null),
@@ -335,7 +350,7 @@ export interface TierInput {
   byeSeeds?: number
 }
 
-export type PoolSeedingMethod = 'standings' | 'pool_results' | 'pool_results_alternating' | 'pool_tiers' | 'pool_results_flat' | 'manual'
+export type PoolSeedingMethod = 'standings' | 'pool_results' | 'pool_results_alternating' | 'pool_tiers' | 'pool_results_flat' | 'pool_places' | 'manual'
 
 export async function savePlayoffConfig(input: {
   leagueId: string
@@ -593,6 +608,15 @@ export async function generateAllTierBrackets(
     .order('sort_order', { ascending: true })
   const pools: { id: string; name: string }[] = (poolsData ?? [])
   const allPoolNames: string[] = pools.map((p) => p.name)
+  // Team count per pool, for pool-places labels ("3rd place #2")
+  let poolSizes: number[] = []
+  if (seedingMethod === 'pool_places' && pools.length > 0) {
+    const { data: poolTeams } = await db
+      .from('teams').select('pool_id')
+      .eq('league_id', leagueId).eq('organization_id', org.id).eq('status', 'active')
+      .in('pool_id', pools.map((p) => p.id))
+    poolSizes = pools.map((p) => (poolTeams ?? []).filter((t) => t.pool_id === p.id).length)
+  }
 
   let generated = 0
   let skipped = 0
@@ -697,7 +721,7 @@ export async function generateAllTierBrackets(
 
     // Determine scaffold label config based on seeding method
     let tierPoolNames: string[]
-    let labelMode: 'block' | 'alternating' | 'single'
+    let labelMode: 'block' | 'alternating' | 'single' | 'places'
     let tierSeedOffset: number
     let perPool: number | undefined
 
@@ -724,6 +748,11 @@ export async function generateAllTierBrackets(
       } else {
         perPool = allPoolNames.length > 0 ? Math.ceil(teamsAdvancing / allPoolNames.length) : undefined
       }
+    } else if (seedingMethod === 'pool_places') {
+      // Places across pools: "Pool winner #1 … Runner-up #3 … 3rd place #2"
+      tierPoolNames = allPoolNames
+      labelMode = 'places'
+      tierSeedOffset = tier.seed_from - 1
     } else if (seedingMethod === 'pool_results_flat') {
       // Cross-pool overall ranking — scaffold with flat seed labels (no pool anchor)
       tierPoolNames = []
@@ -747,6 +776,7 @@ export async function generateAllTierBrackets(
       seedingMethod,
       labelMode,
       perPool,
+      poolSizes,
       inflow: inflowOpts,
     })
 

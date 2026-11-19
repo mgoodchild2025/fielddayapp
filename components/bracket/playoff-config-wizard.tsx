@@ -19,6 +19,7 @@ import { listPlayoffTemplates, savePlayoffTemplate, deletePlayoffTemplate, type 
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { Overlay } from '@/components/ui/overlay'
 import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
+import { describePlaceTiers } from '@/lib/pool-places'
 
 // ── Tier name suggestions ─────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ interface Props {
   /** Count of regular season games still missing confirmed scores */
   unsettledCount?: number
   /** Pools for this league — enables pool_results seeding option */
-  pools?: { id: string; name: string; sort_order: number }[]
+  pools?: { id: string; name: string; sort_order: number; teamCount?: number }[]
   /** Whether double elimination bracket type is available on this plan */
   canDoubleElimination?: boolean
 }
@@ -726,6 +727,7 @@ function ManageHeader({
               existingConfig.seedingMethod === 'pool_results_alternating' ? 'Pool play — alternating' :
               existingConfig.seedingMethod === 'pool_tiers' ? 'Pool play — split tiers' :
               existingConfig.seedingMethod === 'pool_results_flat' ? 'Pool play — overall ranking' :
+              existingConfig.seedingMethod === 'pool_places' ? 'Pool play — places + best record' :
               'Auto (standings)'
             }
           </span>
@@ -1292,7 +1294,7 @@ export function PlayoffConfigWizard({
           {/* Top-level method buttons */}
           <div className="flex gap-3 flex-wrap">
             {(['standings', ...(pools.length >= 2 ? ['pool_results'] : []), 'manual'] as const).map((m) => {
-              const isPoolMethod = ['pool_results', 'pool_results_alternating', 'pool_tiers', 'pool_results_flat'].includes(seedingMethod)
+              const isPoolMethod = ['pool_results', 'pool_results_alternating', 'pool_tiers', 'pool_results_flat', 'pool_places'].includes(seedingMethod)
               const isActive = m === 'standings' ? seedingMethod === 'standings'
                 : m === 'pool_results' ? isPoolMethod
                 : seedingMethod === 'manual'
@@ -1326,11 +1328,12 @@ export function PlayoffConfigWizard({
           </div>
 
           {/* Pool play sub-options */}
-          {['pool_results', 'pool_results_alternating', 'pool_tiers', 'pool_results_flat'].includes(seedingMethod) && pools.length >= 2 && (
+          {['pool_results', 'pool_results_alternating', 'pool_tiers', 'pool_results_flat', 'pool_places'].includes(seedingMethod) && pools.length >= 2 && (
             <div className="border rounded-lg p-3 bg-gray-50 space-y-3">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pool seeding order</p>
               <div className="flex gap-2 flex-wrap">
                 {([
+                  { value: 'pool_places', label: 'Places + best record', desc: `Every pool winner, then every runner-up, then 3rds… Best record decides within a place, so the best 3rd places take any spots left` },
                   { value: 'pool_results_flat', label: 'Overall ranking', desc: `All teams ranked together by pool-play record` },
                   { value: 'pool_results', label: 'Block', desc: `${pools.map(p => p.name).join(', ')} fill seeds in order` },
                   { value: 'pool_results_alternating', label: 'Alternating', desc: `A1, B1, A2, B2 — pools interleaved by rank` },
@@ -1385,6 +1388,19 @@ export function PlayoffConfigWizard({
                   </div>
                   <p className="text-xs text-gray-400">
                     Total advancing: {advancePerPool.reduce((a, b) => a + (b || 0), 0)} teams
+                  </p>
+                </div>
+              )}
+
+              {/* Places + best record: say exactly who each tier gets */}
+              {seedingMethod === 'pool_places' && (
+                <div className="pt-1 border-t border-gray-200 text-xs text-gray-600 space-y-1">
+                  {describePlaceTiers(pools.map((p) => p.teamCount ?? 0), tiers).map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                  <p className="text-gray-500">
+                    Within a place the standings tiebreakers decide (win % first if pools played different numbers of games).
+                    First-round games between teams from the same pool are avoided where a same-place swap allows it.
                   </p>
                 </div>
               )}

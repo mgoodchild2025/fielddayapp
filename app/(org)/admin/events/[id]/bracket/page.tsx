@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import { orderPoolStandingsByPlace } from '@/lib/pool-places'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -78,10 +79,11 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   const allPoolStandings = Object.values(poolRecord)
 
   const divisionCount = (divisions ?? []).length
-  const poolList = (poolsData ?? []) as { id: string; name: string; sort_order: number }[]
+  const poolList = ((poolsData ?? []) as { id: string; name: string; sort_order: number }[])
+    .map((p) => ({ ...p, teamCount: (teams ?? []).filter((t) => t.pool_id === p.id).length }))
   const poolCount = poolList.length
 
-  const seededTeams = poolCount >= 2
+  let seededTeams = poolCount >= 2
     ? seedFromPoolStandings(
         poolList.map((pool) => ({
           poolId: pool.id,
@@ -286,6 +288,13 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       awardedAt: m.awarded_at,
       recipients: (m.medal_recipients ?? []).map((r) => r.display_name),
     }))
+
+  // Pool-places seeding: show the field in the order it will actually seed
+  // (all winners, all runners-up, … best record first within a place).
+  if (existingConfig?.seedingMethod === 'pool_places' && poolCount >= 2) {
+    seededTeams = orderPoolStandingsByPlace(poolList.map((pool) => allPoolStandings.filter((t) => t.poolId === pool.id)))
+      .map((e, i) => ({ ...e.team, seed: i + 1 }))
+  }
 
   return (
     <div>

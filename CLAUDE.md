@@ -156,6 +156,10 @@ Admin → Events → [Event] → Bracket renders `PlayoffConfigWizard` (`compone
 - `seedBracket` (`actions/brackets.ts`) loads the roster via the bracket's tier → config and applies it before tier slicing. `generateAllTierBrackets` scaffolds with flat "Seed N" labels when a custom order exists (position labels like "1st - Pool A" would be wrong).
 - `savePlayoffConfig` persists the roster when passed one (omit to leave it untouched); `savePlayoffRoster` updates it alone from an existing config.
 
+### Pool places seeding ("top 2 per pool + best 3rds")
+- Seeding method `pool_places` (migration 206; wizard: Pool play results → **Places + best record**): the whole field is ordered every pool winner, then every runner-up, then every 3rd…, and within a place by the standings tiebreakers (by win % first when pools played different numbers of games — `rankPlaceGroup`). Each tier takes its seed slice, so 3 pools of 4 with Gold 1–8 / Silver 9–12 = all winners + runners-up + the best 2 thirds to Gold, the rest to Silver. Pure logic in `lib/pool-places.ts` (tested, incl. the 12-team case): `orderByPoolPlace` (pass `keyOf` — `seedFromStandings` returns copies, so identity matching silently fell back to pool order), `separateFirstRoundPools` (single elim: swaps a same-pool first-round pair with a same-place team when that clears it), `describePlaceTiers` (the wizard's "Gold: all 3 pool winners, … the best 2 of 3 3rd places" line). Scaffold labels read "Pool winner #1 / Runner-up #2 / 3rd place #1" (`labelMode 'places'` + pool sizes). The bracket page's wizard preview uses the same order.
+- **Lower tiers under Block / Alternating** (`seedOffset > 0`) get the teams the tiers above didn't take, by place then record — they used to rerun the top tier's pick, so Silver was seeded with Gold's teams.
+
 ### Format templates
 - Built-ins in `lib/playoff-templates.ts` (parameterized by team count; `applicableTemplates` only offers shapes that validate). Org-saved templates in `org_playoff_templates` via `actions/playoff-templates.ts`; "Save as template…" on the wizard's tiers step.
 
