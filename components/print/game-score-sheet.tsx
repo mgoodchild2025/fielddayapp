@@ -1,14 +1,20 @@
+import type React from 'react'
 import QRCode from 'react-qr-code'
 import { type ScoreStructure } from '@/lib/print-config'
 import { formatGameTime } from '@/lib/format-time'
 
 interface Game {
   id: string
-  scheduledAt: string
+  /** Null = not scheduled yet: blank Date / Time / Court lines to fill in. */
+  scheduledAt: string | null
   court: string | null
   weekNumber: number | null
-  homeTeamName: string
-  awayTeamName: string
+  /** Null (or 'TBD') = not known yet: a line to write the team in. */
+  homeTeamName: string | null
+  awayTeamName: string | null
+  /** Faint reminder under a write-in line ("Seed 3", "Winner of QF Match 2"). */
+  homeHint?: string | null
+  awayHint?: string | null
   /** Played and scored but excluded from the standings. */
   isExhibition?: boolean
 }
@@ -21,7 +27,41 @@ interface Props {
   timezone: string
   /** Absolute link a phone opens from the QR code (`/score/<gameId>`); no QR without it. */
   scanUrl?: string
+  /** Playoff cards: the coloured tier · stage · match banner across the top. */
+  matchBanner?: MatchBanner
 }
+
+export interface MatchBanner {
+  tier: string
+  tierColor: string
+  stage: string
+  stageColor: string
+  matchNumber: number
+}
+
+/** Colours must survive printing (browsers drop backgrounds by default). */
+const KEEP_COLOUR: React.CSSProperties = { printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }
+
+function Banner({ b }: { b: MatchBanner }) {
+  return (
+    <div className="flex items-stretch gap-2 mb-3 text-white" style={KEEP_COLOUR}>
+      <div className="flex-1 min-w-0 rounded-lg px-4 py-2 flex flex-col justify-center" style={{ backgroundColor: b.tierColor, ...KEEP_COLOUR }}>
+        <p className="text-[10px] font-semibold uppercase tracking-widest opacity-90">Bracket</p>
+        <p className="text-[28px] font-black uppercase leading-none break-words">{b.tier}</p>
+      </div>
+      <div className="flex-1 min-w-0 rounded-lg px-4 py-2 flex flex-col justify-center" style={{ backgroundColor: b.stageColor, ...KEEP_COLOUR }}>
+        <p className="text-[10px] font-semibold uppercase tracking-widest opacity-90">Stage</p>
+        <p className="text-[22px] font-extrabold uppercase leading-tight break-words">{b.stage}</p>
+      </div>
+      <div className="shrink-0 w-24 rounded-lg border-[3px] border-black text-black flex flex-col items-center justify-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-600">Match</p>
+        <p className="text-[40px] font-black leading-none">{b.matchNumber}</p>
+      </div>
+    </div>
+  )
+}
+
+const isUnknown = (n: string | null | undefined) => !n || /^tbd$/i.test(n.trim())
 
 /**
  * One grid for the team names and every score row — Home column, a narrow
@@ -44,28 +84,35 @@ function ScoreRow({ label, total }: { label: string; total?: boolean }) {
 }
 
 /** The team names, large, over their score columns. */
-function TeamHeader({ homeTeamName, awayTeamName }: { homeTeamName: string; awayTeamName: string }) {
-  const name = (n: string) => (
-    n === 'TBD'
-      ? <span className="block mx-6 mt-6 border-b-2 border-black" aria-label="Team to be filled in" />
+function TeamHeader({ homeTeamName, awayTeamName, homeHint, awayHint }: { homeTeamName: string | null; awayTeamName: string | null; homeHint?: string | null; awayHint?: string | null }) {
+  // Not seeded yet: a line to write the team in, with a faint reminder of
+  // which slot it is under it — never a bold "TBD" where the name goes.
+  const name = (n: string | null, hint?: string | null) => (
+    isUnknown(n)
+      ? (
+        <span className="block">
+          <span className="block mx-2 h-10 border-b-2 border-black" aria-label="Write the team name here" />
+          <span className="block mt-1 text-[11px] text-gray-400 leading-tight">{hint || 'Team name'}</span>
+        </span>
+      )
       : <span className="block text-[26px] font-extrabold leading-tight break-words">{n}</span>
   )
   return (
     <div className={`${COLS} items-stretch pb-2 mb-1 border-b-2 border-black`}>
       <div className="text-center min-w-0 flex flex-col justify-between">
         <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">Home</p>
-        {name(homeTeamName)}
+        {name(homeTeamName, homeHint)}
       </div>
       <span className="self-end text-center text-lg font-bold text-gray-400 pb-1">vs</span>
       <div className="text-center min-w-0 flex flex-col justify-between">
         <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">Away</p>
-        {name(awayTeamName)}
+        {name(awayTeamName, awayHint)}
       </div>
     </div>
   )
 }
 
-function InningsGrid({ count, homeTeamName, awayTeamName }: { count: number; homeTeamName: string; awayTeamName: string }) {
+function InningsGrid({ count, homeTeamName, awayTeamName }: { count: number; homeTeamName: string | null; awayTeamName: string | null }) {
   const innings = Array.from({ length: count }, (_, i) => i + 1)
   return (
     <div className="overflow-x-auto">
@@ -82,9 +129,9 @@ function InningsGrid({ count, homeTeamName, awayTeamName }: { count: number; hom
           </tr>
         </thead>
         <tbody>
-          {[homeTeamName, awayTeamName].map(team => (
-            <tr key={team}>
-              <td className="border border-black px-2 py-2 font-bold text-base leading-tight">{team}</td>
+          {[homeTeamName, awayTeamName].map((team, i) => (
+            <tr key={i}>
+              <td className="border border-black px-2 py-2 font-bold text-base leading-tight">{isUnknown(team) ? <span className="text-[10px] font-normal text-gray-400">{i === 0 ? 'Home' : 'Away'}</span> : team}</td>
               {innings.map(n => (
                 <td key={n} className="border border-black px-1 py-1.5" />
               ))}
@@ -118,7 +165,7 @@ function SignaturePerson({ label }: { label: string }) {
   )
 }
 
-function SignatureBlock({ homeTeamName, awayTeamName }: { homeTeamName: string; awayTeamName: string }) {
+function SignatureBlock({ homeTeamName, awayTeamName }: { homeTeamName: string | null; awayTeamName: string | null }) {
   return (
     <div className="mt-4 pt-3 border-t-2 border-black">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-3">Signatures</p>
@@ -130,32 +177,45 @@ function SignatureBlock({ homeTeamName, awayTeamName }: { homeTeamName: string; 
       </div>
       {/* Captains in one 2-column row */}
       <div className="grid grid-cols-2 gap-x-5">
-        <SignaturePerson label={`Home Captain — ${homeTeamName}`} />
-        <SignaturePerson label={`Away Captain — ${awayTeamName}`} />
+        <SignaturePerson label={isUnknown(homeTeamName) ? 'Home Captain' : `Home Captain — ${homeTeamName}`} />
+        <SignaturePerson label={isUnknown(awayTeamName) ? 'Away Captain' : `Away Captain — ${awayTeamName}`} />
       </div>
     </div>
   )
 }
 
-export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, timezone, scanUrl }: Props) {
-  const { date, time } = formatGameTime(game.scheduledAt, timezone)
+export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, timezone, scanUrl, matchBanner }: Props) {
+  const when = game.scheduledAt ? formatGameTime(game.scheduledAt, timezone) : null
 
   return (
     <div className="font-sans text-black text-sm">
+      {matchBanner && <Banner b={matchBanner} />}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-2">
         <div className="min-w-0">
           <p className="text-[10px] text-gray-500 uppercase tracking-wide">{orgName}</p>
           <h1 className="text-lg font-bold leading-tight">{leagueName}</h1>
-          <p className="mt-1 text-sm">
-            <span className="font-semibold">{date}</span>
-            <span className="text-gray-700">
-              {' · '}{time}
-              {game.court ? ` · Court ${game.court}` : ''}
-              {game.weekNumber ? ` · Week ${game.weekNumber}` : ''}
-              {game.isExhibition ? ' · Exhibition' : ''}
-            </span>
-          </p>
+          {when ? (
+            <p className="mt-1 text-sm">
+              <span className="font-semibold">{when.date}</span>
+              <span className="text-gray-700">
+                {' · '}{when.time}
+                {game.court ? ` · Court ${game.court}` : ''}
+                {game.weekNumber ? ` · Week ${game.weekNumber}` : ''}
+                {game.isExhibition ? ' · Exhibition' : ''}
+              </span>
+            </p>
+          ) : (
+            // Not scheduled yet: lines to fill in.
+            <div className="mt-2 flex items-end gap-3 text-[11px] text-gray-500">
+              {[['Date', 'w-24'], ['Time', 'w-16'], ['Court', 'w-12']].map(([label, w]) => (
+                <span key={label} className="inline-flex items-end gap-1">
+                  {label}<span className={`inline-block ${w} border-b border-black`} />
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         {scanUrl && (
           <div className="shrink-0 flex flex-col items-center">
@@ -168,7 +228,7 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
       <hr className="border-black mb-3" />
 
       {scoreStructure.type !== 'innings' && (
-        <TeamHeader homeTeamName={game.homeTeamName} awayTeamName={game.awayTeamName} />
+        <TeamHeader homeTeamName={game.homeTeamName} awayTeamName={game.awayTeamName} homeHint={game.homeHint} awayHint={game.awayHint} />
       )}
 
       {/* Score section */}

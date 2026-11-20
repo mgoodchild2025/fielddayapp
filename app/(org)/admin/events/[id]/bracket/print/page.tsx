@@ -9,6 +9,10 @@ import { roundDisplayName } from '@/lib/bracket'
 import { PrintControls } from '@/components/print/print-controls'
 import { BracketSheet, type BracketMatch } from '@/components/print/bracket-sheet'
 import { GameScoreSheet } from '@/components/print/game-score-sheet'
+import { requireOrgMember } from '@/lib/auth'
+import { trustedOrigin } from '@/lib/trusted-origin'
+import { scoreScanPath } from '@/lib/score-scan'
+import { tierColor, stageColor, slotHint, type FeedSource } from '@/lib/bracket-print'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Bracket (print)' }
@@ -27,6 +31,7 @@ export default async function BracketPrintPage({
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
   const scope = await getAdminScope(org.id)
   if (!scope.isOrgAdmin) notFound()
 
@@ -114,48 +119,71 @@ export default async function BracketPrintPage({
   // ─── Individual score sheets (one per match) ────────────────────────────────
   if (type === 'scoresheets') {
     const sheetMatches = matches.filter((m) => !m.isBye)
+    const ids = sheetMatches.map((m) => m.id)
 
-    function teamLabel(
-      name: string | null,
-      label: string | null,
-      seed: number | null,
-      roundNumber: number,
-      matchNumber: number,
-      position: 1 | 2,
-    ): string {
-      const display = name ?? label
-      if (!display) {
-        // No team assigned yet — show seed placeholder or generic TBD
-        if (seed !== null) return `Seed ${seed}`
-        return `TBD (${roundDisplayName(roundNames, roundNumber, bracketSize)} M${matchNumber} ${position === 1 ? 'Home' : 'Away'})`
+    // The tier this bracket belongs to (its name + colour), and every route
+    // INTO these matches — from this bracket or a drop-down from another — so
+    // an empty slot can say "Winner of QF Match 2".
+    const [{ data: tier }, { data: feeds }, origin] = await Promise.all([
+      db.from('playoff_tiers').select('name, sort_order')
+        .eq('bracket_id', bracketId).eq('organization_id', org.id).maybeSingle(),
+      ids.length
+        ? db.from('bracket_matches')
+            .select('round_number, match_number, winner_to_match_id, winner_to_slot, loser_to_match_id, loser_to_slot, bracket:brackets!bracket_matches_bracket_id_fkey(id, name, bracket_size, round_names)')
+            .eq('organization_id', org.id)
+            .or(`winner_to_match_id.in.(${ids.join(',')}),loser_to_match_id.in.(${ids.join(',')})`)
+        : Promise.resolve({ data: [] }),
+      trustedOrigin(headersList),
+    ])
+
+    const feedInto = new Map<string, FeedSource>() // `${matchId}:${slot}`
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const f of (feeds ?? []) as any[]) {
+      const b = Array.isArray(f.bracket) ? f.bracket[0] : f.bracket
+      const source = {
+        stage: roundDisplayName(b?.round_names ?? null, f.round_number, b?.bracket_size ?? 0, f.match_number),
+        matchNumber: f.match_number,
+        bracketName: b && b.id !== bracketId ? b.name : null,
       }
-      return seed !== null ? `(${seed}) ${display}` : display
+      if (f.winner_to_match_id && f.winner_to_slot) feedInto.set(`${f.winner_to_match_id}:${f.winner_to_slot}`, { outcome: 'winner', ...source })
+      if (f.loser_to_match_id && f.loser_to_slot) feedInto.set(`${f.loser_to_match_id}:${f.loser_to_slot}`, { outcome: 'loser', ...source })
     }
+
+    const tierName = tier?.name ?? bracketName
+    const tierFill = tierColor(tierName, tier?.sort_order ?? 0)
 
     return (
       <PrintPage>
         <PrintControls />
         {sheetMatches.map((m, i) => {
+          const stage = roundDisplayName(roundNames, m.roundNumber, bracketSize, m.matchNumber)
           const game = {
             id: m.id,
-            scheduledAt: m.scheduledAt ?? new Date().toISOString(),
+            scheduledAt: m.scheduledAt ?? null,
             court: m.court,
             weekNumber: null,
-            homeTeamName: teamLabel(m.team1Name, m.team1Label, m.team1Seed, m.roundNumber, m.matchNumber, 1),
-            awayTeamName: teamLabel(m.team2Name, m.team2Label, m.team2Seed, m.roundNumber, m.matchNumber, 2),
+            // Seeded teams print large; empty slots get a write-in line.
+            homeTeamName: m.team1Name ? (m.team1Seed !== null ? `(${m.team1Seed}) ${m.team1Name}` : m.team1Name) : null,
+            awayTeamName: m.team2Name ? (m.team2Seed !== null ? `(${m.team2Seed}) ${m.team2Name}` : m.team2Name) : null,
+            homeHint: slotHint({ seed: m.team1Seed, label: m.team1Label, feed: feedInto.get(`${m.id}:1`) ?? null }),
+            awayHint: slotHint({ seed: m.team2Seed, label: m.team2Label, feed: feedInto.get(`${m.id}:2`) ?? null }),
           }
           return (
             <div key={m.id} style={i < sheetMatches.length - 1 ? { breakAfter: 'page' } : {}}>
-              {/* Round / match label above each sheet */}
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">
-                {bracketName} · {roundDisplayName(roundNames, m.roundNumber, bracketSize)} · Match {m.matchNumber}
-              </p>
               <GameScoreSheet
                 game={game}
                 scoreStructure={scoreStructure}
                 leagueName={leagueName}
                 orgName={orgName}
                 timezone={timezone ?? 'America/Toronto'}
+                scanUrl={`${origin}${scoreScanPath(m.id)}`}
+                matchBanner={{
+                  tier: tierName,
+                  tierColor: tierFill,
+                  stage,
+                  stageColor: stageColor(m.roundNumber, m.matchNumber),
+                  matchNumber: m.matchNumber,
+                }}
               />
             </div>
           )
