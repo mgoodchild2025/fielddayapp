@@ -31,6 +31,7 @@ export function CourtsideLists({
   canClear,
   emptyHint,
   initialCourt,
+  focusId,
 }: {
   day: CourtsideDayData
   tz: string
@@ -39,12 +40,15 @@ export function CourtsideLists({
   emptyHint: string
   /** This device's court for the day (from the cookie), or null for all courts. */
   initialCourt: string | null
+  /** A game opened from a score sheet's QR code (`?game=`): shown on its own first. */
+  focusId?: string | null
 }) {
   const courts = useMemo(() => listCourts([...day.games, ...day.bracketMatches]), [day])
   const [court, setCourt] = useState<string>(initialCourt ?? ALL)
   const [query, setQuery] = useState('')
   const [showLater, setShowLater] = useState(false)
   const [openScored, setOpenScored] = useState<Set<string>>(() => new Set())
+  const [focus, setFocus] = useState<string | null>(focusId ?? null)
 
   const showChips = courts.length >= 2
   const activeCourt = showChips && court !== ALL && courts.some((c) => c.key === court) ? court : null
@@ -65,8 +69,24 @@ export function CourtsideLists({
   const q = query.trim()
   const pick = (items: CourtsideItem[]) => (activeCourt === null ? items : items.filter((i) => courtKey(i.row.court) === activeCourt))
 
+  const focused = focus ? everything.find((i) => i.row.id === focus) ?? null : null
+
   let body: React.ReactNode
-  if (everything.length === 0) {
+  if (focused && !q) {
+    // Scanned from a printed score sheet: that one game, nothing to hunt for.
+    body = (
+      <>
+        <Section title="Scanned game" tone="brand"><Card ctx={cardCtx} item={focused} highlight /></Section>
+        <button
+          type="button"
+          onClick={() => setFocus(null)}
+          className="press mt-6 w-full min-h-11 rounded-xl border bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50"
+        >
+          Show every game today
+        </button>
+      </>
+    )
+  } else if (everything.length === 0) {
     body = <EmptyState icon={CalendarX} title="No games scheduled this day" hint={emptyHint} />
   } else if (q) {
     const hits = everything.filter((i) => matchesSearch(orderOf(i), q)).sort((a, b) => a.when.localeCompare(b.when))

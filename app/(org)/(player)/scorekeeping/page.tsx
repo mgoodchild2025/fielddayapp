@@ -23,7 +23,7 @@ export const metadata: Metadata = { title: 'Scorekeeping' }
 export default async function ScorekeepingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>
+  searchParams: Promise<{ date?: string; game?: string }>
 }) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -82,7 +82,7 @@ export default async function ScorekeepingPage({
                 <Link href={`/scorekeeping?date=${day.nextDate}`} aria-label="Next day"
                   className="press inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg border bg-white text-gray-600 font-bold">›</Link>
               </div>
-              <CourtsideLists day={day} tz={tz} canClear={false} emptyHint="Use the arrows above to check another day." initialCourt={readCourtCookie((await cookies()).get(COURT_COOKIE)?.value, day.date)} />
+              <CourtsideLists focusId={params.game ?? null} day={day} tz={tz} canClear={false} emptyHint="Use the arrows above to check another day." initialCourt={readCourtCookie((await cookies()).get(COURT_COOKIE)?.value, day.date)} />
             </>
           )}
         </div>
