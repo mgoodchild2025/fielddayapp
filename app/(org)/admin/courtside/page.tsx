@@ -22,7 +22,7 @@ export const metadata: Metadata = { title: 'Courtside' }
 export default async function CourtsidePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>
+  searchParams: Promise<{ date?: string; game?: string }>
 }) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -109,7 +109,7 @@ export default async function CourtsidePage({
         </div>
       )}
 
-      <CourtsideLists day={day} tz={tz} canClear emptyHint="Use the arrows above to check another day." initialCourt={readCourtCookie((await cookies()).get(COURT_COOKIE)?.value, day.date)} />
+      <CourtsideLists focusId={params.game ?? null} day={day} tz={tz} canClear emptyHint="Use the arrows above to check another day." initialCourt={readCourtCookie((await cookies()).get(COURT_COOKIE)?.value, day.date)} />
     </div>
   )
 }

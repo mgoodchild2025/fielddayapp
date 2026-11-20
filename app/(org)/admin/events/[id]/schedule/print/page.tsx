@@ -14,6 +14,8 @@ import { DailyScheduleSheet } from '@/components/print/daily-schedule-sheet'
 import { FullScheduleSheet } from '@/components/print/full-schedule-sheet'
 import { GameScoreSheet } from '@/components/print/game-score-sheet'
 import { GameStatSheet } from '@/components/print/game-stat-sheet'
+import { trustedOrigin } from '@/lib/trusted-origin'
+import { scoreScanPath } from '@/lib/score-scan'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Schedule (print)' }
@@ -37,6 +39,8 @@ export default async function SchedulePrintPage({
   if (!scope.isOrgAdmin) notFound()
 
   if (!await canAccess(org.id, 'print_scoresheets')) notFound()
+  // Score sheet QR codes open the game on this org's own site.
+  const origin = await trustedOrigin(headersList)
 
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
@@ -217,6 +221,7 @@ export default async function SchedulePrintPage({
           <div key={game.id} style={i < bulkGames.length - 1 ? { breakAfter: 'page' } : {}}>
             <GameScoreSheet
               game={game}
+              scanUrl={`${origin}${scoreScanPath(game.id)}`}
               scoreStructure={scoreStructure}
               leagueName={leagueName}
               orgName={orgName}
@@ -293,6 +298,7 @@ export default async function SchedulePrintPage({
           <PrintControls />
           <GameScoreSheet
             game={game}
+            scanUrl={`${origin}${scoreScanPath(game.id)}`}
             scoreStructure={scoreStructure}
             leagueName={leagueName}
             orgName={orgName}
