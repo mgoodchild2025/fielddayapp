@@ -189,14 +189,14 @@ export default async function SchedulePrintPage({
       .select(`
         id, scheduled_at, court, week_number, is_exhibition,
         home_team_label, away_team_label,
-        home_team:teams!games_home_team_id_fkey(id, name),
-        away_team:teams!games_away_team_id_fkey(id, name)
+        home_team:teams!games_home_team_id_fkey(id, name, color),
+        away_team:teams!games_away_team_id_fkey(id, name, color)
       `)
       .in('id', ids)
       .eq('organization_id', org.id)
       .order('scheduled_at', { ascending: true })
 
-    type BulkGame = { id: string; scheduledAt: string; court: string | null; weekNumber: number | null; homeTeamName: string; awayTeamName: string; isExhibition: boolean }
+    type BulkGame = { id: string; scheduledAt: string; court: string | null; weekNumber: number | null; homeTeamName: string; awayTeamName: string; homeColor: string | null; awayColor: string | null; isExhibition: boolean }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bulkGames: BulkGame[] = (rawGames ?? []).map((g: any) => {
       const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
@@ -208,6 +208,8 @@ export default async function SchedulePrintPage({
         weekNumber: g.week_number ?? null,
         homeTeamName: home?.name ?? g.home_team_label ?? 'TBD',
         awayTeamName: away?.name ?? g.away_team_label ?? 'TBD',
+        homeColor: home?.color ?? null,
+        awayColor: away?.color ?? null,
         isExhibition: !!g.is_exhibition,
       }
     })
@@ -218,7 +220,7 @@ export default async function SchedulePrintPage({
       <PrintPage>
         <PrintControls />
         {bulkGames.map((game, i) => (
-          <div key={game.id} style={i < bulkGames.length - 1 ? { breakAfter: 'page' } : {}}>
+          <div className="print-sheet" key={game.id} style={i < bulkGames.length - 1 ? { breakAfter: 'page' } : {}}>
             <GameScoreSheet
               game={game}
               scanUrl={`${origin}${scoreScanPath(game.id)}`}
@@ -242,8 +244,8 @@ export default async function SchedulePrintPage({
         id, scheduled_at, court, week_number, is_exhibition,
         home_team_id, away_team_id,
         home_team_label, away_team_label,
-        home_team:teams!games_home_team_id_fkey(id, name),
-        away_team:teams!games_away_team_id_fkey(id, name)
+        home_team:teams!games_home_team_id_fkey(id, name, color),
+        away_team:teams!games_away_team_id_fkey(id, name, color)
       `)
       .eq('id', gameId)
       .eq('organization_id', org.id)
@@ -265,6 +267,8 @@ export default async function SchedulePrintPage({
       weekNumber: g.week_number ?? null,
       homeTeamName: homeTeam?.name ?? g.home_team_label ?? 'TBD',
       awayTeamName: awayTeam?.name ?? g.away_team_label ?? 'TBD',
+      homeColor: homeTeam?.color ?? null,
+      awayColor: awayTeam?.color ?? null,
       isExhibition: !!g.is_exhibition,
     }
 
@@ -346,7 +350,7 @@ function PrintPage({ children }: { children: React.ReactNode }) {
         @media print {
           @page { size: letter portrait; margin: 0; }
 
-          html, body, div, main, section, article {
+          html, body, div:not([data-keep-colour]), main, section, article {
             background: white !important;
             background-color: white !important;
           }
@@ -364,6 +368,10 @@ function PrintPage({ children }: { children: React.ReactNode }) {
             padding: 0.5in !important;
             margin: 0 !important;
           }
+
+          /* Each sheet starts a new page; the wrapper's top padding only
+             reaches the first, so later sheets bring their own. */
+          .print-sheet ~ .print-sheet { padding-top: 0.5in; }
 
           .print\\:hidden { display: none !important; }
         }

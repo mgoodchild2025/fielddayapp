@@ -84,11 +84,12 @@ export default async function BracketPrintPage({
   // Team name map
   const { data: teams } = await db
     .from('teams')
-    .select('id, name')
+    .select('id, name, color')
     .eq('league_id', id)
     .eq('organization_id', org.id)
 
   const teamNameMap = new Map<string, string>((teams ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
+  const teamColorMap = new Map<string, string | null>((teams ?? []).map((t: { id: string; color: string | null }) => [t.id, t.color]))
 
   // Map raw matches to BracketMatch[]
   const matches: BracketMatch[] = (rawBracket.bracket_matches ?? [])
@@ -111,6 +112,11 @@ export default async function BracketPrintPage({
       winnerToMatchId: m.winner_to_match_id,
     }))
 
+  // Team ids per match, for the team colour stripes on score cards.
+  const rawTeamIds = new Map<string, [string | null, string | null]>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (rawBracket.bracket_matches ?? []).map((m: any) => [m.id, [m.team1_id ?? null, m.team2_id ?? null]]),
+  )
   const scoreStructure = getScoreStructure(sport)
   const bracketName: string = rawBracket.name ?? 'Bracket'
   const bracketSize: number = rawBracket.bracket_size ?? 0
@@ -166,10 +172,12 @@ export default async function BracketPrintPage({
             homeTeamName: m.team1Name ? (m.team1Seed !== null ? `(${m.team1Seed}) ${m.team1Name}` : m.team1Name) : null,
             awayTeamName: m.team2Name ? (m.team2Seed !== null ? `(${m.team2Seed}) ${m.team2Name}` : m.team2Name) : null,
             homeHint: slotHint({ seed: m.team1Seed, label: m.team1Label, feed: feedInto.get(`${m.id}:1`) ?? null }),
+            homeColor: teamColorMap.get(rawTeamIds.get(m.id)?.[0] ?? '') ?? null,
+            awayColor: teamColorMap.get(rawTeamIds.get(m.id)?.[1] ?? '') ?? null,
             awayHint: slotHint({ seed: m.team2Seed, label: m.team2Label, feed: feedInto.get(`${m.id}:2`) ?? null }),
           }
           return (
-            <div key={m.id} style={i < sheetMatches.length - 1 ? { breakAfter: 'page' } : {}}>
+            <div className="print-sheet" key={m.id} style={i < sheetMatches.length - 1 ? { breakAfter: 'page' } : {}}>
               <GameScoreSheet
                 game={game}
                 scoreStructure={scoreStructure}
@@ -217,7 +225,7 @@ function PrintPage({ children }: { children: React.ReactNode }) {
         @media print {
           @page { size: letter portrait; margin: 0; }
 
-          html, body, div, main, section, article {
+          html, body, div:not([data-keep-colour]), main, section, article {
             background: white !important;
             background-color: white !important;
           }
@@ -235,6 +243,10 @@ function PrintPage({ children }: { children: React.ReactNode }) {
             padding: 0.5in !important;
             margin: 0 !important;
           }
+
+          /* Each sheet starts a new page; the wrapper's top padding only
+             reaches the first, so later sheets bring their own. */
+          .print-sheet ~ .print-sheet { padding-top: 0.5in; }
 
           .print\\:hidden { display: none !important; }
         }
