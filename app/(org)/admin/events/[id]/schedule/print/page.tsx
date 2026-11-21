@@ -189,14 +189,14 @@ export default async function SchedulePrintPage({
       .select(`
         id, scheduled_at, court, week_number, is_exhibition,
         home_team_label, away_team_label,
-        home_team:teams!games_home_team_id_fkey(id, name, color),
-        away_team:teams!games_away_team_id_fkey(id, name, color)
+        home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
+        away_team:teams!games_away_team_id_fkey(id, name, color, logo_url)
       `)
       .in('id', ids)
       .eq('organization_id', org.id)
       .order('scheduled_at', { ascending: true })
 
-    type BulkGame = { id: string; scheduledAt: string; court: string | null; weekNumber: number | null; homeTeamName: string; awayTeamName: string; homeColor: string | null; awayColor: string | null; isExhibition: boolean }
+    type BulkGame = { id: string; scheduledAt: string; court: string | null; weekNumber: number | null; homeTeamName: string; awayTeamName: string; homeColor: string | null; awayColor: string | null; homeLogoUrl: string | null; awayLogoUrl: string | null; isExhibition: boolean }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bulkGames: BulkGame[] = (rawGames ?? []).map((g: any) => {
       const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
@@ -210,6 +210,8 @@ export default async function SchedulePrintPage({
         awayTeamName: away?.name ?? g.away_team_label ?? 'TBD',
         homeColor: home?.color ?? null,
         awayColor: away?.color ?? null,
+        homeLogoUrl: home?.logo_url ?? null,
+        awayLogoUrl: away?.logo_url ?? null,
         isExhibition: !!g.is_exhibition,
       }
     })
@@ -244,8 +246,8 @@ export default async function SchedulePrintPage({
         id, scheduled_at, court, week_number, is_exhibition,
         home_team_id, away_team_id,
         home_team_label, away_team_label,
-        home_team:teams!games_home_team_id_fkey(id, name, color),
-        away_team:teams!games_away_team_id_fkey(id, name, color)
+        home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
+        away_team:teams!games_away_team_id_fkey(id, name, color, logo_url)
       `)
       .eq('id', gameId)
       .eq('organization_id', org.id)
@@ -269,6 +271,8 @@ export default async function SchedulePrintPage({
       awayTeamName: awayTeam?.name ?? g.away_team_label ?? 'TBD',
       homeColor: homeTeam?.color ?? null,
       awayColor: awayTeam?.color ?? null,
+      homeLogoUrl: homeTeam?.logo_url ?? null,
+      awayLogoUrl: awayTeam?.logo_url ?? null,
       isExhibition: !!g.is_exhibition,
     }
 
