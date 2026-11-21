@@ -15,6 +15,9 @@ interface Game {
   /** Faint reminder under a write-in line ("Seed 3", "Winner of QF Match 2"). */
   homeHint?: string | null
   awayHint?: string | null
+  /** Team colours (#rrggbb) for the stripe under each name. */
+  homeColor?: string | null
+  awayColor?: string | null
   /** Played and scored but excluded from the standings. */
   isExhibition?: boolean
 }
@@ -44,16 +47,16 @@ const KEEP_COLOUR: React.CSSProperties = { printColorAdjust: 'exact', WebkitPrin
 
 function Banner({ b }: { b: MatchBanner }) {
   return (
-    <div className="flex items-stretch gap-2 mb-3 text-white" style={KEEP_COLOUR}>
-      <div className="flex-1 min-w-0 rounded-lg px-4 py-2 flex flex-col justify-center" style={{ backgroundColor: b.tierColor, ...KEEP_COLOUR }}>
+    <div data-keep-colour className="flex items-stretch gap-2 mb-3 text-white" style={KEEP_COLOUR}>
+      <div data-keep-colour className="flex-1 min-w-0 rounded-lg px-4 py-2 flex flex-col justify-center" style={{ backgroundColor: b.tierColor, ...KEEP_COLOUR }}>
         <p className="text-[10px] font-semibold uppercase tracking-widest opacity-90">Bracket</p>
         <p className="text-[28px] font-black uppercase leading-none break-words">{b.tier}</p>
       </div>
-      <div className="flex-1 min-w-0 rounded-lg px-4 py-2 flex flex-col justify-center" style={{ backgroundColor: b.stageColor, ...KEEP_COLOUR }}>
+      <div data-keep-colour className="flex-1 min-w-0 rounded-lg px-4 py-2 flex flex-col justify-center" style={{ backgroundColor: b.stageColor, ...KEEP_COLOUR }}>
         <p className="text-[10px] font-semibold uppercase tracking-widest opacity-90">Stage</p>
         <p className="text-[22px] font-extrabold uppercase leading-tight break-words">{b.stage}</p>
       </div>
-      <div className="shrink-0 w-24 rounded-lg border-[3px] border-black text-black flex flex-col items-center justify-center">
+      <div data-keep-colour className="shrink-0 w-24 rounded-lg border-[3px] border-black bg-white text-black flex flex-col items-center justify-center">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-600">Match</p>
         <p className="text-[40px] font-black leading-none">{b.matchNumber}</p>
       </div>
@@ -61,6 +64,37 @@ function Banner({ b }: { b: MatchBanner }) {
   )
 }
 
+/**
+ * Schedule sheets: where and when, big, in the org's brand colour — the two
+ * things a volunteer looks for when the sheets are handed out court by court.
+ */
+function GameBanner({ court, date, time }: { court: string | null; date: string | null; time: string | null }) {
+  const fill: React.CSSProperties = { backgroundColor: 'var(--brand-primary, #047857)', color: 'var(--brand-on-primary, #fff)', ...KEEP_COLOUR }
+  return (
+    <div data-keep-colour className="flex items-stretch gap-2 mb-3" style={KEEP_COLOUR}>
+      <div data-keep-colour className="shrink-0 min-w-[9rem] rounded-lg px-4 py-2 flex flex-col justify-center" style={fill}>
+        <p className="text-[10px] font-semibold uppercase tracking-widest opacity-90">Court</p>
+        {court
+          ? <p className="text-[34px] font-black leading-none break-words">{court}</p>
+          : <span className="block mt-3 h-6 border-b-2 border-current opacity-80" aria-label="Write the court here" />}
+      </div>
+      <div data-keep-colour className="flex-1 min-w-0 rounded-lg px-4 py-2 flex flex-col justify-center bg-gray-900 text-white" style={{ backgroundColor: '#111827', ...KEEP_COLOUR }}>
+        <p className="text-[10px] font-semibold uppercase tracking-widest opacity-80">{date ?? 'Date & time'}</p>
+        {time
+          ? <p className="text-[28px] font-extrabold leading-none">{time}</p>
+          : <span className="block mt-3 h-6 border-b-2 border-white/70" aria-label="Write the time here" />}
+      </div>
+    </div>
+  )
+}
+
+/** The team's own colour under its name, so a sheet is told apart at a glance. */
+function TeamStripe({ color }: { color?: string | null }) {
+  if (!color) return null
+  return <span data-keep-colour className="block mx-auto mt-1.5 h-2 w-24 rounded-full" style={{ backgroundColor: color, ...KEEP_COLOUR }} aria-hidden />
+}
+
+const safeColor = (c: string | null | undefined) => (c && /^#[0-9a-f]{6}$/i.test(c) ? c : null)
 const isUnknown = (n: string | null | undefined) => !n || /^tbd$/i.test(n.trim())
 
 /**
@@ -84,10 +118,10 @@ function ScoreRow({ label, total }: { label: string; total?: boolean }) {
 }
 
 /** The team names, large, over their score columns. */
-function TeamHeader({ homeTeamName, awayTeamName, homeHint, awayHint }: { homeTeamName: string | null; awayTeamName: string | null; homeHint?: string | null; awayHint?: string | null }) {
+function TeamHeader({ homeTeamName, awayTeamName, homeHint, awayHint, homeColor, awayColor }: { homeTeamName: string | null; awayTeamName: string | null; homeHint?: string | null; awayHint?: string | null; homeColor?: string | null; awayColor?: string | null }) {
   // Not seeded yet: a line to write the team in, with a faint reminder of
   // which slot it is under it — never a bold "TBD" where the name goes.
-  const name = (n: string | null, hint?: string | null) => (
+  const name = (n: string | null, hint?: string | null, color?: string | null) => (
     isUnknown(n)
       ? (
         <span className="block">
@@ -95,18 +129,18 @@ function TeamHeader({ homeTeamName, awayTeamName, homeHint, awayHint }: { homeTe
           <span className="block mt-1 text-[11px] text-gray-400 leading-tight">{hint || 'Team name'}</span>
         </span>
       )
-      : <span className="block text-[26px] font-extrabold leading-tight break-words">{n}</span>
+      : <span className="block"><span className="block text-[26px] font-extrabold leading-tight break-words">{n}</span><TeamStripe color={color} /></span>
   )
   return (
     <div className={`${COLS} items-stretch pb-2 mb-1 border-b-2 border-black`}>
       <div className="text-center min-w-0 flex flex-col justify-between">
         <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">Home</p>
-        {name(homeTeamName, homeHint)}
+        {name(homeTeamName, homeHint, homeColor)}
       </div>
       <span className="self-end text-center text-lg font-bold text-gray-400 pb-1">vs</span>
       <div className="text-center min-w-0 flex flex-col justify-between">
         <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">Away</p>
-        {name(awayTeamName, awayHint)}
+        {name(awayTeamName, awayHint, awayColor)}
       </div>
     </div>
   )
@@ -189,14 +223,23 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
 
   return (
     <div className="font-sans text-black text-sm">
-      {matchBanner && <Banner b={matchBanner} />}
+      {matchBanner
+        ? <Banner b={matchBanner} />
+        : <GameBanner court={game.court?.trim().replace(/^court\s*/i, '') || null} date={when?.date ?? null} time={when?.time ?? null} />}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-2">
         <div className="min-w-0">
           <p className="text-[10px] text-gray-500 uppercase tracking-wide">{orgName}</p>
           <h1 className="text-lg font-bold leading-tight">{leagueName}</h1>
-          {when ? (
+          {!matchBanner ? (
+            // Court, date and time are in the banner above.
+            (!!game.weekNumber || !!game.isExhibition) && (
+              <p className="mt-1 text-sm text-gray-700">
+                {[game.weekNumber ? `Week ${game.weekNumber}` : null, game.isExhibition ? 'Exhibition' : null].filter(Boolean).join(' · ')}
+              </p>
+            )
+          ) : when ? (
             <p className="mt-1 text-sm">
               <span className="font-semibold">{when.date}</span>
               <span className="text-gray-700">
@@ -228,7 +271,7 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
       <hr className="border-black mb-3" />
 
       {scoreStructure.type !== 'innings' && (
-        <TeamHeader homeTeamName={game.homeTeamName} awayTeamName={game.awayTeamName} homeHint={game.homeHint} awayHint={game.awayHint} />
+        <TeamHeader homeTeamName={game.homeTeamName} awayTeamName={game.awayTeamName} homeHint={game.homeHint} awayHint={game.awayHint} homeColor={safeColor(game.homeColor)} awayColor={safeColor(game.awayColor)} />
       )}
 
       {/* Score section */}
