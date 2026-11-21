@@ -1,18 +1,7 @@
 // ── Tournament Display Mode — shared types ───────────────────────────────────
 
-export type LayoutId =
-  | 'fullscreen'
-  | 'split_h'
-  | 'split_v'
-  | 'main_sidebar'
-  | 'sidebar_main'
-  | 'thirds'
-  | 'main_two_right'
-  | 'two_left_main'
-  | 'main_top_two'
-  | 'two_top_main'
-  | 'three_rows'
-  | 'four_quad'
+import { LAYOUT_SPECS, LAYOUT_IDS, type LayoutId } from '@/lib/display-layouts'
+export type { LayoutId } from '@/lib/display-layouts'
 
 export type ZoneConfig =
   | { type: 'schedule';  date_filter: 'today' | 'all'; pool_id?: string | null; court_filter?: string | null; scroll_speed?: 'slow' | 'normal' | 'fast' | null }
@@ -59,35 +48,14 @@ export interface DisplayConfig {
   sponsor_interstitial?: SponsorInterstitialConfig
 }
 
-export const ZONE_COUNT: Record<LayoutId, number> = {
-  fullscreen:     1,
-  split_h:        2,
-  split_v:        2,
-  main_sidebar:   2,
-  sidebar_main:   2,
-  thirds:         3,
-  main_two_right: 3,
-  two_left_main:  3,
-  main_top_two:   3,
-  two_top_main:   3,
-  three_rows:     3,
-  four_quad:      4,
-}
+/** Zones per layout and their names — derived from lib/display-layouts.ts. */
+export const ZONE_COUNT = Object.fromEntries(
+  LAYOUT_IDS.map((id) => [id, LAYOUT_SPECS[id].zones.length]),
+) as Record<LayoutId, number>
 
-export const ZONE_LABELS: Record<LayoutId, string[]> = {
-  fullscreen:     ['A'],
-  split_h:        ['Left', 'Right'],
-  split_v:        ['Top', 'Bottom'],
-  main_sidebar:   ['Main (large)', 'Sidebar'],
-  sidebar_main:   ['Sidebar', 'Main (large)'],
-  thirds:         ['Left', 'Center', 'Right'],
-  main_two_right: ['Main (large)', 'Top Right', 'Bottom Right'],
-  two_left_main:  ['Top Left', 'Bottom Left', 'Main (large)'],
-  main_top_two:   ['Main (large)', 'Bottom Left', 'Bottom Right'],
-  two_top_main:   ['Top Left', 'Top Right', 'Main (large)'],
-  three_rows:     ['Top', 'Middle', 'Bottom'],
-  four_quad:      ['Top Left', 'Top Right', 'Bottom Left', 'Bottom Right'],
-}
+export const ZONE_LABELS = Object.fromEntries(
+  LAYOUT_IDS.map((id) => [id, LAYOUT_SPECS[id].zones.map((zn) => zn.label)]),
+) as Record<LayoutId, string[]>
 
 export function defaultConfig(): DisplayConfig {
   return {
