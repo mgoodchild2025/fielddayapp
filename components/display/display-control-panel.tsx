@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { saveDisplayConfig, deleteDisplayScreen } from '@/actions/display'
 import type { DisplayConfig, LayoutId, ZoneConfig } from '@/lib/display-types'
 import { ZONE_COUNT, ZONE_LABELS, defaultConfig, blankZone } from '@/lib/display-types'
+import { LAYOUT_IDS, LAYOUT_SPECS, zoneBox } from '@/lib/display-layouts'
 import {
   Calendar, Trophy, Target, QrCode, MessageSquare,
   Clock, Palette, Radio, Megaphone, Square, Sparkles, Zap,
@@ -16,36 +17,23 @@ import { announce } from '@/lib/announce'
 
 // ── Layout definitions ────────────────────────────────────────────────────────
 
-const LAYOUTS: { id: LayoutId; label: string; preview: React.ReactNode }[] = [
-  { id: 'fullscreen',     label: 'Full',         preview: <LayoutPrev cells={[[1,1,2,2]]} /> },
-  { id: 'split_h',        label: 'Side by Side',  preview: <LayoutPrev cells={[[1,1,1,2],[2,1,2,2]]} /> },
-  { id: 'split_v',        label: 'Top / Bottom',  preview: <LayoutPrev cells={[[1,1,2,1],[1,2,2,2]]} /> },
-  { id: 'main_sidebar',   label: 'Main + Sidebar',preview: <LayoutPrev cells={[[1,1,1.5,2],[1.5,1,2,2]]} narrow={[1]} /> },
-  { id: 'sidebar_main',   label: 'Sidebar + Main',preview: <LayoutPrev cells={[[1,1,1.5,2],[1.5,1,2,2]]} narrow={[0]} /> },
-  { id: 'thirds',         label: 'Three Columns', preview: <LayoutPrev cells={[[1,1,1.67,2],[1.67,1,2.33,2],[2.33,1,3,2]]} /> },
-  { id: 'main_two_right', label: 'Main + 2 Right', preview: <LayoutPrev cells={[[1,1,1.5,2],[1.5,1,2,1.5],[1.5,1.5,2,2]]} narrow={[1,2]} /> },
-  { id: 'two_left_main',  label: '2 Left + Main',  preview: <LayoutPrev cells={[[1,1,1.5,1.5],[1,1.5,1.5,2],[1.5,1,2,2]]} narrow={[0,1]} /> },
-  { id: 'main_top_two',   label: 'Top + 2 Below',  preview: <LayoutPrev cells={[[1,1,2,1.5],[1,1.5,1.5,2],[1.5,1.5,2,2]]} narrow={[1,2]} /> },
-  { id: 'two_top_main',   label: '2 Above + Main', preview: <LayoutPrev cells={[[1,1,1.5,1.5],[1.5,1,2,1.5],[1,1.5,2,2]]} narrow={[0,1]} /> },
-  { id: 'three_rows',     label: 'Three Rows',     preview: <LayoutPrev cells={[[1,1,2,1.33],[1,1.33,2,1.67],[1,1.67,2,2]]} /> },
-  { id: 'four_quad',      label: '4 Panels',       preview: <LayoutPrev cells={[[1,1,1.5,1.5],[1.5,1,2,1.5],[1,1.5,1.5,2],[1.5,1.5,2,2]]} /> },
-]
+/** Every layout, in definition order (lib/display-layouts.ts), with its preview. */
+const LAYOUTS = LAYOUT_IDS.map((id) => ({ id, label: LAYOUT_SPECS[id].label, preview: <LayoutPrev layout={id} /> }))
 
-function LayoutPrev({ cells, narrow }: { cells: [number,number,number,number][]; narrow?: number[] }) {
+/** A miniature of the screen, drawn from the same definition the TV uses. */
+function LayoutPrev({ layout }: { layout: LayoutId }) {
   return (
-    <div className="relative w-16 h-10 bg-zinc-800 rounded border border-zinc-600 overflow-hidden">
-      {cells.map(([c1,r1,c2,r2], i) => (
-        <div
-          key={i}
-          className={`absolute border border-zinc-500 ${narrow?.includes(i) ? 'bg-zinc-700' : 'bg-zinc-600'}`}
-          style={{
-            left:   `${((c1-1)/2)*100}%`,
-            top:    `${((r1-1)/2)*100}%`,
-            width:  `${((c2-c1)/2)*100}%`,
-            height: `${((r2-r1)/2)*100}%`,
-          }}
-        />
-      ))}
+    <div className="relative w-16 h-10 bg-zinc-800 rounded border border-zinc-600 overflow-hidden" aria-hidden>
+      {LAYOUT_SPECS[layout].zones.map((_, i) => {
+        const b = zoneBox(layout, i)
+        return (
+          <div
+            key={i}
+            className="absolute border border-zinc-800 bg-zinc-500"
+            style={{ left: `${b.left * 100}%`, top: `${b.top * 100}%`, width: `${b.width * 100}%`, height: `${b.height * 100}%` }}
+          />
+        )
+      })}
     </div>
   )
 }
