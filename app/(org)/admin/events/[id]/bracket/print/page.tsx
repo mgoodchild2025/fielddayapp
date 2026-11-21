@@ -84,12 +84,13 @@ export default async function BracketPrintPage({
   // Team name map
   const { data: teams } = await db
     .from('teams')
-    .select('id, name, color')
+    .select('id, name, color, logo_url')
     .eq('league_id', id)
     .eq('organization_id', org.id)
 
   const teamNameMap = new Map<string, string>((teams ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
   const teamColorMap = new Map<string, string | null>((teams ?? []).map((t: { id: string; color: string | null }) => [t.id, t.color]))
+  const teamLogoMap = new Map<string, string | null>((teams ?? []).map((t: { id: string; logo_url: string | null }) => [t.id, t.logo_url]))
 
   // Map raw matches to BracketMatch[]
   const matches: BracketMatch[] = (rawBracket.bracket_matches ?? [])
@@ -174,6 +175,8 @@ export default async function BracketPrintPage({
             homeHint: slotHint({ seed: m.team1Seed, label: m.team1Label, feed: feedInto.get(`${m.id}:1`) ?? null }),
             homeColor: teamColorMap.get(rawTeamIds.get(m.id)?.[0] ?? '') ?? null,
             awayColor: teamColorMap.get(rawTeamIds.get(m.id)?.[1] ?? '') ?? null,
+            homeLogoUrl: teamLogoMap.get(rawTeamIds.get(m.id)?.[0] ?? '') ?? null,
+            awayLogoUrl: teamLogoMap.get(rawTeamIds.get(m.id)?.[1] ?? '') ?? null,
             awayHint: slotHint({ seed: m.team2Seed, label: m.team2Label, feed: feedInto.get(`${m.id}:2`) ?? null }),
           }
           return (

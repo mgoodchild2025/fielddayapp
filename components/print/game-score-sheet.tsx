@@ -18,6 +18,9 @@ interface Game {
   /** Team colours (#rrggbb) for the stripe under each name. */
   homeColor?: string | null
   awayColor?: string | null
+  /** Team logos — shown under the name instead of the colour stripe. */
+  homeLogoUrl?: string | null
+  awayLogoUrl?: string | null
   /** Played and scored but excluded from the standings. */
   isExhibition?: boolean
 }
@@ -88,13 +91,21 @@ function GameBanner({ court, date, time }: { court: string | null; date: string 
   )
 }
 
-/** The team's own colour under its name, so a sheet is told apart at a glance. */
-function TeamStripe({ color }: { color?: string | null }) {
+/**
+ * Under each team name, so a sheet is told apart at a glance: the team's logo
+ * when it has one, else a stripe in its colour, else nothing.
+ */
+function TeamMark({ color, logoUrl }: { color?: string | null; logoUrl?: string | null }) {
+  if (logoUrl) {
+    // eslint-disable-next-line @next/next/no-img-element -- print sheet: a plain image prints reliably
+    return <img src={logoUrl} alt="" className="block mx-auto mt-1.5 h-12 max-w-[7rem] object-contain" style={KEEP_COLOUR} />
+  }
   if (!color) return null
   return <span data-keep-colour className="block mx-auto mt-1.5 h-2 w-24 rounded-full" style={{ backgroundColor: color, ...KEEP_COLOUR }} aria-hidden />
 }
 
 const safeColor = (c: string | null | undefined) => (c && /^#[0-9a-f]{6}$/i.test(c) ? c : null)
+const safeLogo = (u: string | null | undefined) => (u && /^https:\/\//i.test(u) ? u : null)
 const isUnknown = (n: string | null | undefined) => !n || /^tbd$/i.test(n.trim())
 
 /**
@@ -118,10 +129,10 @@ function ScoreRow({ label, total }: { label: string; total?: boolean }) {
 }
 
 /** The team names, large, over their score columns. */
-function TeamHeader({ homeTeamName, awayTeamName, homeHint, awayHint, homeColor, awayColor }: { homeTeamName: string | null; awayTeamName: string | null; homeHint?: string | null; awayHint?: string | null; homeColor?: string | null; awayColor?: string | null }) {
+function TeamHeader({ homeTeamName, awayTeamName, homeHint, awayHint, homeColor, awayColor, homeLogoUrl, awayLogoUrl }: { homeTeamName: string | null; awayTeamName: string | null; homeHint?: string | null; awayHint?: string | null; homeColor?: string | null; awayColor?: string | null; homeLogoUrl?: string | null; awayLogoUrl?: string | null }) {
   // Not seeded yet: a line to write the team in, with a faint reminder of
   // which slot it is under it — never a bold "TBD" where the name goes.
-  const name = (n: string | null, hint?: string | null, color?: string | null) => (
+  const name = (n: string | null, hint?: string | null, color?: string | null, logoUrl?: string | null) => (
     isUnknown(n)
       ? (
         <span className="block">
@@ -129,18 +140,18 @@ function TeamHeader({ homeTeamName, awayTeamName, homeHint, awayHint, homeColor,
           <span className="block mt-1 text-[11px] text-gray-400 leading-tight">{hint || 'Team name'}</span>
         </span>
       )
-      : <span className="block"><span className="block text-[26px] font-extrabold leading-tight break-words">{n}</span><TeamStripe color={color} /></span>
+      : <span className="block"><span className="block text-[26px] font-extrabold leading-tight break-words">{n}</span><TeamMark color={color} logoUrl={logoUrl} /></span>
   )
   return (
     <div className={`${COLS} items-stretch pb-2 mb-1 border-b-2 border-black`}>
-      <div className="text-center min-w-0 flex flex-col justify-between">
+      <div className="text-center min-w-0 flex flex-col justify-start">
         <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">Home</p>
-        {name(homeTeamName, homeHint, homeColor)}
+        {name(homeTeamName, homeHint, homeColor, homeLogoUrl)}
       </div>
-      <span className="self-end text-center text-lg font-bold text-gray-400 pb-1">vs</span>
-      <div className="text-center min-w-0 flex flex-col justify-between">
+      <span className="self-start mt-7 text-center text-lg font-bold text-gray-400">vs</span>
+      <div className="text-center min-w-0 flex flex-col justify-start">
         <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">Away</p>
-        {name(awayTeamName, awayHint, awayColor)}
+        {name(awayTeamName, awayHint, awayColor, awayLogoUrl)}
       </div>
     </div>
   )
@@ -271,7 +282,7 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
       <hr className="border-black mb-3" />
 
       {scoreStructure.type !== 'innings' && (
-        <TeamHeader homeTeamName={game.homeTeamName} awayTeamName={game.awayTeamName} homeHint={game.homeHint} awayHint={game.awayHint} homeColor={safeColor(game.homeColor)} awayColor={safeColor(game.awayColor)} />
+        <TeamHeader homeTeamName={game.homeTeamName} awayTeamName={game.awayTeamName} homeHint={game.homeHint} awayHint={game.awayHint} homeColor={safeColor(game.homeColor)} awayColor={safeColor(game.awayColor)} homeLogoUrl={safeLogo(game.homeLogoUrl)} awayLogoUrl={safeLogo(game.awayLogoUrl)} />
       )}
 
       {/* Score section */}
