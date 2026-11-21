@@ -1,5 +1,6 @@
 import type React from 'react'
 import QRCode from 'react-qr-code'
+import { TeamAvatar } from '@/components/ui/team-avatar'
 import { type ScoreStructure } from '@/lib/print-config'
 import { formatGameTime } from '@/lib/format-time'
 
@@ -50,7 +51,7 @@ const KEEP_COLOUR: React.CSSProperties = { printColorAdjust: 'exact', WebkitPrin
 
 function Banner({ b }: { b: MatchBanner }) {
   return (
-    <div data-keep-colour className="flex items-stretch gap-2 mb-3 text-white" style={KEEP_COLOUR}>
+    <div data-keep-colour className="flex-1 min-w-0 flex items-stretch gap-2 text-white" style={KEEP_COLOUR}>
       <div data-keep-colour className="flex-1 min-w-0 rounded-lg px-4 py-2 flex flex-col justify-center" style={{ backgroundColor: b.tierColor, ...KEEP_COLOUR }}>
         <p className="text-[10px] font-semibold uppercase tracking-widest opacity-90">Bracket</p>
         <p className="text-[28px] font-black uppercase leading-none break-words">{b.tier}</p>
@@ -74,7 +75,7 @@ function Banner({ b }: { b: MatchBanner }) {
 function GameBanner({ court, date, time }: { court: string | null; date: string | null; time: string | null }) {
   const fill: React.CSSProperties = { backgroundColor: 'var(--brand-primary, #047857)', color: 'var(--brand-on-primary, #fff)', ...KEEP_COLOUR }
   return (
-    <div data-keep-colour className="flex items-stretch gap-2 mb-3" style={KEEP_COLOUR}>
+    <div data-keep-colour className="flex-1 min-w-0 flex items-stretch gap-2" style={KEEP_COLOUR}>
       <div data-keep-colour className="shrink-0 min-w-[9rem] rounded-lg px-4 py-2 flex flex-col justify-center" style={fill}>
         <p className="text-[10px] font-semibold uppercase tracking-widest opacity-90">Court</p>
         {court
@@ -92,16 +93,29 @@ function GameBanner({ court, date, time }: { court: string | null; date: string 
 }
 
 /**
- * Under each team name, so a sheet is told apart at a glance: the team's logo
- * when it has one, else a stripe in its colour, else nothing.
+ * Above each team name, the same round badge the site uses (TeamAvatar): the
+ * logo in a white circle, else the team colour with its initial, else a soft
+ * initial. An empty slot gets a dashed circle, so both sides always line up.
  */
-function TeamMark({ color, logoUrl }: { color?: string | null; logoUrl?: string | null }) {
-  if (logoUrl) {
-    // eslint-disable-next-line @next/next/no-img-element -- print sheet: a plain image prints reliably
-    return <img src={logoUrl} alt="" className="block mx-auto mt-1.5 h-12 max-w-[7rem] object-contain" style={KEEP_COLOUR} />
+function TeamBadge({ name, color, logoUrl }: { name: string | null; color?: string | null; logoUrl?: string | null }) {
+  if (isUnknown(name)) {
+    return <span className="block mx-auto mb-1.5 w-16 h-16 rounded-full border-2 border-dashed border-gray-300" aria-hidden />
   }
-  if (!color) return null
-  return <span data-keep-colour className="block mx-auto mt-1.5 h-2 w-24 rounded-full" style={{ backgroundColor: color, ...KEEP_COLOUR }} aria-hidden />
+  return (
+    <span className="flex justify-center mb-1.5" style={KEEP_COLOUR}>
+      {logoUrl
+        ? (
+          // TeamAvatar's logo frame, with an eager plain <img>: the app's
+          // LogoImage loads lazily, and sheets further down a 40-page print
+          // would come out without their logos.
+          <span className="block w-16 h-16 rounded-full overflow-hidden bg-white shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoUrl} alt="" loading="eager" decoding="sync" className="w-full h-full object-cover" />
+          </span>
+        )
+        : <TeamAvatar name={name!} color={color} size="lg" className="w-16! h-16! text-xl!" />}
+    </span>
+  )
 }
 
 const safeColor = (c: string | null | undefined) => (c && /^#[0-9a-f]{6}$/i.test(c) ? c : null)
@@ -115,12 +129,12 @@ const isUnknown = (n: string | null | undefined) => !n || /^tbd$/i.test(n.trim()
 const COLS = 'grid grid-cols-[1fr_5.5rem_1fr] items-center gap-x-3'
 
 function Box({ big }: { big?: boolean }) {
-  return <span className={`block mx-auto border-2 border-black rounded ${big ? 'w-28 h-14' : 'w-24 h-11'}`} />
+  return <span className={`block mx-auto border-2 border-black rounded ${big ? 'w-28 h-12' : 'w-24 h-9'}`} />
 }
 
 function ScoreRow({ label, total }: { label: string; total?: boolean }) {
   return (
-    <div className={`${COLS} py-1.5 ${total ? 'mt-1 pt-2.5 border-t-2 border-black' : 'border-b border-gray-200'}`}>
+    <div className={`${COLS} py-1 ${total ? 'mt-1 pt-2 border-t-2 border-black' : 'border-b border-gray-200'}`}>
       <Box big={total} />
       <span className={`text-center ${total ? 'text-sm font-extrabold' : 'text-xs font-semibold text-gray-600'}`}>{label}</span>
       <Box big={total} />
@@ -132,7 +146,7 @@ function ScoreRow({ label, total }: { label: string; total?: boolean }) {
 function TeamHeader({ homeTeamName, awayTeamName, homeHint, awayHint, homeColor, awayColor, homeLogoUrl, awayLogoUrl }: { homeTeamName: string | null; awayTeamName: string | null; homeHint?: string | null; awayHint?: string | null; homeColor?: string | null; awayColor?: string | null; homeLogoUrl?: string | null; awayLogoUrl?: string | null }) {
   // Not seeded yet: a line to write the team in, with a faint reminder of
   // which slot it is under it — never a bold "TBD" where the name goes.
-  const name = (n: string | null, hint?: string | null, color?: string | null, logoUrl?: string | null) => (
+  const name = (n: string | null, hint?: string | null) => (
     isUnknown(n)
       ? (
         <span className="block">
@@ -140,18 +154,20 @@ function TeamHeader({ homeTeamName, awayTeamName, homeHint, awayHint, homeColor,
           <span className="block mt-1 text-[11px] text-gray-400 leading-tight">{hint || 'Team name'}</span>
         </span>
       )
-      : <span className="block"><span className="block text-[26px] font-extrabold leading-tight break-words">{n}</span><TeamMark color={color} logoUrl={logoUrl} /></span>
+      : <span className="block text-[26px] font-extrabold leading-tight break-words">{n}</span>
   )
   return (
     <div className={`${COLS} items-stretch pb-2 mb-1 border-b-2 border-black`}>
       <div className="text-center min-w-0 flex flex-col justify-start">
-        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">Home</p>
-        {name(homeTeamName, homeHint, homeColor, homeLogoUrl)}
+        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Home</p>
+        <TeamBadge name={homeTeamName} color={homeColor} logoUrl={homeLogoUrl} />
+        {name(homeTeamName, homeHint)}
       </div>
-      <span className="self-start mt-7 text-center text-lg font-bold text-gray-400">vs</span>
+      <span className="self-start mt-[3rem] text-center text-lg font-bold text-gray-400">vs</span>
       <div className="text-center min-w-0 flex flex-col justify-start">
-        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">Away</p>
-        {name(awayTeamName, awayHint, awayColor, awayLogoUrl)}
+        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Away</p>
+        <TeamBadge name={awayTeamName} color={awayColor} logoUrl={awayLogoUrl} />
+        {name(awayTeamName, awayHint)}
       </div>
     </div>
   )
@@ -196,14 +212,14 @@ function SignaturePerson({ label }: { label: string }) {
   return (
     <div>
       <p className="text-[10px] font-semibold mb-1 truncate">{label}</p>
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         <div>
           <p className="text-[9px] text-gray-400 mb-0.5">Print name</p>
-          <div className="border-b border-black h-5" />
+          <div className="border-b border-black h-4" />
         </div>
         <div>
           <p className="text-[9px] text-gray-400 mb-0.5">Signature</p>
-          <div className="border-b border-black h-6" />
+          <div className="border-b border-black h-5" />
         </div>
       </div>
     </div>
@@ -212,10 +228,10 @@ function SignaturePerson({ label }: { label: string }) {
 
 function SignatureBlock({ homeTeamName, awayTeamName }: { homeTeamName: string | null; awayTeamName: string | null }) {
   return (
-    <div className="mt-4 pt-3 border-t-2 border-black">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-3">Signatures</p>
+    <div className="mt-3 pt-2 border-t-2 border-black">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Signatures</p>
       {/* Refs + scorekeeper in one 3-column row */}
-      <div className="grid grid-cols-3 gap-x-5 mb-4">
+      <div className="grid grid-cols-3 gap-x-5 mb-2.5">
         <SignaturePerson label="Referee 1" />
         <SignaturePerson label="Referee 2" />
         <SignaturePerson label="Scorekeeper" />
@@ -234,19 +250,29 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
 
   return (
     <div className="font-sans text-black text-sm">
-      {matchBanner
-        ? <Banner b={matchBanner} />
-        : <GameBanner court={game.court?.trim().replace(/^court\s*/i, '') || null} date={when?.date ?? null} time={when?.time ?? null} />}
+      <div className="flex items-stretch gap-3 mb-2">
+        {matchBanner
+          ? <Banner b={matchBanner} />
+          : <GameBanner court={game.court?.trim().replace(/^court\s*/i, '') || null} date={when?.date ?? null} time={when?.time ?? null} />}
+        {scanUrl && (
+          <div className="shrink-0 flex flex-col items-center justify-center">
+            <QRCode value={scanUrl} size={64} level="M" />
+            <p className="mt-0.5 text-[8px] font-semibold text-gray-600 text-center leading-tight">Scan to score</p>
+          </div>
+        )}
+      </div>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-2">
+      <div className="mb-2">
         <div className="min-w-0">
-          <p className="text-[10px] text-gray-500 uppercase tracking-wide">{orgName}</p>
-          <h1 className="text-lg font-bold leading-tight">{leagueName}</h1>
+          <p className="leading-tight">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wide">{orgName} · </span>
+            <span className="text-base font-bold">{leagueName}</span>
+          </p>
           {!matchBanner ? (
             // Court, date and time are in the banner above.
             (!!game.weekNumber || !!game.isExhibition) && (
-              <p className="mt-1 text-sm text-gray-700">
+              <p className="mt-0.5 text-sm text-gray-700">
                 {[game.weekNumber ? `Week ${game.weekNumber}` : null, game.isExhibition ? 'Exhibition' : null].filter(Boolean).join(' · ')}
               </p>
             )
@@ -271,12 +297,6 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
             </div>
           )}
         </div>
-        {scanUrl && (
-          <div className="shrink-0 flex flex-col items-center">
-            <QRCode value={scanUrl} size={80} level="M" />
-            <p className="mt-1 text-[9px] font-semibold text-gray-600 text-center leading-tight">Scan to enter<br />the score</p>
-          </div>
-        )}
       </div>
 
       <hr className="border-black mb-3" />
