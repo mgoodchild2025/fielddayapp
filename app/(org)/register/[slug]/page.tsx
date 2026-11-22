@@ -488,9 +488,12 @@ export default async function RegisterLeaguePage({
     effective_price_cents: item.effective_price_cents,
     currency: item.currency,
     image_url: item.image_url,
+    colour_images: (item as { colour_images?: Record<string, string> | null }).colour_images ?? null,
     variants: item.variants.map((v) => ({
       id: v.id,
       label: v.label,
+      colour: v.colour,
+      size: v.size,
       available_stock: v.available_stock,
     })),
   }))
