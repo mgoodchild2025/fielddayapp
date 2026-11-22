@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { checkoutRateLimiter, getClientIp } from '@/lib/rate-limit'
 import { getOrgTaxRates, ratesForScope, computeTax } from '@/lib/tax'
+import { canAccess } from '@/lib/features'
 
 const shopCheckoutSchema = z.object({
   orgId: z.string().uuid(),
@@ -41,16 +42,15 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = createServiceRoleClient() as any
 
-  // ── Verify org membership ─────────────────────────────────────────────────
-  const { data: member } = await db
-    .from('org_members')
-    .select('role')
-    .eq('organization_id', orgId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!member) {
-    return NextResponse.json({ error: 'Not a member of this organization' }, { status: 403 })
+  // ── The shop is the SITE's shop ───────────────────────────────────────────
+  // Anyone with an account may buy (fans, parents — no registration or org
+  // membership needed), so the org comes from the host the request arrived
+  // on (the proxy's x-org-id, client copies stripped), never just the body.
+  if (request.headers.get('x-org-id') !== orgId) {
+    return NextResponse.json({ error: 'This shop belongs to another site' }, { status: 403 })
+  }
+  if (!await canAccess(orgId, 'merchandise_shop')) {
+    return NextResponse.json({ error: 'The shop is not available' }, { status: 404 })
   }
 
   // ── Load org payment settings ─────────────────────────────────────────────
