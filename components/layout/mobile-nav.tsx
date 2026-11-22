@@ -183,7 +183,7 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
             </>
           )}
 
-          {userName && showShop && (
+          {showShop && (
             <Link href="/shop" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
               <ShoppingBag className="w-4 h-4 shrink-0" />
               Shop

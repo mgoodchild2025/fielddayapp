@@ -7,6 +7,8 @@ import type { MerchItem } from '@/actions/merchandise'
 import { UploadStatus } from '@/components/ui/upload-status'
 import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
 import { announce } from '@/lib/announce'
+import { optionAxes, validateVariantInput, variantLabel, type VariantInput } from '@/lib/merch-options'
+import { VariantGridEditor, cellKey, type GridDraft } from './variant-grid-editor'
 
 type VariantDraft = {
   key: number
@@ -39,6 +41,15 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
       stock_quantity: v.stock_quantity != null ? String(v.stock_quantity) : '',
     }))
   )
+  // Colour × size items edit as a grid; everything else as the single list.
+  const [optionMode, setOptionMode] = useState<'list' | 'grid'>(() => optionAxes(item?.variants ?? []).mode)
+  const [grid, setGrid] = useState<GridDraft>(() => {
+    const vs = item?.variants ?? []
+    const axes = optionAxes(vs)
+    const stock: Record<string, string> = {}
+    if (axes.mode === 'grid') for (const v of vs) stock[cellKey(v.colour, v.size)] = v.stock_quantity != null ? String(v.stock_quantity) : ''
+    return { colours: axes.colours, sizes: axes.sizes, stock, colourImages: item?.colour_images ?? {} }
+  })
   const [stockStr, setStockStr] = useState(
     item?.stock_quantity != null ? String(item.stock_quantity) : ''
   )
@@ -57,6 +68,37 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
   const [isUploadingGallery, setIsUploadingGallery] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
+
+  function switchOptionMode(next: 'list' | 'grid') {
+    if (next === optionMode) return
+    if (next === 'grid') {
+      // The list's options become sizes (stock carried over); colours come next.
+      const sizes = variants.map((v) => v.label.trim()).filter(Boolean)
+      const stock: Record<string, string> = {}
+      for (const v of variants) if (v.label.trim()) stock[cellKey(null, v.label.trim())] = v.stock_quantity
+      setGrid((g) => ({ ...g, colours: [], sizes, stock }))
+    } else {
+      setVariants(gridInput().map((v) => ({
+        key: nextKey++,
+        label: variantLabel(v.colour ?? null, v.size ?? null),
+        stock_quantity: v.stock_quantity != null ? String(v.stock_quantity) : '',
+      })))
+    }
+    setOptionMode(next)
+  }
+
+  /** Every colour × size combination, in order, with its stock. */
+  function gridInput(): VariantInput[] {
+    if (grid.colours.length === 0 && grid.sizes.length === 0) return []
+    const out: VariantInput[] = []
+    for (const c of grid.colours.length ? grid.colours : [null]) {
+      for (const sz of grid.sizes.length ? grid.sizes : [null]) {
+        const t = (grid.stock[cellKey(c, sz)] ?? '').trim()
+        out.push({ colour: c, size: sz, stock_quantity: t ? parseInt(t, 10) : null })
+      }
+    }
+    return out
+  }
 
   function addVariant() {
     setVariants((prev) => [...prev, { key: nextKey++, label: '', stock_quantity: '' }])
@@ -150,13 +192,19 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
     if (!name.trim()) { setError('Name is required'); return }
     if (isNaN(priceCents) || priceCents < 0) { setError('Enter a valid price'); return }
 
-    for (const v of variants) {
-      if (!v.label.trim()) { setError('All variant labels must be filled in'); return }
-    }
+    const variantData: VariantInput[] = optionMode === 'grid'
+      ? gridInput()
+      : variants.map((v) => ({
+          label: v.label.trim(),
+          stock_quantity: v.stock_quantity.trim() ? parseInt(v.stock_quantity, 10) : null,
+        }))
+    const invalid = validateVariantInput(variantData)
+    if (invalid) { setError(invalid); return }
+    if (variantData.length > 200) { setError('That’s more than 200 combinations — trim the colours or sizes.'); return }
 
     startTransition(async () => {
       // Item-level stock only applies when no variants — variants track their own stock
-      const itemStock = variants.length === 0 && stockStr.trim()
+      const itemStock = variantData.length === 0 && stockStr.trim()
         ? parseInt(stockStr, 10)
         : null
 
@@ -177,12 +225,11 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
 
       if (result.error) { setError(result.error); return }
 
-      const variantData = variants.map((v) => ({
-        label: v.label.trim(),
-        stock_quantity: v.stock_quantity.trim() ? parseInt(v.stock_quantity, 10) : null,
-      }))
-
-      const varResult = await upsertMerchandiseVariants(result.id!, variantData)
+      const varResult = await upsertMerchandiseVariants(
+        result.id!,
+        variantData,
+        optionMode === 'grid' ? grid.colourImages : null,
+      )
       if (varResult.error) { setError(varResult.error); return }
 
       setSaved(true)
@@ -351,8 +398,8 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
           </div>
         </div>
 
-        {/* Stock quantity — only for variant-less items */}
-        {variants.length === 0 && (
+        {/* Stock quantity — only for items without options */}
+        {(optionMode === 'grid' ? grid.colours.length + grid.sizes.length === 0 : variants.length === 0) && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Stock quantity <span className="text-gray-400 font-normal">(optional — leave blank for unlimited)</span>
@@ -467,22 +514,41 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
 
         {/* Variants */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700">
-              Variants / Sizes <span className="text-gray-400 font-normal">(optional)</span>
-            </label>
+          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <span className="text-sm font-medium text-gray-700">
+              Options <span className="text-gray-400 font-normal">(optional)</span>
+            </span>
+            <div role="radiogroup" aria-label="How shoppers choose" className="inline-flex rounded-lg border p-0.5 text-xs font-medium">
+              {([['list', 'One list'], ['grid', 'Colours & sizes']] as const).map(([m, label]) => (
+                <button key={m} type="button" role="radio" aria-checked={optionMode === m}
+                  onClick={() => switchOptionMode(m)}
+                  className={`press min-h-9 px-3 rounded-md ${optionMode === m ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {optionMode === 'grid' ? (
+            <VariantGridEditor
+              draft={grid}
+              onChange={setGrid}
+              photos={[imageUrl, ...galleryImages].filter(Boolean) as string[]}
+            />
+          ) : (<>
+          <div className="flex justify-end mb-2">
             <button
               type="button"
               onClick={addVariant}
-              className="text-xs font-medium text-[var(--brand-primary)] hover:opacity-80 transition-opacity"
+              className="press min-h-9 text-xs font-medium text-brand-ink hover:opacity-80"
             >
-              + Add variant
+              + Add option
             </button>
           </div>
 
           {variants.length === 0 && (
             <p className="text-xs text-gray-400 bg-gray-50 rounded-md px-3 py-2.5">
-              No variants — item has no size/colour options. Add one if needed.
+              No options — one size fits all. Add sizes here, or switch to Colours &amp; sizes for T-shirts in several colours.
             </p>
           )}
 
@@ -552,6 +618,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
           {variants.length > 0 && (
             <p className="text-xs text-gray-500 mt-1.5">Label · Stock qty (leave blank = unlimited)</p>
           )}
+          </>)}
         </div>
       </div>
 

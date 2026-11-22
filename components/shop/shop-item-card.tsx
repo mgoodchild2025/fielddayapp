@@ -6,6 +6,7 @@ import { Overlay } from '@/components/ui/overlay'
 import type { ShopItem } from '@/actions/merchandise'
 import type { CartItem } from './cart-provider'
 import { canOptimizeImage } from '@/lib/image-src'
+import { optionAxes, findVariant, isValueSoldOut, optionKey } from '@/lib/merch-options'
 
 interface Props {
   item: ShopItem
@@ -14,9 +15,19 @@ interface Props {
 }
 
 export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
-    item.variants.length === 1 ? item.variants[0].id : null
+  const axes = optionAxes(item.variants)
+  const isGrid = axes.mode === 'grid'
+  // Colour × size items: one pick per axis (an axis with one value picks itself).
+  const [colour, setColour] = useState<string | null>(axes.colours.length === 1 ? axes.colours[0] : null)
+  const [size, setSize] = useState<string | null>(axes.sizes.length === 1 ? axes.sizes[0] : null)
+  const [listVariantId, setListVariantId] = useState<string | null>(
+    !isGrid && item.variants.length === 1 ? item.variants[0].id : null
   )
+  const gridVariant = isGrid &&
+    (axes.colours.length === 0 || colour) && (axes.sizes.length === 0 || size)
+    ? findVariant(item.variants, colour, size)
+    : null
+  const selectedVariantId = isGrid ? gridVariant?.id ?? null : listVariantId
   const [quantity, setQuantity] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedImageIdx, setSelectedImageIdx] = useState(0)
@@ -24,6 +35,18 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
 
   // All images: primary + gallery
   const allImages = [item.image_url, ...(item.additional_images ?? [])].filter(Boolean) as string[]
+  // The picked colour's photo (if the organiser matched one) leads.
+  const colourImage = colour
+    ? Object.entries(item.colour_images ?? {}).find(([k]) => optionKey(k) === optionKey(colour))?.[1] ?? null
+    : null
+  const cardImage = colourImage && allImages.includes(colourImage) ? colourImage : item.image_url
+
+  function pickColour(c: string) {
+    setColour(c)
+    const img = Object.entries(item.colour_images ?? {}).find(([k]) => optionKey(k) === optionKey(c))?.[1]
+    const idx = img ? allImages.indexOf(img) : -1
+    if (idx >= 0) setSelectedImageIdx(idx)
+  }
 
   // Short, single-line description preview for the card. Truncating the TEXT
   // (not relying on CSS line-clamp) avoids the iOS Safari bug where
@@ -54,9 +77,16 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
   const selectedSoldOut = selectedVariant !== null && selectedVariant.stock_quantity === 0
 
   function openModal() {
-    setSelectedImageIdx(0)
+    setSelectedImageIdx(Math.max(0, cardImage ? allImages.indexOf(cardImage) : 0))
     setModalOpen(true)
   }
+
+  // What the Add button asks for while a pick is missing.
+  const missingPick = !needsVariantSelection ? null
+    : isGrid
+    ? (axes.colours.length > 0 && !colour ? 'Pick colour' : 'Pick size')
+    : 'Pick size'
+
 
   function handleAdd() {
     if (needsVariantSelection || selectedSoldOut || maxQty === 0) return
@@ -72,6 +102,87 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
     })
     setQuantity(1)
     setModalOpen(false)
+  }
+
+  // Colour + size chips (a colour × size item), else the single list. Shared by
+  // the card and the item sheet, so a pick made on one shows on the other.
+  // A render function, not a component: a nested component would remount on
+  // every render and drop keyboard focus from the chip just pressed.
+  function optionPicker(compact = false) {
+    const chip = (active: boolean, soldOut: boolean) =>
+      `press rounded-lg border font-medium ${compact ? 'min-h-8 px-2 text-xs' : 'min-h-10 px-3 text-sm'} ${
+        active
+          ? 'border-brand-primary bg-brand-primary text-on-brand'
+          : soldOut
+          ? 'border-gray-200 text-gray-400 line-through'
+          : 'border-gray-200 text-gray-700 hover:border-gray-400'
+      }`
+    if (!isGrid) {
+      return (
+        <select
+          value={listVariantId ?? ''}
+          aria-label="Option"
+          onChange={(e) => setListVariantId(e.target.value || null)}
+          className={`w-full border border-gray-200 rounded-lg bg-white appearance-none cursor-pointer text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30 ${compact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'}`}
+        >
+          <option value="">Select size</option>
+          {item.variants.map((v) => (
+            <option key={v.id} value={v.id} disabled={v.stock_quantity === 0}>
+              {v.label}
+              {v.stock_quantity === 0
+                ? ' — Sold out'
+                : v.stock_quantity !== null && v.stock_quantity <= 3
+                ? ` (${v.stock_quantity} left)`
+                : ''}
+            </option>
+          ))}
+        </select>
+      )
+    }
+    const left = selectedVariant?.stock_quantity
+    return (
+      <div className={compact ? 'space-y-1.5' : 'space-y-3'}>
+        {axes.colours.length > 0 && (
+          <div role="group" aria-label="Colour">
+            {!compact && <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Colour{colour ? `: ${colour}` : ''}</p>}
+            <div className="flex flex-wrap gap-1.5">
+              {axes.colours.map((c) => {
+                const out = isValueSoldOut(item.variants, 'colour', c)
+                return (
+                  <button key={c} type="button" onClick={() => pickColour(c)} disabled={out}
+                    aria-pressed={optionKey(colour) === optionKey(c)}
+                    aria-label={out ? `${c}, sold out` : c}
+                    className={chip(optionKey(colour) === optionKey(c), out)}>
+                    {c}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {axes.sizes.length > 0 && (
+          <div role="group" aria-label="Size">
+            {!compact && <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Size{size ? `: ${size}` : ''}</p>}
+            <div className="flex flex-wrap gap-1.5">
+              {axes.sizes.map((z) => {
+                const out = isValueSoldOut(item.variants, 'size', z, colour)
+                return (
+                  <button key={z} type="button" onClick={() => setSize(z)} disabled={out}
+                    aria-pressed={optionKey(size) === optionKey(z)}
+                    aria-label={out ? `${z}, sold out` : z}
+                    className={chip(optionKey(size) === optionKey(z), out)}>
+                    {z}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {!compact && left != null && left > 0 && left <= 3 && (
+          <p className="text-xs font-medium text-amber-700">Only {left} left in {selectedVariant!.label}</p>
+        )}
+      </div>
+    )
   }
 
   const addButton = (inModal = false) => (
@@ -91,7 +202,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
         : selectedSoldOut || maxQty === 0
         ? 'Sold out'
         : needsVariantSelection
-        ? 'Pick size'
+        ? missingPick
         : 'Add to cart'}
     </button>
   )
@@ -107,14 +218,15 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
           className="relative block w-full aspect-square bg-gray-50 overflow-hidden focus:outline-none"
           aria-label={`View details for ${item.name}`}
         >
-          {item.image_url ? (
+          {cardImage ? (
             <Image
-              src={item.image_url}
+              key={cardImage}
+              src={cardImage}
               alt={item.name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               className="object-cover motion-safe:group-hover:scale-105 transition-transform duration-300"
-              unoptimized={!canOptimizeImage(item.image_url)}
+              unoptimized={!canOptimizeImage(cardImage)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -147,26 +259,8 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
             </p>
           </div>
 
-          {/* Variant picker */}
-          {hasVariants && (
-            <select
-              value={selectedVariantId ?? ''}
-              onChange={(e) => setSelectedVariantId(e.target.value || null)}
-              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30 bg-white appearance-none cursor-pointer"
-            >
-              <option value="">Select size</option>
-              {item.variants.map((v) => (
-                <option key={v.id} value={v.id} disabled={v.stock_quantity === 0}>
-                  {v.label}
-                  {v.stock_quantity === 0
-                    ? ' — Sold out'
-                    : v.stock_quantity !== null && v.stock_quantity <= 3
-                    ? ` (${v.stock_quantity} left)`
-                    : ''}
-                </option>
-              ))}
-            </select>
-          )}
+          {/* Option pickers */}
+          {hasVariants && optionPicker(true)}
 
           {/* Qty + add button — pinned to the bottom so buttons align across
               equal-height cards on desktop. */}
@@ -309,27 +403,8 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
                 <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{item.description}</p>
               )}
 
-              {/* Variant picker */}
-              {hasVariants && (
-                <select
-                  value={selectedVariantId ?? ''}
-                  aria-label="Size"
-                  onChange={(e) => setSelectedVariantId(e.target.value || null)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30 bg-white appearance-none cursor-pointer"
-                >
-                  <option value="">Select size</option>
-                  {item.variants.map((v) => (
-                    <option key={v.id} value={v.id} disabled={v.stock_quantity === 0}>
-                      {v.label}
-                      {v.stock_quantity === 0
-                        ? ' — Sold out'
-                        : v.stock_quantity !== null && v.stock_quantity <= 3
-                        ? ` (${v.stock_quantity} left)`
-                        : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
+              {/* Option pickers */}
+              {hasVariants && optionPicker()}
 
               {/* Qty + add */}
               <div className="flex items-center gap-3">

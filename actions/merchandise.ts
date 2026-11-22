@@ -9,12 +9,17 @@ import { convertToWebP } from '@/lib/image-utils'
 import { createNotifications } from '@/lib/notify'
 import { requireCurrentOrgAdmin } from '@/lib/auth'
 import { escapeHtml } from '@/lib/html-escape'
+import { z } from 'zod'
+import { planVariantSave, validateVariantInput, optionAxes, cleanColourImages, type VariantInput, type ExistingVariant } from '@/lib/merch-options'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export type MerchVariant = {
   id: string
   label: string
+  /** Colour × size items (lib/merch-options.ts); both null = a plain option. */
+  colour: string | null
+  size: string | null
   stock_quantity: number | null
   sort_order: number
 }
@@ -36,6 +41,8 @@ export type MerchItem = {
   stock_quantity: number | null
   low_stock_threshold: number
   created_at: string
+  /** Optional photo per colour: { "Black": "<one of the item's photos>" }. */
+  colour_images: Record<string, string> | null
   variants: MerchVariant[]
 }
 
@@ -48,6 +55,7 @@ export type ShopItem = {
   currency: string
   image_url: string | null
   additional_images: string[]
+  colour_images: Record<string, string> | null
   variants: MerchVariant[]
 }
 
@@ -568,9 +576,24 @@ export async function deleteMerchandiseItem(itemId: string): Promise<{ error: st
 }
 
 /** Replace all variants for an item. Pass an empty array to remove all. */
+const variantInputSchema = z.array(z.object({
+  id: z.string().uuid().nullish(),
+  label: z.string().max(80).nullish(),
+  colour: z.string().max(40).nullish(),
+  size: z.string().max(40).nullish(),
+  stock_quantity: z.number().int().min(0).nullish(),
+})).max(200)
+
+/**
+ * Saves an item's options IN PLACE (lib/merch-options.ts#planVariantSave):
+ * options that still exist keep their id, so past orders and carts keep their
+ * size/colour — the old delete-and-reinsert set every order's variant to null.
+ * `colourImages` (colour → one of the item's own photos) is saved on the item.
+ */
 export async function upsertMerchandiseVariants(
   itemId: string,
-  variants: { label: string; stock_quantity?: number | null }[]
+  variants: VariantInput[],
+  colourImages?: Record<string, string> | null,
 ): Promise<{ error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -579,44 +602,56 @@ export async function upsertMerchandiseVariants(
     return { error: 'Unauthorized' }
   }
 
+  const parsed = variantInputSchema.safeParse(variants)
+  if (!parsed.success) return { error: 'Invalid options' }
+  const invalid = validateVariantInput(parsed.data)
+  if (invalid) return { error: invalid }
+
   const db = createServiceRoleClient()
 
   // Verify the item belongs to this org
-
   const { data: item } = await db
     .from('merchandise_items')
-    .select('id')
+    .select('id, image_url, additional_images')
     .eq('id', itemId)
     .eq('organization_id', org.id)
     .single()
 
   if (!item) return { error: 'Item not found' }
 
-  // Delete all existing variants then re-insert
-
-  const { error: delErr } = await db
+  const { data: existing, error: readErr } = await db
     .from('merchandise_variants')
-    .delete()
+    .select('id, label, colour, size')
     .eq('item_id', itemId)
+  if (readErr) return { error: readErr.message }
 
-  if (delErr) return { error: delErr.message }
+  const plan = planVariantSave((existing ?? []) as ExistingVariant[], parsed.data)
 
-  if (variants.length > 0) {
-    const rows = variants.map((v, i) => ({
-      item_id: itemId,
-      label: v.label.trim(),
-      stock_quantity: v.stock_quantity ?? null,
-      sort_order: i,
-    }))
+  // Removals first: a kept row may be renamed to a label a removed row had.
+  if (plan.remove.length > 0) {
+    const { error } = await db.from('merchandise_variants').delete().eq('item_id', itemId).in('id', plan.remove)
+    if (error) return { error: error.message }
+  }
+  for (const { id, ...row } of plan.update) {
+    const { error } = await db.from('merchandise_variants').update(row).eq('id', id).eq('item_id', itemId)
+    if (error) return { error: error.message }
+  }
+  if (plan.insert.length > 0) {
+    const { error } = await db.from('merchandise_variants').insert(plan.insert.map((row) => ({ ...row, item_id: itemId })))
+    if (error) return { error: error.message }
+  }
 
-    const { error: insErr } = await db
-      .from('merchandise_variants')
-      .insert(rows)
-
-    if (insErr) return { error: insErr.message }
+  if (colourImages !== undefined) {
+    const photos = [item.image_url, ...((item.additional_images as string[] | null) ?? [])].filter(Boolean) as string[]
+    const colours = optionAxes(parsed.data.map((v) => ({ colour: v.colour ?? null, size: v.size ?? null }))).colours
+    const { error } = await db.from('merchandise_items')
+      .update({ colour_images: cleanColourImages(colourImages, colours, photos) })
+      .eq('id', itemId).eq('organization_id', org.id)
+    if (error) return { error: error.message }
   }
 
   revalidatePath('/admin/settings/merchandise')
+  revalidatePath('/shop')
   return { error: null }
 }
 
@@ -975,7 +1010,7 @@ export async function getShopItems(orgId: string): Promise<ShopItem[]> {
 
   const { data: items, error } = await db
     .from('merchandise_items')
-    .select('id, name, description, price_cents, currency, image_url, additional_images')
+    .select('id, name, description, price_cents, currency, image_url, additional_images, colour_images')
     .eq('organization_id', orgId)
     .eq('shop_enabled', true)
     .eq('is_active', true)
@@ -988,14 +1023,14 @@ export async function getShopItems(orgId: string): Promise<ShopItem[]> {
 
   const { data: variants } = await db
     .from('merchandise_variants')
-    .select('id, item_id, label, stock_quantity, sort_order')
+    .select('id, item_id, label, colour, size, stock_quantity, sort_order')
     .in('item_id', itemIds)
     .order('sort_order', { ascending: true })
 
   const variantsByItem = new Map<string, MerchVariant[]>()
   for (const v of (variants ?? []) as MerchVariantRow[]) {
     const arr = variantsByItem.get(v.item_id) ?? []
-    arr.push({ id: v.id, label: v.label, stock_quantity: v.stock_quantity, sort_order: v.sort_order })
+    arr.push({ id: v.id, label: v.label, colour: v.colour ?? null, size: v.size ?? null, stock_quantity: v.stock_quantity, sort_order: v.sort_order })
     variantsByItem.set(v.item_id, arr)
   }
 
@@ -1006,6 +1041,8 @@ export async function getShopItems(orgId: string): Promise<ShopItem[]> {
     // is needed here.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     additional_images: (item as any).additional_images ?? [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    colour_images: ((item as any).colour_images as Record<string, string> | null) ?? null,
     variants: variantsByItem.get(item.id) ?? [],
   }))
 }

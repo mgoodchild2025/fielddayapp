@@ -1,7 +1,6 @@
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
-import { requireAuth } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
@@ -13,8 +12,10 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Shop' }
 
+// Open to everyone — fans and parents can browse and buy without registering
+// for anything. Adding to the cart asks a signed-out visitor to sign in (or
+// create an account) and brings them back here.
 export default async function ShopPage() {
-  await requireAuth()
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
@@ -23,10 +24,11 @@ export default async function ShopPage() {
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
-  const [items, { data: branding }] = await Promise.all([
+  const [items, { data: branding }, { data: { user } }] = await Promise.all([
     getShopItems(org.id),
 
     db.from('org_branding').select('logo_url, tagline').eq('organization_id', org.id).single(),
+    supabase.auth.getUser(),
   ])
 
   const logoUrl = branding?.logo_url ?? null
@@ -75,7 +77,7 @@ export default async function ShopPage() {
             <p className="text-sm text-gray-500">{org.name} hasn&apos;t added any shop items yet. Check back soon.</p>
           </div>
         ) : (
-          <ShopClient items={items} />
+          <ShopClient items={items} signedIn={!!user} />
         )}
       </div>
 

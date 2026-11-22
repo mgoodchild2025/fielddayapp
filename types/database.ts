@@ -2822,6 +2822,7 @@ export type Database = {
       merchandise_items: {
         Row: {
           additional_images: Json
+          colour_images: Json | null
           cost_cents: number | null
           created_at: string
           currency: string
@@ -2838,6 +2839,7 @@ export type Database = {
         }
         Insert: {
           additional_images?: Json
+          colour_images?: Json | null
           cost_cents?: number | null
           created_at?: string
           currency?: string
@@ -2854,6 +2856,7 @@ export type Database = {
         }
         Update: {
           additional_images?: Json
+          colour_images?: Json | null
           cost_cents?: number | null
           created_at?: string
           currency?: string
@@ -3025,26 +3028,32 @@ export type Database = {
       }
       merchandise_variants: {
         Row: {
+          colour: string | null
           cost_cents: number | null
           id: string
           item_id: string
           label: string
           sort_order: number
+          size: string | null
           stock_quantity: number | null
         }
         Insert: {
+          colour?: string | null
           cost_cents?: number | null
           id?: string
           item_id: string
           label: string
+          size?: string | null
           sort_order?: number
           stock_quantity?: number | null
         }
         Update: {
+          colour?: string | null
           cost_cents?: number | null
           id?: string
           item_id?: string
           label?: string
+          size?: string | null
           sort_order?: number
           stock_quantity?: number | null
         }
