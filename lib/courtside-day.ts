@@ -41,9 +41,13 @@ export type CourtsideBracketMatch = {
   match_number: number
   score1: number | null
   score2: number | null
+  /** Set sports: per-set points, bracket shape. */
+  sets: { s1: number; s2: number }[] | null
   team1: CourtsideTeam
   team2: CourtsideTeam
   bracket: { id: string; name: string; league_id: string; bracket_size: number; round_names: Record<string, string> | null } | null
+  /** The event's sport — picks the score sheet (sets / periods / innings / plain). */
+  sport: string | null
   enteredBy: string | null
   timeLabel: string
 }
@@ -123,10 +127,10 @@ export async function loadCourtsideDay(opts: {
   const bracketQuery = db
     .from('bracket_matches')
     .select(`
-      id, scheduled_at, court, status, round_number, match_number, score1, score2, scored_by, scored_at,
+      id, scheduled_at, court, status, round_number, match_number, score1, score2, sets, scored_by, scored_at,
       team1:teams!bracket_matches_team1_id_fkey(id, name, color, logo_url),
       team2:teams!bracket_matches_team2_id_fkey(id, name, color, logo_url),
-      bracket:brackets!bracket_matches_bracket_id_fkey(id, name, league_id, bracket_size, round_names)
+      bracket:brackets!bracket_matches_bracket_id_fkey(id, name, league_id, bracket_size, round_names, league:leagues(sport))
     `)
     .eq('organization_id', orgId)
     .eq('is_bye', false)
@@ -167,14 +171,19 @@ export async function loadCourtsideDay(opts: {
     enteredBy: gameEnteredBy(one(g.game_results), names, tz),
     timeLabel: timeOf(g.scheduled_at),
   }))
-  const bracketMatches: CourtsideBracketMatch[] = ((bracketRaw ?? []) as any[]).map((m) => ({
+  const bracketMatches: CourtsideBracketMatch[] = ((bracketRaw ?? []) as any[]).map((m) => {
+    const b = one(m.bracket) as any
+    return {
     ...m,
+    sets: Array.isArray(m.sets) ? m.sets : null,
     team1: one(m.team1),
     team2: one(m.team2),
-    bracket: one(m.bracket),
+    bracket: b ? { id: b.id, name: b.name, league_id: b.league_id, bracket_size: b.bracket_size, round_names: b.round_names ?? null } : null,
+    sport: (one(b?.league) as any)?.sport ?? null,
     enteredBy: m.status === 'completed' ? matchEnteredBy(m, names, tz) : null,
     timeLabel: timeOf(m.scheduled_at),
-  }))
+  }
+  })
     // One day's matches — narrowing the event here is cheap and exact.
     .filter((m) => leagueIds === null || (!!m.bracket && leagueIds.includes(m.bracket.league_id)))
   /* eslint-enable @typescript-eslint/no-explicit-any */

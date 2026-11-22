@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Overlay } from '@/components/ui/overlay'
 import { adminSetScore, adminClearScore, recordForfeit } from '@/actions/scores'
+import { recordBracketScore, clearBracketMatchResult, declareMatchWinner } from '@/actions/brackets'
 import { toast } from 'sonner'
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { safeAction } from '@/lib/action-errors'
@@ -82,6 +83,11 @@ interface Props {
   /** "Court 3 · 10:30 a.m." — shown big at the top of the sheet so the scorer
    *  checks it's the game in front of them before saving. */
   contextLabel?: string
+  /** A playoff match instead of a game (`gameId` is then the match id): saves
+   *  through recordBracketScore (winner advances; ties refused), clears with
+   *  clearBracketMatchResult, and a forfeit advances the other team
+   *  (organisers only — declareMatchWinner). Home = team 1, away = team 2. */
+  bracketMatch?: { bracketId: string; team1Id: string; team2Id: string }
 }
 
 function defaultSegments(mode: ScoringMode): EditSet[] {
@@ -108,7 +114,7 @@ function setsWon(sets: EditSet[]): [number, number] {
 // ── Score entry bottom sheet ───────────────────────────────────────────────────
 
 function ScoreEntrySheet({
-  gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, onClose, canClear = true, contextLabel,
+  gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, onClose, canClear = true, contextLabel, bracketMatch,
 }: Props & { onClose: () => void }) {
   const scoringMode = getScoringMode(sport)
   const isSegmented = scoringMode !== 'simple'
@@ -134,7 +140,12 @@ function ScoreEntrySheet({
   function applyForfeit(forfeitSide: 'home' | 'away' | 'both') {
     setError(null)
     startTransition(async () => {
-      const result = await safeAction(recordForfeit({ gameId, leagueId, forfeitSide }))
+      const result = bracketMatch
+        ? await safeAction(declareMatchWinner({
+            matchId: gameId, bracketId: bracketMatch.bracketId, leagueId,
+            winnerTeamId: forfeitSide === 'home' ? bracketMatch.team2Id : bracketMatch.team1Id,
+          }))
+        : await safeAction(recordForfeit({ gameId, leagueId, forfeitSide }))
       if (result.error) setError(result.error)
       else {
         onClose()
@@ -160,7 +171,9 @@ function ScoreEntrySheet({
   function clearScore() {
     setError(null)
     startTransition(async () => {
-      const result = await safeAction(adminClearScore(gameId))
+      const result = bracketMatch
+        ? await safeAction(clearBracketMatchResult({ matchId: gameId, bracketId: bracketMatch.bracketId, leagueId }))
+        : await safeAction(adminClearScore(gameId))
       if (result.error) {
         setError(result.error)
         setConfirmClear(false)
@@ -202,14 +215,27 @@ function ScoreEntrySheet({
       finalSets = undefined
     }
 
-    if (finalHome === 0 && finalAway === 0 && !(await confirmAction({
+    // A playoff match needs a winner — someone has to advance.
+    if (bracketMatch && finalHome === finalAway) {
+      setError(scoringMode === 'sets' ? 'A playoff match needs a winner — check the set scores.' : 'A playoff match can’t end in a tie.')
+      return
+    }
+
+    if (!bracketMatch && finalHome === 0 && finalAway === 0 && !(await confirmAction({
       title: 'Record a 0–0 result?',
       message: `${homeTeamName} vs ${awayTeamName} will be saved as a final 0–0 and count in the standings.`,
       confirmLabel: 'Record 0–0',
     }))) return
 
     startTransition(async () => {
-      const result = await safeAction(adminSetScore({ gameId, leagueId, homeScore: finalHome, awayScore: finalAway, sets: finalSets }))
+      const result = bracketMatch
+        ? await safeAction(recordBracketScore({
+            matchId: gameId, bracketId: bracketMatch.bracketId, leagueId,
+            score1: finalHome, score2: finalAway,
+            // The bracket schema keeps per-set points as {s1,s2}; only set sports have them.
+            sets: scoringMode === 'sets' ? finalSets?.map((s) => ({ s1: s.home, s2: s.away })) : undefined,
+          }))
+        : await safeAction(adminSetScore({ gameId, leagueId, homeScore: finalHome, awayScore: finalAway, sets: finalSets }))
       if (result.error) {
         setError(result.error)
       } else {
@@ -372,7 +398,9 @@ function ScoreEntrySheet({
 
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
-          {/* Forfeit — for a no-show. Auto-fills a default win/loss score. */}
+          {/* Forfeit — for a no-show. Auto-fills a default win/loss score.
+              A playoff forfeit advances the other team: organisers only. */}
+          {(!bracketMatch || canClear) && (
           <div className="border-t pt-3">
             {!forfeitOpen ? (
               <button type="button" onClick={() => { setForfeitOpen(true); setError(null) }}
@@ -390,15 +418,18 @@ function ScoreEntrySheet({
                   className="press w-full min-h-11 rounded-lg text-sm font-medium border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 text-left px-3">
                   {awayTeamName} forfeited <span className="text-amber-500">— {homeTeamName} wins</span>
                 </button>
+                {!bracketMatch && (
                 <button type="button" onClick={() => applyForfeit('both')} disabled={isPending}
                   className="press w-full min-h-11 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-left px-3">
                   Double forfeit <span className="text-gray-500">— loss for both, no winner</span>
                 </button>
+                )}
                 <button type="button" onClick={() => setForfeitOpen(false)}
                   className="press min-h-10 text-xs text-gray-600 hover:text-gray-800">Cancel</button>
               </div>
             )}
           </div>
+          )}
 
           {hasExistingScore && canClear && (
             <div className="border-t pt-3">
@@ -474,7 +505,7 @@ function ConfirmPendingButton({ gameId, leagueId, homeTeamName, awayTeamName, re
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, compact, large, canClear = true, contextLabel }: Props) {
+export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, compact, large, canClear = true, contextLabel, bracketMatch }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const hasScore =
@@ -493,6 +524,7 @@ export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTea
         <ScoreEntrySheet
           canClear={canClear}
           contextLabel={contextLabel}
+          bracketMatch={bracketMatch}
           gameId={gameId}
           leagueId={leagueId}
           sport={sport}
