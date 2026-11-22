@@ -4,6 +4,7 @@ import type { DisplayBracketMatch, ZoneConfig } from '@/lib/display-types'
 import { FitContent } from './fit-content'
 import { useLiveScores, type LiveBoard } from '@/lib/use-live-scores'
 import { ScoreTick } from '@/components/scoreboard/score-tick'
+import { tierColor } from '@/lib/bracket-print'
 
 type Tier = { name: string | null; matches: DisplayBracketMatch[]; roundLabels?: Record<string, string> }
 
@@ -448,13 +449,19 @@ export function BracketZone({ bracket, config, theme, timezone, leagueId }: Prop
           {activeTiers.map((tier, i) => (
             <div key={i}>
               {showTierNames && tier.name && (
+                // Big badge in the tier's colour (same colours as the printed score cards)
                 <div style={{
-                  fontSize: 12,
-                  fontWeight: 700,
+                  display: 'inline-block',
+                  fontSize: 24,
+                  fontWeight: 900,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.12em',
-                  marginBottom: 10,
-                  color: isDark ? '#d4d4d8' : '#374151',
+                  letterSpacing: '0.08em',
+                  lineHeight: 1.1,
+                  padding: '6px 16px',
+                  borderRadius: 8,
+                  marginBottom: 14,
+                  color: '#ffffff',
+                  backgroundColor: tierColor(tier.name, (bracket?.tiers ?? []).indexOf(tier)),
                 }}>
                   {tier.name}
                 </div>
