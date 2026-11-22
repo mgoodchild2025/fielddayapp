@@ -16,6 +16,7 @@ import {
   type PtsMethod, type VolleyballMode, type TeamStat, type TeamStatTotals, countsForStandings } from '@/lib/standings'
 import { getLeagueConfirmedResults } from '@/lib/league-results'
 import { tvVideoUrl } from '@/lib/tv-media'
+import { roundDisplayName } from '@/lib/bracket'
 import {
   displayName, sortRoster, headToHeadLine, pairKey, safeTeamColor,
   MATCHUP_LEAD_MS, MATCHUP_TAIL_MS, type MeetingResult, type RosterNameStyle,
@@ -419,11 +420,26 @@ export async function getDisplayData(
         })
       }
 
+      const { data: bracketMeta } = await db
+        .from('brackets')
+        .select('id, bracket_size, round_names')
+        .in('id', bracketRefs.map((r) => r.bracketId))
+        .eq('organization_id', orgId) as { data: { id: string; bracket_size: number | null; round_names: Record<string, string> | null }[] | null }
+      const metaById = new Map((bracketMeta ?? []).map((b) => [b.id, b]))
+
       const tiers = await Promise.all(
-        bracketRefs.map(async ({ bracketId, tierName }) => ({
-          name:    tierName,
-          matches: await fetchMatches(bracketId),
-        }))
+        bracketRefs.map(async ({ bracketId, tierName }) => {
+          const matches = await fetchMatches(bracketId)
+          const meta = metaById.get(bracketId)
+          const roundLabels: Record<string, string> = {}
+          for (const m of matches) {
+            const key = String(m.round_number)
+            if (!(key in roundLabels)) {
+              roundLabels[key] = roundDisplayName(meta?.round_names, m.round_number, meta?.bracket_size ?? 8)
+            }
+          }
+          return { name: tierName, matches, roundLabels }
+        })
       )
 
       bracket = { tiers }

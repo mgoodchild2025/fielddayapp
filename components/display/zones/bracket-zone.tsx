@@ -5,7 +5,7 @@ import { FitContent } from './fit-content'
 import { useLiveScores, type LiveBoard } from '@/lib/use-live-scores'
 import { ScoreTick } from '@/components/scoreboard/score-tick'
 
-type Tier = { name: string | null; matches: DisplayBracketMatch[] }
+type Tier = { name: string | null; matches: DisplayBracketMatch[]; roundLabels?: Record<string, string> }
 
 interface Props {
   bracket:  { tiers: Tier[] } | null
@@ -286,18 +286,24 @@ function TierDiagram({
   const subtextColor = isDark ? '#71717a' : '#9ca3af'
   const dividerColor = isDark ? '#3f3f46' : '#e5e7eb'
 
+  const labelColor = isDark ? '#f4f4f5' : '#111827'
+  const ruleColor  = isDark ? '#52525b' : '#d1d5db'
+
   return (
     <div>
-      {/* ── Round labels ──────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', marginBottom: 6 }}>
+      {/* ── Round labels — read from across the room, so big and bright ─── */}
+      <div style={{ display: 'flex', marginBottom: 10 }}>
         {visibleRoundNums.map((rn) => (
-          <div key={rn} style={{ width: COL_W + ARM_W * 2, flexShrink: 0, textAlign: 'center' }}>
-            <span style={{
-              fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-              letterSpacing: '0.1em', color: subtextColor,
+          <div key={rn} style={{ width: COL_W + ARM_W * 2, flexShrink: 0, padding: `0 ${ARM_W}px` }}>
+            <div style={{
+              fontSize: 15, fontWeight: 800, textTransform: 'uppercase',
+              letterSpacing: '0.08em', color: labelColor, textAlign: 'center',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              paddingBottom: 5,
+              borderBottom: `3px solid ${rn === 1 ? '#f59e0b' : ruleColor}`,
             }}>
-              {getRoundLabel(rn)}
-            </span>
+              {tier.roundLabels?.[String(rn)] ?? getRoundLabel(rn)}
+            </div>
           </div>
         ))}
       </div>
@@ -381,8 +387,8 @@ function TierDiagram({
           maxWidth: COL_W + ARM_W * 2,
         }}>
           <div style={{
-            fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-            letterSpacing: '0.1em', color: subtextColor, marginBottom: 6,
+            fontSize: 15, fontWeight: 800, textTransform: 'uppercase',
+            letterSpacing: '0.08em', color: labelColor, marginBottom: 8,
             paddingLeft: ARM_W,
           }}>
             Third Place

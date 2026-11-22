@@ -181,7 +181,8 @@ export interface DisplayData {
   poolStandings: DisplayStanding[]
   /** Standings display settings — drives which columns the standings zone shows. */
   standingsConfig: { ptsMethod: string; volleyballMode: string }
-  bracket:   { tiers: { name: string | null; matches: DisplayBracketMatch[] }[] } | null
+  /** `roundLabels`: round_number → the name shown above that column (admin's round names, else the standard name). */
+  bracket:   { tiers: { name: string | null; matches: DisplayBracketMatch[]; roundLabels: Record<string, string> }[] } | null
   /** Current live stream for the org (manual Go Live), or null. */
   live:      { platform: string; title: string | null; url: string; embed_url: string | null } | null
   /** Showcase zone content: opted-in player bio cards + approved event photos. */
