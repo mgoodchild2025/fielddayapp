@@ -336,14 +336,31 @@ function BracketCard({ ctx, m, highlight }: { ctx: CardCtx; m: CourtsideBracketM
       <Teams a={m.team1} b={m.team2} score={m.status === 'completed' && m.score1 !== null ? `${m.score1} – ${m.score2}` : null} />
       <EnteredBy text={m.enteredBy} />
       {/* A scorekeeper can't rewrite a played playoff match (the winner has
-          moved on) — the board would only refuse it. */}
-      {(ctx.canClear || m.status !== 'completed') && (
-        <a
-          href={`/scoreboard?match=${m.id}`}
-          className="press mt-3 flex items-center justify-center min-h-11 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-        >
-          🔢 Open scoreboard →
-        </a>
+          moved on) — the sheet and the board would only refuse it. */}
+      {(ctx.canClear || m.status !== 'completed') && m.bracket && m.team1 && m.team2 && (
+        <div className="mt-3">
+          <AdminScoreEntry
+            gameId={m.id}
+            leagueId={m.bracket.league_id}
+            sport={m.sport ?? undefined}
+            homeTeamName={m.team1.name}
+            awayTeamName={m.team2.name}
+            existingResult={m.status === 'completed' && m.score1 !== null
+              ? { homeScore: m.score1, awayScore: m.score2, status: 'confirmed', sets: m.sets?.map((s) => ({ home: s.s1, away: s.s2 })) ?? null }
+              : null}
+            compact
+            large
+            canClear={ctx.canClear}
+            contextLabel={whereWhen(m.court, m.timeLabel)}
+            bracketMatch={{ bracketId: m.bracket.id, team1Id: m.team1.id, team2Id: m.team2.id }}
+          />
+          <a
+            href={`/scoreboard?match=${m.id}`}
+            className="press mt-2 flex items-center justify-center min-h-11 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            🔢 Open scoreboard →
+          </a>
+        </div>
       )}
     </div>
   )
