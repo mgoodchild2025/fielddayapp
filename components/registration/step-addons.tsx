@@ -5,6 +5,7 @@ import { formatDollars } from '@/lib/money'
 import { useState } from 'react'
 import Image from 'next/image'
 import { canOptimizeImage } from '@/lib/image-src'
+import { optionAxes, findVariant, isValueSoldOut, optionKey } from '@/lib/merch-options'
 
 export type MerchItemForStep = {
   id: string
@@ -14,9 +15,14 @@ export type MerchItemForStep = {
   effective_price_cents: number // actual charge — override if set, else base
   currency: string
   image_url: string | null
+  /** Colour → one of the item's photos, shown when that colour is picked. */
+  colour_images?: Record<string, string> | null
   variants: {
     id: string
     label: string
+    /** Colour × size items (lib/merch-options.ts); both null = a plain option. */
+    colour?: string | null
+    size?: string | null
     available_stock: number | null  // null = unlimited; already computed server-side
   }[]
 }
@@ -37,14 +43,35 @@ interface Props {
 type SelectionState = {
   variantId: string | null
   quantity: number
+  /** Colour × size items: the picks so far (the variant needs both). */
+  colour?: string | null
+  size?: string | null
 }
+
+/** The shared option rules read `stock_quantity`; here that's what's still available. */
+const asStock = (item: MerchItemForStep) =>
+  item.variants.map((v) => ({ ...v, colour: v.colour ?? null, size: v.size ?? null, stock_quantity: v.available_stock }))
 
 export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
   // Map: itemId -> { variantId, quantity }
   const [selections, setSelections] = useState<Map<string, SelectionState>>(() => new Map())
 
+  // Nothing chosen yet: an item whose colour/size choices are all single
+  // values has nothing to pick, so its one option counts as chosen.
+  function defaultSelection(itemId: string): SelectionState {
+    const item = items.find((i) => i.id === itemId)
+    if (item && item.variants.length > 0) {
+      const axes = optionAxes(asStock(item))
+      if (axes.mode === 'grid' && axes.colours.length <= 1 && axes.sizes.length <= 1) {
+        const v = findVariant(asStock(item), axes.colours[0] ?? null, axes.sizes[0] ?? null)
+        if (v) return { variantId: v.id, quantity: 0, colour: axes.colours[0] ?? null, size: axes.sizes[0] ?? null }
+      }
+    }
+    return { variantId: null, quantity: 0 }
+  }
+
   function getSelection(itemId: string): SelectionState {
-    return selections.get(itemId) ?? { variantId: null, quantity: 0 }
+    return selections.get(itemId) ?? defaultSelection(itemId)
   }
 
   function setVariant(itemId: string, variantId: string | null) {
@@ -58,16 +85,29 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
     })
   }
 
+  // Colour × size: record the pick, then the variant once both are chosen (an
+  // axis with one value counts as chosen).
+  function pickOption(item: MerchItemForStep, axis: 'colour' | 'size', value: string) {
+    const axes = optionAxes(asStock(item))
+    setSelections((prev) => {
+      const next = new Map(prev)
+      const existing = next.get(item.id) ?? { variantId: null, quantity: 0 }
+      const colour = axis === 'colour' ? value : existing.colour ?? (axes.colours.length === 1 ? axes.colours[0] : null)
+      const size = axis === 'size' ? value : existing.size ?? (axes.sizes.length === 1 ? axes.sizes[0] : null)
+      const complete = (axes.colours.length === 0 || colour) && (axes.sizes.length === 0 || size)
+      const variantId = complete ? findVariant(asStock(item), colour, size)?.id ?? null : null
+      const quantity = variantId !== existing.variantId ? 0 : existing.quantity
+      next.set(item.id, { variantId, quantity, colour, size })
+      return next
+    })
+  }
+
   function setQuantity(itemId: string, delta: number) {
     setSelections((prev) => {
       const next = new Map(prev)
-      const existing = next.get(itemId) ?? { variantId: null, quantity: 0 }
-      const newQty = Math.max(0, existing.quantity + delta)
-      if (newQty === 0) {
-        next.delete(itemId)
-      } else {
-        next.set(itemId, { ...existing, quantity: newQty })
-      }
+      const existing = next.get(itemId) ?? defaultSelection(itemId)
+      // Back to 0 keeps the colour/size picked (only quantity > 0 is ordered).
+      next.set(itemId, { ...existing, quantity: Math.max(0, existing.quantity + delta) })
       return next
     })
   }
@@ -142,18 +182,24 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
               {/* Item header */}
               <div className="flex items-start gap-3">
                 {/* Thumbnail */}
-                {item.image_url && (
-                  <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 border bg-gray-50">
-                    <Image
-                      src={item.image_url}
-                      alt={item.name}
-                      fill
-                      sizes="64px"
-                      className="object-cover"
-                      unoptimized={!canOptimizeImage(item.image_url)}
-                    />
-                  </div>
-                )}
+                {(() => {
+                  // The picked colour's photo, when the organiser matched one.
+                  const src = (sel.colour && Object.entries(item.colour_images ?? {})
+                    .find(([k]) => optionKey(k) === optionKey(sel.colour))?.[1]) || item.image_url
+                  return src ? (
+                    <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 border bg-gray-50">
+                      <Image
+                        key={src}
+                        src={src}
+                        alt={item.name}
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                        unoptimized={!canOptimizeImage(src)}
+                      />
+                    </div>
+                  ) : null
+                })()}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -176,8 +222,64 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                 </div>
               </div>
 
-              {/* Variant picker */}
-              {item.variants.length > 0 && (
+              {/* Colour × size picker */}
+              {item.variants.length > 0 && optionAxes(asStock(item)).mode === 'grid' && (() => {
+                const stock = asStock(item)
+                const axes = optionAxes(stock)
+                const colour = sel.colour ?? (axes.colours.length === 1 ? axes.colours[0] : null)
+                const size = sel.size ?? (axes.sizes.length === 1 ? axes.sizes[0] : null)
+                const chip = (on: boolean, out: boolean) => `press min-h-10 px-3.5 rounded-md text-sm font-medium border ${
+                  out ? 'opacity-40 cursor-not-allowed line-through text-gray-400 border-gray-200 bg-gray-50'
+                  : on ? 'bg-brand-primary text-on-brand border-brand-primary'
+                  : 'text-gray-700 border-gray-200 bg-white hover:border-gray-400'}`
+                const picked = item.variants.find((v) => v.id === sel.variantId)
+                return (
+                  <div className="space-y-3">
+                    {axes.colours.length > 0 && (
+                      <div role="group" aria-label={`${item.name} colour`}>
+                        <p className="text-xs font-medium text-gray-500 mb-2">Colour{colour ? `: ${colour}` : ''}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {axes.colours.map((c) => {
+                            const out = isValueSoldOut(stock, 'colour', c)
+                            const on = optionKey(colour) === optionKey(c)
+                            return (
+                              <button key={c} type="button" disabled={out} aria-pressed={on}
+                                aria-label={out ? `${c}, sold out` : c}
+                                onClick={() => pickOption(item, 'colour', c)} className={chip(on, out)}>
+                                {c}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {axes.sizes.length > 0 && (
+                      <div role="group" aria-label={`${item.name} size`}>
+                        <p className="text-xs font-medium text-gray-500 mb-2">Size{size ? `: ${size}` : ''}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {axes.sizes.map((z) => {
+                            const out = isValueSoldOut(stock, 'size', z, colour)
+                            const on = optionKey(size) === optionKey(z)
+                            return (
+                              <button key={z} type="button" disabled={out} aria-pressed={on}
+                                aria-label={out ? `${z}, sold out` : z}
+                                onClick={() => pickOption(item, 'size', z)} className={chip(on, out)}>
+                                {z}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {picked && picked.available_stock !== null && picked.available_stock > 0 && picked.available_stock <= 5 && (
+                      <p className="text-xs font-medium text-amber-700">Only {picked.available_stock} left in {picked.label}</p>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {/* Single list of options */}
+              {item.variants.length > 0 && optionAxes(asStock(item)).mode === 'list' && (
                 <div>
                   <p className="text-xs font-medium text-gray-500 mb-2">Select size</p>
                   <div className="flex flex-wrap gap-2">
@@ -246,7 +348,15 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                 </div>
 
                 {item.variants.length > 0 && !canAdd && (
-                  <p className="text-xs text-amber-700">Select a size to add</p>
+                  <p className="text-xs text-amber-700">
+                    {(() => {
+                      const axes = optionAxes(asStock(item))
+                      if (axes.mode === 'list') return 'Select a size to add'
+                      const needColour = axes.colours.length > 1 && !sel.colour
+                      const needSize = axes.sizes.length > 1 && !sel.size
+                      return needColour && needSize ? 'Pick a colour and size to add' : needColour ? 'Pick a colour to add' : 'Pick a size to add'
+                    })()}
+                  </p>
                 )}
                 {atMax && canAdd && (
                   <p className="text-xs text-gray-500">No more in stock</p>

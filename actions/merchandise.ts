@@ -63,6 +63,8 @@ export type ShopItem = {
 export type LeagueMerchVariant = {
   id: string
   label: string
+  colour: string | null
+  size: string | null
   stock_quantity: number | null  // raw DB value
   available_stock: number | null // null = unlimited; computed server-side
   sort_order: number
@@ -250,6 +252,8 @@ export async function getLeagueMerchandise(leagueId: string): Promise<LeagueMerc
     arr.push({
       id: v.id,
       label: v.label,
+      colour: v.colour ?? null,
+      size: v.size ?? null,
       stock_quantity: v.stock_quantity,
       available_stock: v.stock_quantity !== null ? Math.max(0, v.stock_quantity - ordered) : null,
       sort_order: v.sort_order,
