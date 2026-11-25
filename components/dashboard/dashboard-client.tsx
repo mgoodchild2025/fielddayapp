@@ -5,6 +5,8 @@ import { MedalCase, type MedalView } from '@/components/medals/medal-case'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { BioFlipCard } from '@/components/bios/bio-flip-card'
 import { CardNudge } from '@/components/bios/card-nudge'
+import { useRouter } from 'next/navigation'
+import { ShowCardPrompt } from '@/components/bios/show-card-prompt'
 import { describeGaps, type CardGap } from '@/lib/player-card-gaps'
 import { AlertsNudge } from '@/components/pwa/alerts-nudge'
 import type { BioCardData } from '@/components/bios/player-bio-card'
@@ -165,6 +167,8 @@ interface Props {
   hasCardBio?: boolean
   /** What the card is missing (lib/player-card-gaps); empty when complete or admin-hidden. */
   myCardGaps?: CardGap[]
+  /** Card filled in but not shown on event screens: ask once (one tap). */
+  askToShowCard?: boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -531,13 +535,15 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
  *  links, or — when the player has no bio yet — a setup prompt naming what
  *  to add. An incomplete card gets one line saying what's missing. Both can
  *  be waved off ("Not now", 60 days on this device). */
-function MyCardSection({ myCardBio, myCareer, myCardHref, hasCardBio, myCardGaps }: {
+function MyCardSection({ myCardBio, myCareer, myCardHref, hasCardBio, myCardGaps, askToShowCard }: {
   myCardBio: Props['myCardBio']
   myCareer: Props['myCareer']
   myCardHref: Props['myCardHref']
   hasCardBio: boolean
   myCardGaps: CardGap[]
+  askToShowCard: boolean
 }) {
+  const router = useRouter()
   if (!myCardBio) return null
   if (!hasCardBio) {
     return (
@@ -573,12 +579,16 @@ function MyCardSection({ myCardBio, myCareer, myCardHref, hasCardBio, myCardGaps
           </Link>
         </CardNudge>
       )}
+      {/* One prompt at a time: finish the card first, then offer to show it. */}
+      {myCardGaps.length === 0 && askToShowCard && (
+        <ShowCardPrompt className="mb-2" onShown={() => router.refresh()} />
+      )}
       <BioFlipCard bio={myCardBio} career={myCareer ?? null} />
     </div>
   )
 }
 
-export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], scorekeeping = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, hasCardBio = false, myCardGaps = [], showShop = false }: Props) {
+export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], scorekeeping = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, hasCardBio = false, myCardGaps = [], askToShowCard = false, showShop = false }: Props) {
   // The medal celebration nudges a photo onto the card the medal now sits on.
   const medalCardNudge = myCardGaps.includes('photo')
     ? { text: "It's on your player card now. Add a photo?", href: '/profile#bio' }
@@ -692,7 +702,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
               <MedalCase medals={medals} isOwner title="Your trophy case" cardNudge={medalCardNudge} />
             </div>
           )}
-          <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} hasCardBio={hasCardBio} myCardGaps={myCardGaps} />
+          <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} hasCardBio={hasCardBio} myCardGaps={myCardGaps} askToShowCard={askToShowCard} />
         </div>
 
         {scorekeepingCard}
@@ -1065,7 +1075,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
       {/* ── Trophy case + player card ── */}
       <section>
         {medals.length > 0 && <MedalCase medals={medals} isOwner title="Your trophy case" cardNudge={medalCardNudge} />}
-        <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} hasCardBio={hasCardBio} myCardGaps={myCardGaps} />
+        <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} hasCardBio={hasCardBio} myCardGaps={myCardGaps} askToShowCard={askToShowCard} />
       </section>
 
       {/* ── Quick links for session-only players (no active team) ── */}

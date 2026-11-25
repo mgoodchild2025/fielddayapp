@@ -50,7 +50,7 @@ export default async function DashboardPage() {
   const identityPromise = Promise.all([
     getPlayerMedals(db, org.id, user.id),
     db.from('player_bios')
-      .select('hero_photo_url, jersey_number, position, hometown, years_playing, tagline, hidden_by_admin')
+      .select('hero_photo_url, jersey_number, position, hometown, years_playing, tagline, hidden_by_admin, show_on_displays')
       .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
     getPlayerCareer(db, org.id, user.id),
   ])
@@ -216,6 +216,9 @@ export default async function DashboardPage() {
   // What the card still needs (number, position, photo). An admin-hidden bio
   // isn't nudged: the player can't put it back on show.
   const hasCardBio = !!myBioRow
+  // A finished card that's switched off gets a one-tap "show it?" prompt
+  // (people fill in the card and miss the switch). Admin-hidden: never.
+  const askToShowCard = !!myBioRow && !myBioRow.hidden_by_admin && !(myBioRow as { show_on_displays?: boolean }).show_on_displays
   const myCardGaps = myBioRow?.hidden_by_admin ? [] : cardGaps(myCardBio)
 
   // ── If no active teams and no sessions, render the off-season dashboard ───
@@ -232,6 +235,7 @@ export default async function DashboardPage() {
           myCareer={myCareer}
           myCardHref={`/players/${user.id}/card`}
           hasCardBio={hasCardBio}
+          askToShowCard={askToShowCard}
           myCardGaps={myCardGaps}
           timezone={timezone}
           scorekeeping={scorekeeping}
@@ -805,6 +809,7 @@ export default async function DashboardPage() {
           myCareer={myCareer}
           myCardHref={`/players/${user.id}/card`}
           hasCardBio={hasCardBio}
+          askToShowCard={askToShowCard}
           myCardGaps={myCardGaps}
           timezone={timezone}
           scorekeeping={scorekeeping}

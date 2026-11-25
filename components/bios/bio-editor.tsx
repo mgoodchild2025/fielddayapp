@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { saveMyBio, uploadBioPhoto } from '@/actions/player-bios'
+import { ShowCardPrompt } from './show-card-prompt'
 import { type BioCardData } from './player-bio-card'
 import { BioFlipCard } from './bio-flip-card'
 import type { PlayerCareer } from '@/lib/career'
@@ -53,6 +54,8 @@ export function BioEditor({
   const [yearsPlaying, setYearsPlaying] = useState(initial.yearsPlaying != null ? String(initial.yearsPlaying) : '')
   const [tagline, setTagline] = useState(initial.tagline ?? '')
   const [showOnDisplays, setShowOnDisplays] = useState(initial.showOnDisplays)
+  // Saved with the switch off: ask once, right here (people miss the switch).
+  const [askShow, setAskShow] = useState(false)
 
   const preview: BioCardData = {
     name: playerName,
@@ -101,6 +104,7 @@ export function BioEditor({
       }))
       if (r.error) { setErr(r.error); return }
       setSaved(true)
+      setAskShow(!showOnDisplays)
       announce('Saved')
       setTimeout(() => setSaved(false), 2000)
     })
@@ -164,7 +168,7 @@ export function BioEditor({
         </div>
 
         <label className="flex items-start gap-2 pt-1 cursor-pointer">
-          <input type="checkbox" checked={showOnDisplays} onChange={(e) => setShowOnDisplays(e.target.checked)} className="mt-0.5 rounded" />
+          <input type="checkbox" checked={showOnDisplays} onChange={(e) => { setShowOnDisplays(e.target.checked); setAskShow(false) }} className="mt-0.5 rounded" />
           <span className="text-sm text-gray-700">
             <span className="font-medium">Show my card on event screens &amp; my share link</span>
             <span className="block text-xs text-gray-500">
@@ -183,6 +187,9 @@ export function BioEditor({
           </button>
           <span role="status" aria-live="polite">{saved && <span className="fd-fade-in text-sm text-green-700">Saved</span>}</span>
         </div>
+        {askShow && !showOnDisplays && (
+          <ShowCardPrompt onShown={() => { setShowOnDisplays(true); setAskShow(false) }} />
+        )}
       </div>
     </div>
   )
