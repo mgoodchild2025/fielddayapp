@@ -9,6 +9,7 @@ import { requireOrgMember } from '@/lib/auth'
 import { convertToWebP } from '@/lib/image-utils'
 import { createNotifications } from '@/lib/notify'
 import { cardGaps, describeGaps } from '@/lib/player-card-gaps'
+import { bioPhotoMayReplaceAvatar } from '@/lib/avatar-fallback'
 
 // ── Broadcast bios (S1) ───────────────────────────────────────────────────────
 // Players write their own card; show_on_displays is opt-in (default off).
@@ -127,6 +128,14 @@ export async function uploadBioPhoto(formData: FormData): Promise<{ url: string 
     updated_at: new Date().toISOString(),
   }, { onConflict: 'organization_id,user_id' })
   if (dbError) return { url: null, error: dbError.message }
+
+  // No profile photo yet (or only an earlier copy of this one)? The card photo
+  // becomes the profile photo too, so the player's face shows everywhere.
+  const { data: profile } = await service.from('profiles').select('avatar_url').eq('id', user.id).maybeSingle()
+  if (profile && bioPhotoMayReplaceAvatar(profile.avatar_url, user.id)) {
+    await service.from('profiles').update({ avatar_url: url }).eq('id', user.id)
+    revalidatePath('/dashboard')
+  }
 
   revalidatePath('/profile')
   return { url, error: null }
