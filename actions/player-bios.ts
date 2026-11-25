@@ -141,6 +141,33 @@ export async function uploadBioPhoto(formData: FormData): Promise<{ url: string 
   return { url, error: null }
 }
 
+/**
+ * The player's one-tap "Show my card on event screens" (the prompts after
+ * saving a card and on the dashboard). Writes ONLY show_on_displays, on the
+ * caller's own card for this site — never anyone else's, and never creates a
+ * card that doesn't exist.
+ */
+export async function setMyCardShown(show: boolean): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Please sign in again.' }
+
+  const db = createServiceRoleClient()
+  const { data, error } = await db.from('player_bios')
+    .update({ show_on_displays: show === true, updated_at: new Date().toISOString() })
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .select('user_id')
+  if (error) return { error: "Couldn't update your card. Try again from your profile." }
+  if (!data || data.length === 0) return { error: 'Set up your card first.' }
+
+  revalidatePath('/profile')
+  revalidatePath('/dashboard')
+  return { error: null }
+}
+
 /** Admin: hide/unhide a bio from displays and cards without deleting it. */
 export async function setBioHidden(userId: string, hidden: boolean): Promise<{ error: string | null }> {
   const headersList = await headers()

@@ -797,10 +797,12 @@ interface Props {
   timezone:       string
   initialScreens: ScreenState[]
   liveStreams:    { id: string; title: string | null; platform: string }[]
+  /** This event's players' cards: how many are switched on for screens. */
+  cardStats?:     { players: number; shown: number; notShown: number }
 }
 
 export function DisplayControlPanel({
-  leagueId, leagueName, displayBaseUrl, pools, bracketTiers, timezone, initialScreens, liveStreams,
+  leagueId, leagueName, displayBaseUrl, pools, bracketTiers, timezone, initialScreens, liveStreams, cardStats,
 }: Props) {
   const [screens, setScreens] = useState<ScreenState[]>(
     initialScreens.length > 0 ? initialScreens : [{ screen: 1, enabled: false, config: defaultConfig() }]
@@ -882,6 +884,25 @@ export function DisplayControlPanel({
           Configure live TV displays for {leagueName}. Each screen has its own URL.
         </p>
       </div>
+
+      {cardStats && cardStats.shown + cardStats.notShown > 0 && (
+        <div className="mb-6 rounded-lg border bg-white px-4 py-3 text-sm">
+          <p className="font-semibold text-gray-900">
+            Player cards: {cardStats.shown} of {cardStats.shown + cardStats.notShown} showing on screens
+          </p>
+          <p className="mt-0.5 text-gray-600">
+            {cardStats.notShown > 0 ? (
+              <>
+                {cardStats.notShown} {cardStats.notShown === 1 ? 'player has' : 'players have'} a card but {cardStats.notShown === 1 ? 'hasn’t' : 'haven’t'} switched it on.
+                Only players can turn their own card on: they&rsquo;re asked on their dashboard, or they can tick
+                &ldquo;Show my card on event screens&rdquo; in their profile. A reminder at check-in helps.
+              </>
+            ) : (
+              <>Every player with a card has it switched on.</>
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Screen tabs */}
       <div role="tablist" aria-label="Screens" className="flex flex-wrap items-center gap-2 mb-6">

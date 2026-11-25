@@ -72,6 +72,28 @@ export default async function DisplayAdminPage({
 
   const displayBaseUrl = `https://${org.slug}.${process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'}/events/${league.slug}/display`
 
+  // Player cards for this event's active registrants: how many are switched on
+  // for screens (so the organiser knows whether to remind people at check-in).
+  const cardStats = await (async () => {
+    const { data: regs } = await db.from('registrations')
+      .select('user_id')
+      .eq('league_id', id).eq('organization_id', org.id)
+      .eq('status', 'active')
+      .not('user_id', 'is', null)
+    const userIds = [...new Set((regs ?? []).map((r) => r.user_id as string))]
+    let shown = 0, notShown = 0
+    // In chunks: a long .in() list overflows the request URL.
+    for (let i = 0; i < userIds.length; i += 200) {
+      const { data: bios } = await db.from('player_bios')
+        .select('show_on_displays')
+        .eq('organization_id', org.id)
+        .eq('hidden_by_admin', false)
+        .in('user_id', userIds.slice(i, i + 200))
+      for (const b of bios ?? []) { if (b.show_on_displays) shown++; else notShown++ }
+    }
+    return { players: userIds.length, shown, notShown }
+  })()
+
   // Currently-live streams for the per-screen stream picker (this event + org-wide).
   const allLive = await getActiveLiveStreams(org.id)
   const liveStreams = allLive
@@ -88,6 +110,7 @@ export default async function DisplayAdminPage({
       timezone={timezone}
       initialScreens={screenConfigs}
       liveStreams={liveStreams}
+      cardStats={cardStats}
     />
   )
 }
