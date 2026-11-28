@@ -30,6 +30,7 @@ import {
 import { upsertRsvp } from '@/actions/rsvp'
 import { RsvpChoice } from '@/components/schedule/rsvp-choice'
 import { streakLine, type AttendanceStreak } from '@/lib/attendance-streak'
+import { BirthdayBanner } from '@/components/dashboard/birthday-banner'
 import Image from 'next/image'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { toast } from 'sonner'
@@ -175,6 +176,8 @@ interface Props {
   streak?: AttendanceStreak | null
   /** Weekday of the next game when it's later this week ("Friday", "tonight"). */
   streakNextDay?: string | null
+  /** Today (org time) is the player's birthday. */
+  birthdayToday?: boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -605,7 +608,7 @@ function MyCardSection({ myCardBio, myCareer, myCardHref, hasCardBio, myCardGaps
   )
 }
 
-export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], scorekeeping = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, hasCardBio = false, myCardGaps = [], askToShowCard = false, showShop = false, streak = null, streakNextDay = null }: Props) {
+export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], scorekeeping = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, hasCardBio = false, myCardGaps = [], askToShowCard = false, showShop = false, streak = null, streakNextDay = null, birthdayToday = false }: Props) {
   // The medal celebration nudges a photo onto the card the medal now sits on.
   const milestoneStrip = myCareer?.milestoneStats
     ? <MilestoneStrip stats={myCareer.milestoneStats} orgName={orgName} storageKey={`fd-milestones-seen:${orgName}`} />
@@ -721,6 +724,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
             <span suppressHydrationWarning>{greeting(timezone)}</span>, {firstName}
           </h1>
           {streakText && <StreakLine text={streakText} />}
+        {birthdayToday && <BirthdayBanner firstName={firstName} orgName={orgName} storageKey={`fd-birthday:${orgName}`} />}
           {medals.length > 0 && (
             <div className="mt-3">
               <MedalCase medals={medals} isOwner title="Your trophy case" cardNudge={medalCardNudge} />
@@ -761,6 +765,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           <span suppressHydrationWarning>{greeting(timezone)}</span>, {firstName}
         </h1>
         {streakText && <StreakLine text={streakText} />}
+        {birthdayToday && <BirthdayBanner firstName={firstName} orgName={orgName} storageKey={`fd-birthday:${orgName}`} />}
       </div>
 
       {/* Order = what a player needs first: to-dos, then the next game/session

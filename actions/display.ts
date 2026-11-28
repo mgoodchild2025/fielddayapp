@@ -1,5 +1,6 @@
 'use server'
 
+import { isBirthdayOn, localDateIn } from '@/lib/birthday'
 import { headers } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
@@ -552,7 +553,7 @@ export async function getDisplayData(
             .eq('show_on_displays', true)
             .eq('hidden_by_admin', false)
             .in('user_id', regUserIds),
-          db.from('profiles').select('id, full_name, avatar_url').in('id', regUserIds),
+          db.from('profiles').select('id, full_name, avatar_url, birthday_month, birthday_day').in('id', regUserIds),
           db.from('team_members')
             .select('user_id, position, team:teams!team_members_team_id_fkey(id, name, league_id)')
             .in('user_id', regUserIds)
@@ -605,6 +606,8 @@ export async function getDisplayData(
         }
 
         const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
+        // Birthday shout-out: only ever on a card the player switched on (this list).
+        const todayLocal = localDateIn(timezone)
         // Team name for THIS league only
         const teamByUser = new Map<string, { id: string; name: string; position: string | null }>()
         for (const m of memberships ?? []) {
@@ -646,6 +649,7 @@ export async function getDisplayData(
             tagline: b.tagline,
             medalShelf: shelfFor(b.user_id),
             champion: team?.id ? (championByTeam.get(team.id) ?? null) : null,
+            birthday: isBirthdayOn(profile?.birthday_month, profile?.birthday_day, todayLocal),
           }
         })
       }
