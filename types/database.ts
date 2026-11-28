@@ -4978,6 +4978,8 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          birthday_day: number | null
+          birthday_month: number | null
           created_at: string | null
           email: string
           email_reminders_enabled: boolean
@@ -4995,6 +4997,8 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          birthday_day?: number | null
+          birthday_month?: number | null
           created_at?: string | null
           email: string
           email_reminders_enabled?: boolean
@@ -5012,6 +5016,8 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          birthday_day?: number | null
+          birthday_month?: number | null
           created_at?: string | null
           email?: string
           email_reminders_enabled?: boolean

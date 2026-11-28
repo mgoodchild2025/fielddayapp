@@ -193,6 +193,8 @@ export interface DisplayData {
       tagline: string | null; medalShelf: string | null
       /** Set when the player's team medalled in this event — drives the gold card treatment. */
       champion: { placement: 'gold' | 'silver' | 'bronze' | 'tier_champion'; label: string } | null
+      /** Today (org time) is their birthday — the card leads the rotation with a 🎂 ribbon. */
+      birthday?: boolean
     }[]
     /** `credit` is the uploader's short name ("Sam L."), shown on the slide.
      *  Videos carry `video` (TV-ready MP4 url, poster, length) and play muted. */

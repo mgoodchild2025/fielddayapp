@@ -95,7 +95,11 @@ function buildPlaylist(
     }
   }
 
-  const restBios = showcase.bios.filter((b) => !lineupUserKeys.has(b.name + (b.teamId ?? '')))
+  // Birthdays lead the rotation (once), ahead of the lineups.
+  const birthdaySlides: Slide[] = source !== 'photos'
+    ? showcase.bios.filter((b) => b.birthday).map((bio) => ({ kind: 'bio' as const, bio }))
+    : []
+  const restBios = showcase.bios.filter((b) => !b.birthday && !lineupUserKeys.has(b.name + (b.teamId ?? '')))
   const bios: Slide[] = source !== 'photos' ? restBios.map((bio) => ({ kind: 'bio' as const, bio })) : []
   const photos: Slide[] = source !== 'bios' ? showcase.photos.map((p) => ({ kind: 'photo' as const, url: p.url, caption: p.caption, credit: p.credit, video: p.video })) : []
 
@@ -112,7 +116,7 @@ function buildPlaylist(
     return a
   }
 
-  const withLineups = (rest: Slide[]): Slide[] => [...lineupSlides, ...rest]
+  const withLineups = (rest: Slide[]): Slide[] => [...birthdaySlides, ...lineupSlides.filter((sl) => !(sl.kind === 'bio' && sl.bio.birthday)), ...rest]
 
   if (source === 'both' && bios.length > 0 && photos.length > 0) {
     // Interleave: roughly two photos, then a bio
@@ -348,6 +352,11 @@ export function ShowcaseZone({
               {slide.lineupTeam && (
                 <p className="mb-4 inline-block bg-white/10 px-4 py-1.5 font-mono text-base uppercase tracking-[.25em] text-white/80">
                   Starting Lineup · {slide.lineupTeam}
+                </p>
+              )}
+              {slide.bio.birthday && (
+                <p className={`mb-4 ${slide.lineupTeam ? 'ml-3' : ''} inline-block bg-pink-400/90 px-4 py-1.5 font-mono text-base uppercase tracking-[.25em] text-pink-950`}>
+                  🎂 Happy birthday!
                 </p>
               )}
               {slide.bio.champion && (

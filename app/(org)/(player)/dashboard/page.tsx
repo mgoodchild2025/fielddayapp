@@ -11,6 +11,7 @@ import { getPlayerMedals } from '@/lib/medal-queries'
 import { getPlayerCareer } from '@/lib/career'
 import { loadAttendanceStreak } from '@/lib/attendance-streak-load'
 import { weekOf } from '@/lib/attendance-streak'
+import { isBirthdayOn, localDateIn } from '@/lib/birthday'
 import type { BioCardData } from '@/components/bios/player-bio-card'
 import { cardGaps } from '@/lib/player-card-gaps'
 import type {
@@ -73,7 +74,7 @@ export default async function DashboardPage() {
     { data: dropInRegRows },
     { data: seasonPassRegs },
   ] = await Promise.all([
-    db.from('profiles').select('full_name, avatar_url').eq('id', user.id).single(),
+    db.from('profiles').select('full_name, avatar_url, birthday_month, birthday_day').eq('id', user.id).single(),
 
     getOrgBrandingCached(org.id),
     // Active team memberships
@@ -131,6 +132,7 @@ export default async function DashboardPage() {
   ])
 
   const timezone = (branding as { timezone?: string } | null)?.timezone ?? 'America/Toronto'
+  const birthdayToday = isBirthdayOn(profileRow?.birthday_month, profileRow?.birthday_day, localDateIn(timezone))
   const firstName = profileRow?.full_name?.split(' ')[0] ?? 'there'
   const logoUrl = (branding as { logo_url?: string } | null)?.logo_url ?? null
 
@@ -246,6 +248,7 @@ export default async function DashboardPage() {
           timezone={timezone}
           scorekeeping={scorekeeping}
           streak={await streakPromise}
+          birthdayToday={birthdayToday}
           nextItem={null}
           sameDayGames={[]}
           teams={[]}
@@ -830,6 +833,7 @@ export default async function DashboardPage() {
           nextItem={nextItem}
           streak={await streakPromise}
           streakNextDay={streakNextDay}
+          birthdayToday={birthdayToday}
           callOffs={callOffs}
           nextSessions={nextSessionItems}
           sameDayGames={sameDayGames}

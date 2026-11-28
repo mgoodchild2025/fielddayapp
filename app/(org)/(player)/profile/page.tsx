@@ -13,6 +13,7 @@ import { Footer } from '@/components/layout/footer'
 import { ProfileForm } from './profile-form'
 import { MfaSettings } from '@/components/profile/mfa-settings'
 import { PushSettingsCard } from '@/components/pwa/push-settings-card'
+import { BirthdayCard } from '@/components/profile/birthday-card'
 import { getMfaStatus } from '@/lib/mfa'
 import { redirectToLogin } from '@/lib/auth'
 import { SignOutButton } from '@/components/auth/sign-out-button'
@@ -115,6 +116,11 @@ export default async function ProfilePage() {
             </div>
           </div>
         )}
+
+        {/* Birthday shout-out — optional month + day */}
+        <div className="mt-6">
+          <BirthdayCard month={profile?.birthday_month ?? null} day={profile?.birthday_day ?? null} />
+        </div>
 
         {/* Phone alerts — per-device Web Push switch */}
         <div className="mt-6">
