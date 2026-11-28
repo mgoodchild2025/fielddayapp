@@ -1,6 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
+import { sendGameResultAlerts } from '@/lib/game-result-alerts'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
@@ -190,6 +192,13 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
 
   if (leagueId) revalidatePath(`/admin/events/${leagueId}/schedule`)
   revalidatePath('/events/[slug]', 'page')
+
+  // First time this game's result is confirmed: tell both teams (after the
+  // response — never slows the save; a correction to a confirmed score is silent).
+  if (before?.status !== 'confirmed') {
+    const gameId = parsed.data.gameId
+    after(() => sendGameResultAlerts(db, org.id, gameId))
+  }
 
   // Auto-advance bracket if this game is a bracket match — isolated so it never crashes score submission
   try {
@@ -431,6 +440,9 @@ export async function confirmScore(gameId: string) {
   if (error) return { data: null, error: error.message }
 
   revalidatePath('/events/[slug]', 'page')
+
+  // The opposing captain's confirm is when the result becomes official.
+  after(() => sendGameResultAlerts(db, org.id, gameId))
 
   // Auto-advance bracket if this game is a bracket match — isolated so it never crashes score confirmation
   try {
