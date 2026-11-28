@@ -15,6 +15,9 @@ import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { redirectToLogin } from '@/lib/auth'
 import { BackLink } from '@/components/ui/back-link'
 import { ResultCardShare } from '@/components/games/result-card-share'
+import { RivalryCard } from '@/components/games/rivalry-card'
+import { loadRivalry } from '@/lib/rivalry-load'
+import { isRivalry } from '@/lib/rivalry'
 import { MapLink } from '@/components/ui/map-link'
 import { MapPin } from 'lucide-react'
 import { LiveScoreBadgeWhenLive } from '@/components/scoreboard/live-score-badge-when-live'
@@ -224,6 +227,14 @@ export default async function GameMatchupPage({
     }
   }
 
+  // ── Rivalry: all-time record by team NAME across seasons, from the viewer's
+  // side when they're on one of the teams. Started now, awaited at render.
+  const rivalA = myTeamId && myTeamId === awayTeamId ? awayTeam : homeTeam
+  const rivalB = rivalA === homeTeam ? awayTeam : homeTeam
+  const rivalryPromise = rivalA?.name && rivalB?.name
+    ? loadRivalry(db, org.id, rivalA.name, rivalB.name, timezone).catch(() => null)
+    : Promise.resolve(null)
+
   // ── Head-to-head data (same league, both teams must exist) ───────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let h2hGames: any[] = []
@@ -265,6 +276,8 @@ export default async function GameMatchupPage({
   }
 
   const hasH2hHistory = homeWins + awayWins + draws > 0
+  const rivalryRaw = await rivalryPromise
+  const rivalry = rivalryRaw && isRivalry(rivalryRaw) ? rivalryRaw : null
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -495,6 +508,10 @@ export default async function GameMatchupPage({
             </div>
           )}
         </div>
+
+        {rivalry && rivalA && rivalB && (
+          <RivalryCard rivalry={rivalry} aName={rivalA.name} bName={rivalB.name} mine={!!myTeamId} timeZone={timezone} />
+        )}
 
         {/* ── Head-to-head section ── */}
         {h2hGames.length > 0 && (
