@@ -79,3 +79,50 @@ export function isFreshResult(scheduledAt: string | null, nowMs: number): boolea
   const t = new Date(scheduledAt).getTime()
   return Number.isFinite(t) && nowMs - t <= RESULT_ALERT_WINDOW_MS && t - nowMs <= 12 * 60 * 60 * 1000
 }
+
+/**
+ * One alert per team per night: a team that plays three games tonight hears
+ * once, after its last result of the day is in. Pure pieces; the sending is in
+ * lib/game-result-alerts.ts.
+ */
+export interface NightResult {
+  outcome: Outcome
+  /** Null for a playoff match an organiser advanced without a score. */
+  my: number | null
+  their: number | null
+  opponent: string
+}
+
+/** Still playing tonight: any of the team's games/matches today without a final result. */
+export function nightStillPlaying(items: { done: boolean }[]): boolean {
+  return items.some((i) => !i.done)
+}
+
+/** "W 21–18 vs Net Results" / "W vs Net Results" (advanced without a score). */
+export function nightResultLine(r: NightResult): string {
+  const word = r.outcome === 'T' ? 'Tie' : r.outcome
+  return r.my == null || r.their == null ? `${word} vs ${r.opponent}` : `${word} ${r.my}–${r.their} vs ${r.opponent}`
+}
+
+/**
+ * The alert for a night of two or more results (one result uses resultAlert):
+ * "2–1 tonight 🎉" with every result in order. A good night is celebrated; a
+ * tough one stays warm.
+ */
+export function nightAlert(results: NightResult[], streak: number): { title: string; body: string } {
+  const w = results.filter((r) => r.outcome === 'W').length
+  const l = results.filter((r) => r.outcome === 'L').length
+  const t = results.length - w - l
+  const record = t > 0 ? `${w}–${l}–${t}` : `${w}–${l}`
+  const lines = results.map(nightResultLine).join(' · ')
+  const tail = streak >= 2 ? ` That's ${streak} wins in a row 🔥` : w > l ? '' : w > 0 ? ' Good night out 💪' : ' Good battles. On to the next one 💪'
+  return {
+    title: w > l ? `${record} tonight 🎉` : `${record} tonight`,
+    body: `${lines}.${tail}`,
+  }
+}
+
+/** The org's calendar date (YYYY-MM-DD) of a time — the "night" a result belongs to. */
+export function orgNight(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
+}
