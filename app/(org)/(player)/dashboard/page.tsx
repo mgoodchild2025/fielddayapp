@@ -9,6 +9,8 @@ import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emp
 import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
 import { getPlayerMedals } from '@/lib/medal-queries'
 import { getPlayerCareer } from '@/lib/career'
+import { loadAttendanceStreak } from '@/lib/attendance-streak-load'
+import { weekOf } from '@/lib/attendance-streak'
 import type { BioCardData } from '@/components/bios/player-bio-card'
 import { cardGaps } from '@/lib/player-card-gaps'
 import type {
@@ -57,6 +59,10 @@ export default async function DashboardPage() {
   identityPromise.catch(() => {})
   const scorekeepingPromise = getMyScorekeeperEvents(org.id, user.id)
   scorekeepingPromise.catch(() => {})
+  // Attendance streak: needs the org timezone, which comes from branding (cached).
+  const streakPromise = getOrgBrandingCached(org.id)
+    .then((b) => loadAttendanceStreak(db, org.id, user.id, b?.timezone ?? 'America/Toronto'))
+  streakPromise.catch(() => {})
 
   // ── Base queries (always run) ─────────────────────────────────────────────
   const [
@@ -239,6 +245,7 @@ export default async function DashboardPage() {
           myCardGaps={myCardGaps}
           timezone={timezone}
           scorekeeping={scorekeeping}
+          streak={await streakPromise}
           nextItem={null}
           sameDayGames={[]}
           teams={[]}
@@ -603,6 +610,13 @@ export default async function DashboardPage() {
   }))
 
   // The game hero shows games only now.
+  // The streak line asks "you in for Friday?" only for a game later THIS week.
+  const streakNextDay = nextGameItem && weekOf(nextGameItem.scheduledAt, timezone) === weekOf(now, timezone)
+    ? (new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(nextGameItem.scheduledAt))
+        === new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+        ? 'tonight'
+        : new Intl.DateTimeFormat('en-CA', { timeZone: timezone, weekday: 'long' }).format(new Date(nextGameItem.scheduledAt)))
+    : null
   const nextItem: NextItem = nextGameItem
 
   // Cancelled / postponed games in the next ~36h — announced above the hero.
@@ -814,6 +828,8 @@ export default async function DashboardPage() {
           timezone={timezone}
           scorekeeping={scorekeeping}
           nextItem={nextItem}
+          streak={await streakPromise}
+          streakNextDay={streakNextDay}
           callOffs={callOffs}
           nextSessions={nextSessionItems}
           sameDayGames={sameDayGames}
