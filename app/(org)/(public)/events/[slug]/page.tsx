@@ -2033,6 +2033,20 @@ export default async function EventDetailPage({
             {/* Final results — the podium, once medals are awarded */}
             {podiumMedals.length > 0 && <EventPodium medals={podiumMedals} />}
 
+            {/* The player's own season, once the event is over. */}
+            {isPlayerHere && (league.status === 'completed' || league.status === 'archived') && (
+              <Link
+                href={`/wrapped/${league.slug}`}
+                className="press flex items-center justify-between gap-3 rounded-xl bg-gray-900 px-5 py-4 text-white hover:bg-gray-800"
+              >
+                <span>
+                  <span className="block text-xs font-semibold uppercase tracking-[.16em] text-brand-primary">Season wrapped</span>
+                  <span className="block text-base font-bold">See your season and share it</span>
+                </span>
+                <span aria-hidden className="text-2xl">🎬</span>
+              </Link>
+            )}
+
             {/* Rules */}
             {league.rules_content && (
               <div className="bg-white rounded-lg border p-5">
