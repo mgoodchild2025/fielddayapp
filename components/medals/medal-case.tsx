@@ -37,9 +37,9 @@ function awardedLabel(iso: string): string {
 
 // ── Confetti: ~60 DOM particles, no library ──────────────────────────────────
 // Pieces are generated in the click handler (render must stay pure).
-type ConfettiPiece = { left: number; delay: number; duration: number; color: string; size: number; rotate: number }
+export type ConfettiPiece = { left: number; delay: number; duration: number; color: string; size: number; rotate: number }
 
-function makeConfetti(): ConfettiPiece[] {
+export function makeConfetti(): ConfettiPiece[] {
   const colors = ['#e5b93c', '#b8bdc6', '#c07a3d', '#7c3aed', '#2563eb', '#16a34a']
   return Array.from({ length: 60 }, (_, i) => ({
     left: Math.random() * 100,
@@ -51,7 +51,7 @@ function makeConfetti(): ConfettiPiece[] {
   }))
 }
 
-function ConfettiBurst({ pieces }: { pieces: ConfettiPiece[] }) {
+export function ConfettiBurst({ pieces }: { pieces: ConfettiPiece[] }) {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       <style>{`

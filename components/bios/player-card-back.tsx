@@ -2,6 +2,7 @@
 
 import type { PlayerCareer } from '@/lib/career'
 import type { BioCardData } from './player-bio-card'
+import { topMilestones } from '@/lib/milestones'
 
 /**
  * The back of the player card (card flip C2) — a hockey-card back: vitals
@@ -81,6 +82,18 @@ export function PlayerCardBack({ bio, career }: { bio: BioCardData; career: Play
       )}
 
       {bio.medalShelf && <p className="mt-2 text-base tracking-widest" title="Career medals">{bio.medalShelf}</p>}
+      {career.milestoneStats && (() => {
+        const badges = topMilestones(career.milestoneStats)
+        return badges.length > 0 ? (
+          <ul className="mt-2 flex flex-wrap gap-1" aria-label="Milestones">
+            {badges.map((m) => (
+              <li key={m.id} className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/85">
+                <span aria-hidden>{m.icon} </span>{m.title}
+              </li>
+            ))}
+          </ul>
+        ) : null
+      })()}
       {bio.tagline && (
         <p className="mt-1.5 border-l-2 pl-2 text-xs italic text-white/70" style={{ borderColor: 'var(--brand-secondary, #d4a017)' }}>
           &ldquo;{bio.tagline}&rdquo;
