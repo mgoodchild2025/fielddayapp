@@ -7,6 +7,7 @@ import { BioFlipCard } from '@/components/bios/bio-flip-card'
 import { CardNudge } from '@/components/bios/card-nudge'
 import { useRouter } from 'next/navigation'
 import { ShowCardPrompt } from '@/components/bios/show-card-prompt'
+import { MilestoneStrip } from '@/components/milestones/milestone-strip'
 import { describeGaps, type CardGap } from '@/lib/player-card-gaps'
 import { AlertsNudge } from '@/components/pwa/alerts-nudge'
 import type { BioCardData } from '@/components/bios/player-bio-card'
@@ -590,6 +591,9 @@ function MyCardSection({ myCardBio, myCareer, myCardHref, hasCardBio, myCardGaps
 
 export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], scorekeeping = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, hasCardBio = false, myCardGaps = [], askToShowCard = false, showShop = false }: Props) {
   // The medal celebration nudges a photo onto the card the medal now sits on.
+  const milestoneStrip = myCareer?.milestoneStats
+    ? <MilestoneStrip stats={myCareer.milestoneStats} orgName={orgName} storageKey={`fd-milestones-seen:${orgName}`} />
+    : null
   const medalCardNudge = myCardGaps.includes('photo')
     ? { text: "It's on your player card now. Add a photo?", href: '/profile#bio' }
     : null
@@ -702,6 +706,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
               <MedalCase medals={medals} isOwner title="Your trophy case" cardNudge={medalCardNudge} />
             </div>
           )}
+          {milestoneStrip}
           <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} hasCardBio={hasCardBio} myCardGaps={myCardGaps} askToShowCard={askToShowCard} />
         </div>
 
@@ -1075,6 +1080,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
       {/* ── Trophy case + player card ── */}
       <section>
         {medals.length > 0 && <MedalCase medals={medals} isOwner title="Your trophy case" cardNudge={medalCardNudge} />}
+        {milestoneStrip}
         <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} hasCardBio={hasCardBio} myCardGaps={myCardGaps} askToShowCard={askToShowCard} />
       </section>
 

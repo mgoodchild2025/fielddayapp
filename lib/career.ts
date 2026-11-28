@@ -1,6 +1,7 @@
 import type { createServiceRoleClient } from '@/lib/supabase/service'
 import { getStatDefinitions } from '@/actions/stats'
 import { accumulateGameResult, isVolleyballSport, type TeamStatTotals, countsForStandings } from '@/lib/standings'
+import { EMPTY_MILESTONE_STATS, type MilestoneStats } from '@/lib/milestones'
 
 /**
  * The career record (card flip C1): everything the back of a player's card
@@ -43,6 +44,8 @@ export interface PlayerCareer {
   seasonCount: number
   /** Gold within the last year on a team the player was on — drives the foil. */
   reigningChampion?: boolean
+  /** Counts behind the player's milestones (lib/milestones.ts). */
+  milestoneStats?: MilestoneStats
 }
 
 const MEDAL_GLYPH: Record<string, string> = {
@@ -172,7 +175,10 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
       createdAt: league.created_at ?? null,
     })
   }
-  if (memberships.length === 0) return { seasons: [], tables: [], seasonCount: 0 }
+  if (memberships.length === 0) {
+    // Drop-in regulars have no team but still have milestones.
+    return { seasons: [], tables: [], seasonCount: 0, milestoneStats: await loadMilestoneStats(db, orgId, userId, [], 0) }
+  }
 
   const leagueIds = [...new Set(memberships.map((m) => m.leagueId))]
   const teamList = [...new Set(memberships.map((m) => m.teamId))].join(',')
@@ -269,5 +275,76 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
     m.team_id && myTeamKeys.has(`${m.league_id}:${m.team_id}`) &&
     m.awarded_at && new Date(m.awarded_at).getTime() >= yearAgo
   )
+  const teamGames = [...teamRecordByLeagueTeam.values()].reduce((sum, r) => sum + r.wins + r.losses + r.ties, 0)
+  career.milestoneStats = await loadMilestoneStats(db, orgId, userId, memberships, teamGames)
   return career
+}
+
+/**
+ * The counts behind a player's milestones, in this org. Events = every event
+ * they joined (a team OR an active registration — drop-in series included);
+ * sessions = past, not-cancelled drop-in sessions they didn't cancel;
+ * teammates = different people on any of their teams; years = calendar years
+ * those events started in. Never throws: milestones are a bonus, so a failed
+ * read shows fewer, never breaks the card.
+ */
+async function loadMilestoneStats(
+  db: Db, orgId: string, userId: string,
+  memberships: CareerInputs['memberships'], teamGames: number,
+): Promise<MilestoneStats> {
+  try {
+    const teamIds = [...new Set(memberships.map((m) => m.teamId))]
+    const nowIso = new Date().toISOString()
+    const [{ data: regs }, { count: sessions }, teammateRows] = await Promise.all([
+      db.from('registrations')
+        .select('league_id')
+        .eq('organization_id', orgId)
+        .eq('user_id', userId)
+        .eq('status', 'active'),
+      db.from('session_registrations')
+        .select('id, event_sessions!inner(scheduled_at, status)', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('user_id', userId)
+        .eq('status', 'registered')
+        .lt('event_sessions.scheduled_at', nowIso)
+        .neq('event_sessions.status', 'cancelled'),
+      teamIds.length > 0
+        ? db.from('team_members')
+            .select('user_id')
+            .in('team_id', teamIds)
+            .in('status', ['active', 'inactive'])
+            .neq('user_id', userId)
+            .then((r) => r.data ?? [])
+        : Promise.resolve([] as { user_id: string | null }[]),
+    ])
+
+    const leagueIds = new Set<string>(memberships.map((m) => m.leagueId))
+    for (const r of regs ?? []) if (r.league_id) leagueIds.add(r.league_id)
+
+    // Years: the start year of each event (season start, else when it was made).
+    const known = new Map(memberships.map((m) => [m.leagueId, m.seasonStart ?? m.createdAt]))
+    const missing = [...leagueIds].filter((id) => !known.has(id))
+    if (missing.length > 0) {
+      const { data: leagues } = await db.from('leagues')
+        .select('id, season_start_date, created_at')
+        .eq('organization_id', orgId)
+        .in('id', missing)
+      for (const l of leagues ?? []) known.set(l.id, l.season_start_date ?? l.created_at)
+    }
+    const years = new Set<number>()
+    for (const id of leagueIds) {
+      const d = known.get(id)
+      if (d) years.add(new Date(d).getUTCFullYear())
+    }
+
+    return {
+      events: leagueIds.size,
+      games: teamGames,
+      sessions: sessions ?? 0,
+      teammates: new Set(teammateRows.map((t) => t.user_id).filter(Boolean)).size,
+      years: years.size,
+    }
+  } catch {
+    return { ...EMPTY_MILESTONE_STATS, games: teamGames }
+  }
 }
