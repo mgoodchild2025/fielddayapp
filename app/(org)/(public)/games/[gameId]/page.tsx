@@ -14,6 +14,7 @@ import { formatGameTime } from '@/lib/format-time'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { redirectToLogin } from '@/lib/auth'
 import { BackLink } from '@/components/ui/back-link'
+import { ResultCardShare } from '@/components/games/result-card-share'
 import { MapLink } from '@/components/ui/map-link'
 import { MapPin } from 'lucide-react'
 import { LiveScoreBadgeWhenLive } from '@/components/scoreboard/live-score-badge-when-live'
@@ -98,7 +99,7 @@ export default async function GameMatchupPage({
         home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
         away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
         league:leagues!games_league_id_fkey(id, name, slug, event_type, sport, venue_name, venue_address),
-        game_results(home_score, away_score, sets, status, submitted_by)
+        game_results(home_score, away_score, sets, status, submitted_by, is_forfeit)
       `)
       .eq('id', gameId)
       .eq('organization_id', org.id)
@@ -382,6 +383,16 @@ export default async function GameMatchupPage({
                 </div>
               ))}
             </div>
+          )}
+
+          {/* The player's shareable result card (their team's side). Not for
+              forfeits: a no-show isn't a moment worth sharing. */}
+          {isCompleted && myTeamId && !result?.is_forfeit && (
+            <ResultCardShare
+              src={`/games/${gameId}/result-card`}
+              fileName={`${(league?.name ?? 'result').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-result.png`}
+              title={`${homeTeam?.name ?? ''} ${result.home_score}–${result.away_score} ${awayTeam?.name ?? ''}`}
+            />
           )}
 
           {/* Why it's off — players asked "cancelled why?" with nowhere to look. */}
