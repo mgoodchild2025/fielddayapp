@@ -1,4 +1,5 @@
 import type { createServiceRoleClient } from '@/lib/supabase/service'
+import { summarizeKudos } from '@/lib/kudos'
 import { getStatDefinitions } from '@/actions/stats'
 import { accumulateGameResult, isVolleyballSport, type TeamStatTotals, countsForStandings } from '@/lib/standings'
 import { EMPTY_MILESTONE_STATS, type MilestoneStats } from '@/lib/milestones'
@@ -46,6 +47,8 @@ export interface PlayerCareer {
   reigningChampion?: boolean
   /** Counts behind the player's milestones (lib/milestones.ts). */
   milestoneStats?: MilestoneStats
+  /** Kudos received in this org, by kind (most first). */
+  kudos?: { kind: string; emoji: string; label: string; count: number }[]
 }
 
 const MEDAL_GLYPH: Record<string, string> = {
@@ -177,7 +180,8 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
   }
   if (memberships.length === 0) {
     // Drop-in regulars have no team but still have milestones.
-    return { seasons: [], tables: [], seasonCount: 0, milestoneStats: await loadMilestoneStats(db, orgId, userId, [], 0) }
+    const [milestoneStats, kudos] = await Promise.all([loadMilestoneStats(db, orgId, userId, [], 0), loadKudosSummary(db, orgId, userId)])
+    return { seasons: [], tables: [], seasonCount: 0, milestoneStats, kudos }
   }
 
   const leagueIds = [...new Set(memberships.map((m) => m.leagueId))]
@@ -276,7 +280,10 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
     m.awarded_at && new Date(m.awarded_at).getTime() >= yearAgo
   )
   const teamGames = [...teamRecordByLeagueTeam.values()].reduce((sum, r) => sum + r.wins + r.losses + r.ties, 0)
-  career.milestoneStats = await loadMilestoneStats(db, orgId, userId, memberships, teamGames)
+  ;[career.milestoneStats, career.kudos] = await Promise.all([
+    loadMilestoneStats(db, orgId, userId, memberships, teamGames),
+    loadKudosSummary(db, orgId, userId),
+  ])
   return career
 }
 
@@ -347,4 +354,12 @@ async function loadMilestoneStats(
   } catch {
     return { ...EMPTY_MILESTONE_STATS, games: teamGames }
   }
+}
+
+/** Kudos a player has received in this org, by kind. Never throws (no kudos on error). */
+async function loadKudosSummary(db: Db, orgId: string, userId: string) {
+  const { data, error } = await db.from('kudos').select('kind')
+    .eq('organization_id', orgId).eq('to_user_id', userId).limit(5000)
+  if (error) return []
+  return summarizeKudos((data ?? []).map((k) => k.kind))
 }

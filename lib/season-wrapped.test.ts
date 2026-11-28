@@ -38,6 +38,9 @@ describe('buildWrapped', () => {
     expect(buildWrapped({ ...base, medal: { placement: 'gold', label: 'Champions' } })).toMatchObject({ headline: 'Champions!', medalGlyph: '🥇' })
     expect(buildWrapped({ ...base, medal: { placement: 'silver', label: 'Runner-up' } }).headline).toBe('Runner-up!')
   })
+  it('kudos received', () => {
+    expect(buildWrapped({ ...base, kudos: 4 }).tiles.find((t) => t.key === 'kudos')).toMatchObject({ value: '4', label: 'Kudos received' })
+  })
   it('playoff wins', () => {
     const w = buildWrapped({ ...base, playoffs: [{ won: true }, { won: true }, { won: false }] })
     expect(w.tiles.find((t) => t.key === 'playoffs')).toMatchObject({ value: '2', label: 'Playoff wins' })

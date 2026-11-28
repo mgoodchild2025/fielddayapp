@@ -2397,6 +2397,42 @@ export type Database = {
           },
         ]
       }
+      kudos: {
+        Row: {
+          created_at: string
+          from_user_id: string
+          game_id: string
+          id: string
+          kind: string
+          league_id: string | null
+          organization_id: string
+          to_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          from_user_id: string
+          game_id: string
+          id?: string
+          kind: string
+          league_id?: string | null
+          organization_id: string
+          to_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          from_user_id?: string
+          game_id?: string
+          id?: string
+          kind?: string
+          league_id?: string | null
+          organization_id?: string
+          to_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leagues: {
         Row: {
           access_token: string

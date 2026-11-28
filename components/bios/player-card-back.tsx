@@ -94,6 +94,12 @@ export function PlayerCardBack({ bio, career }: { bio: BioCardData; career: Play
           </ul>
         ) : null
       })()}
+      {career.kudos && career.kudos.length > 0 && (
+        <p className="mt-2 text-[11px] text-white/80" aria-label="Kudos received">
+          <span className="font-semibold text-white/90">Kudos </span>
+          {career.kudos.slice(0, 3).map((k) => `${k.emoji} ${k.label} ×${k.count}`).join(' · ')}
+        </p>
+      )}
       {bio.tagline && (
         <p className="mt-1.5 border-l-2 pl-2 text-xs italic text-white/70" style={{ borderColor: 'var(--brand-secondary, #d4a017)' }}>
           &ldquo;{bio.tagline}&rdquo;
