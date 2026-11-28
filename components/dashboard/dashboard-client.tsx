@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { upsertRsvp } from '@/actions/rsvp'
 import { RsvpChoice } from '@/components/schedule/rsvp-choice'
+import { streakLine, type AttendanceStreak } from '@/lib/attendance-streak'
 import Image from 'next/image'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { toast } from 'sonner'
@@ -170,6 +171,10 @@ interface Props {
   myCardGaps?: CardGap[]
   /** Card filled in but not shown on event screens: ask once (one tap). */
   askToShowCard?: boolean
+  /** Weeks in a row played (lib/attendance-streak). */
+  streak?: AttendanceStreak | null
+  /** Weekday of the next game when it's later this week ("Friday", "tonight"). */
+  streakNextDay?: string | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -395,6 +400,17 @@ function GameHero({
   )
 }
 
+// ── StreakLine ─────────────────────────────────────────────────────────────
+// "You've played 8 weeks in a row 🔥 Keep it going: you in for Friday?" — the
+// question is answered by the RSVP buttons on the next-game card right below.
+function StreakLine({ text }: { text: string }) {
+  return (
+    <p className="mt-2 inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-sm font-medium text-orange-900">
+      {text}
+    </p>
+  )
+}
+
 // ── SameDayGameRow ────────────────────────────────────────────────────────────
 // A compact RSVP row for a game later the same day. Controlled by the parent so
 // the hero can cascade its status to every same-day game at once.
@@ -589,7 +605,7 @@ function MyCardSection({ myCardBio, myCareer, myCardHref, hasCardBio, myCardGaps
   )
 }
 
-export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], scorekeeping = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, hasCardBio = false, myCardGaps = [], askToShowCard = false, showShop = false }: Props) {
+export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], scorekeeping = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, hasCardBio = false, myCardGaps = [], askToShowCard = false, showShop = false, streak = null, streakNextDay = null }: Props) {
   // The medal celebration nudges a photo onto the card the medal now sits on.
   const milestoneStrip = myCareer?.milestoneStats
     ? <MilestoneStrip stats={myCareer.milestoneStats} orgName={orgName} storageKey={`fd-milestones-seen:${orgName}`} />
@@ -611,6 +627,9 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
   const [myRsvp, setMyRsvp] = useState<'in' | 'out' | null>(initialRsvp)
   const [rsvpIn,  setRsvpIn]  = useState(initialIn)
   const [rsvpOut, setRsvpOut] = useState(initialOut)
+  const streakText = streak
+    ? streakLine(streak, { nextDay: streakNextDay, rsvpIn: myRsvp === 'in' })
+    : null
   const [, startTransition] = useTransition()
 
   // Controlled RSVP state for the same-day games (so the hero can cascade to them).
@@ -701,6 +720,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
             <span suppressHydrationWarning>{greeting(timezone)}</span>, {firstName}
           </h1>
+          {streakText && <StreakLine text={streakText} />}
           {medals.length > 0 && (
             <div className="mt-3">
               <MedalCase medals={medals} isOwner title="Your trophy case" cardNudge={medalCardNudge} />
@@ -740,6 +760,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           <span suppressHydrationWarning>{greeting(timezone)}</span>, {firstName}
         </h1>
+        {streakText && <StreakLine text={streakText} />}
       </div>
 
       {/* Order = what a player needs first: to-dos, then the next game/session
