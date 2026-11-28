@@ -1,6 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
+import { sendWrappedAlerts } from '@/lib/season-wrapped-load'
 import { awardLeagueMedalsInternal } from '@/actions/medals'
 import { headers } from 'next/headers'
 import { z } from 'zod'
@@ -262,6 +264,9 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
   // Fire-and-forget: never block the status change on medal writing.
   if (prior?.status !== 'completed' && status === 'completed') {
     await awardLeagueMedalsInternal(db, org.id, leagueId).catch(() => {})
+    // Everyone who played gets their Season Wrapped (after the response;
+    // once per event — re-completing an event never sends it twice).
+    after(() => sendWrappedAlerts(db, org.id, leagueId))
   }
 
   await recordAuditLog({

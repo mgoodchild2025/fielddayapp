@@ -13,7 +13,13 @@ import { announce } from '@/lib/announce'
  */
 const noSubscribe = () => () => {}
 
-export function ResultCardShare({ src, fileName, title }: { src: string; fileName: string; title: string }) {
+export function ResultCardShare({ src, fileName, title, heading = 'Your result card', anchorId = 'result', story = false }: {
+  src: string; fileName: string; title: string
+  heading?: string
+  anchorId?: string
+  /** A 9:16 story image (Season Wrapped) rather than the 4:5 result card. */
+  story?: boolean
+}) {
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   // Browser-only: the server renders "Share" too, so the HTML matches on phones.
@@ -52,14 +58,14 @@ export function ResultCardShare({ src, fileName, title }: { src: string; fileNam
 
 
   return (
-    <div id="result" className="mt-4 pt-4 border-t border-gray-100 scroll-mt-20">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 text-center">Your result card</p>
+    <div id={anchorId} className="mt-4 pt-4 border-t border-gray-100 scroll-mt-20">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2 text-center">{heading}</p>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={title}
         width={1080}
-        height={1350}
+        height={story ? 1920 : 1350}
         loading="lazy"
         onError={() => setFailed(true)}
         className="mx-auto w-full max-w-[16rem] h-auto rounded-xl shadow-md bg-gray-900"
