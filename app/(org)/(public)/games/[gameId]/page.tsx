@@ -16,6 +16,9 @@ import { redirectToLogin } from '@/lib/auth'
 import { BackLink } from '@/components/ui/back-link'
 import { ResultCardShare } from '@/components/games/result-card-share'
 import { RivalryCard } from '@/components/games/rivalry-card'
+import { KudosPanel, type KudosPlayer } from '@/components/games/kudos-panel'
+import { kudosOpen } from '@/lib/kudos'
+import { displayName } from '@/lib/team-cards'
 import { loadRivalry } from '@/lib/rivalry-load'
 import { isRivalry } from '@/lib/rivalry'
 import { MapLink } from '@/components/ui/map-link'
@@ -235,6 +238,20 @@ export default async function GameMatchupPage({
     ? loadRivalry(db, org.id, rivalA.name, rivalB.name, timezone).catch(() => null)
     : Promise.resolve(null)
 
+  // ── Kudos: players in this game shout each other out (from kickoff for 3 days).
+  const kudosIsOpen = kudosOpen(rawGame.scheduled_at, rawGame.status, nowMs)
+  const kudosPromise = myTeamId && homeTeamId && awayTeamId
+    ? Promise.all([
+        kudosIsOpen
+          ? db.from('team_members')
+              .select('team_id, user_id, profile:profiles!team_members_user_id_fkey(full_name)')
+              .in('team_id', [homeTeamId, awayTeamId]).eq('status', 'active').not('user_id', 'is', null)
+          : Promise.resolve({ data: [] as { team_id: string; user_id: string | null; profile: unknown }[] }),
+        db.from('kudos').select('from_user_id, to_user_id, kind').eq('game_id', gameId).eq('organization_id', org.id)
+          .or(`from_user_id.eq.${user.id},to_user_id.eq.${user.id}`),
+      ]).catch(() => null)
+    : Promise.resolve(null)
+
   // ── Head-to-head data (same league, both teams must exist) ───────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let h2hGames: any[] = []
@@ -277,6 +294,24 @@ export default async function GameMatchupPage({
 
   const hasH2hHistory = homeWins + awayWins + draws > 0
   const rivalryRaw = await rivalryPromise
+  const kudosData = await kudosPromise
+  let kudosView: { teams: { name: string; mine: boolean; players: KudosPlayer[] }[]; given: Record<string, string>; received: string[] } | null = null
+  if (kudosData) {
+    const [{ data: roster }, { data: kudosRows }] = kudosData
+    const playersOf = (teamId: string): KudosPlayer[] => (roster ?? [])
+      .filter((m) => m.team_id === teamId && m.user_id && m.user_id !== user.id)
+      .map((m) => ({ userId: m.user_id!, name: displayName((Array.isArray(m.profile) ? m.profile[0] : m.profile as { full_name?: string | null } | null)?.full_name, 'short') }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+    const otherId = myTeamId === homeTeamId ? awayTeamId! : homeTeamId!
+    kudosView = {
+      teams: [
+        { name: (myTeamId === homeTeamId ? homeTeam : awayTeam)?.name ?? 'Your team', mine: true, players: playersOf(myTeamId!) },
+        { name: (myTeamId === homeTeamId ? awayTeam : homeTeam)?.name ?? 'Opponents', mine: false, players: playersOf(otherId) },
+      ],
+      given: Object.fromEntries((kudosRows ?? []).filter((k) => k.from_user_id === user.id).map((k) => [k.to_user_id, k.kind])),
+      received: (kudosRows ?? []).filter((k) => k.to_user_id === user.id).map((k) => k.kind),
+    }
+  }
   const rivalry = rivalryRaw && isRivalry(rivalryRaw) ? rivalryRaw : null
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -508,6 +543,10 @@ export default async function GameMatchupPage({
             </div>
           )}
         </div>
+
+        {kudosView && (
+          <KudosPanel gameId={gameId} open={kudosIsOpen && !isCancelled && !isPostponed} teams={kudosView.teams} given={kudosView.given} received={kudosView.received} />
+        )}
 
         {rivalry && rivalA && rivalB && (
           <RivalryCard rivalry={rivalry} aName={rivalA.name} bName={rivalB.name} mine={!!myTeamId} timeZone={timezone} />

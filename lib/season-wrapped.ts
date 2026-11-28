@@ -26,6 +26,8 @@ export interface WrappedInputs {
   sessions: number
   teammates: number
   photos: number
+  /** Kudos received from other players in this event's games. */
+  kudos?: number
 }
 
 export interface WrappedTile {
@@ -92,6 +94,7 @@ export function buildWrapped(i: WrappedInputs): SeasonWrapped {
   }
   if (i.sessions > 0) tiles.push({ key: 'sessions', value: String(i.sessions), label: i.sessions === 1 ? 'Drop-in' : 'Drop-ins' })
   if (i.teammates > 0) tiles.push({ key: 'teammates', value: String(i.teammates), label: i.teammates === 1 ? 'Teammate' : 'Teammates' })
+  if ((i.kudos ?? 0) > 0) tiles.push({ key: 'kudos', value: String(i.kudos), label: 'Kudos received' })
   if (i.photos > 0) tiles.push({ key: 'photos', value: String(i.photos), label: i.photos === 1 ? 'Photo shared' : 'Photos shared' })
 
   const headline =

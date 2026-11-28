@@ -44,6 +44,8 @@ export async function loadSeasonWrapped(db: Db, orgId: string, slug: string, use
     db.from('registrations').select('id')
       .eq('organization_id', orgId).eq('league_id', league.id).eq('user_id', userId).eq('status', 'active').limit(1),
   ])
+  const { count: kudos } = await db.from('kudos').select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId).eq('league_id', league.id).eq('to_user_id', userId)
 
   const teamIds = (teams ?? []).map((t) => t.id)
   const { data: membership } = teamIds.length > 0
@@ -106,6 +108,7 @@ export async function loadSeasonWrapped(db: Db, orgId: string, slug: string, use
       sessions: sessions ?? 0,
       teammates,
       photos: photos ?? 0,
+      kudos: kudos ?? 0,
     }),
   }
 }
