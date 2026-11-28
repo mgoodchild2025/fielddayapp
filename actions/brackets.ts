@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
@@ -9,6 +10,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { requireScoringRole } from '@/lib/score-permissions'
 import { recordAuditLog } from '@/lib/audit'
+import { sendBracketResultAlerts } from '@/lib/game-result-alerts'
 import { advanceWinner, advanceLoser } from '@/lib/bracket-advance'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
 import { getInflowContext, inflowSpecFromContext, clearInboundRoutes, wireLeagueTierInflows } from '@/lib/tier-inflows'
@@ -873,6 +875,8 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
   if (loserTeamId) {
     await advanceLoser(db, org.id, d.bracketId, d.matchId, loserTeamId)
   }
+  // First result for this match: the teams' night alert (held until their last result today).
+  if (match.status !== 'completed') after(() => sendBracketResultAlerts(db, org.id, d.matchId))
 
   revalidatePath(`/admin/events/${d.leagueId}/bracket`)
   revalidatePath('/events/[slug]', 'page')
@@ -1809,6 +1813,7 @@ export async function declareMatchWinner(input: {
   if (loserTeamId) {
     await advanceLoser(db, org.id, input.bracketId, match.id, loserTeamId)
   }
+  after(() => sendBracketResultAlerts(db, org.id, match.id))
 
   revalidatePath(`/admin/events/${input.leagueId}/bracket`)
   revalidatePath('/events/[slug]', 'page')

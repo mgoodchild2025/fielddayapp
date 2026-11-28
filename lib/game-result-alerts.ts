@@ -1,6 +1,8 @@
 import type { createServiceRoleClient } from '@/lib/supabase/service'
 import { createNotifications } from '@/lib/notify'
-import { outcomeFor, winStreak, resultAlert, isFreshResult, type Outcome } from '@/lib/game-result'
+import { outcomeFor, winStreak, resultAlert, isFreshResult, nightAlert, nightStillPlaying, orgNight, type NightResult, type Outcome } from '@/lib/game-result'
+import { getOrgTimezone } from '@/lib/tenant'
+import { parseLocalToUtc } from '@/lib/format-time'
 
 /**
  * Post-game result alerts and the data behind the shareable result card.
@@ -99,12 +101,16 @@ export async function loadResultForTeam(db: Db, orgId: string, gameId: string, t
   }
 }
 
+type TeamRef = { name: string } | null
+
 /**
- * Tells both teams' players their result, once per game. Called (after the
- * response) by the score actions when a result FIRST becomes confirmed; a
- * notification already sent for the game is the guard against a second one
- * (cleared and re-entered, two confirms racing). Old games (an organiser
- * catching up) and forfeits send nothing. Never throws.
+ * Tells both teams' players how they did — ONCE PER TEAM PER NIGHT. Called
+ * (after the response) when a game result first becomes confirmed; a team
+ * that still has a game or playoff match later today (org time) without a
+ * final result is held, and the last result of its night sends one alert
+ * covering every result. A notification already sent for that team + night is
+ * the guard against a second. Old games (an organiser catching up) send
+ * nothing; forfeits are left out of the summary. Never throws.
  */
 export async function sendGameResultAlerts(db: Db, orgId: string, gameId: string): Promise<void> {
   try {
@@ -112,49 +118,146 @@ export async function sendGameResultAlerts(db: Db, orgId: string, gameId: string
       .from('games')
       .select('id, scheduled_at, home_team_id, away_team_id')
       .eq('id', gameId).eq('organization_id', orgId).maybeSingle()
-    if (!game?.home_team_id || !game.away_team_id) return
+    if (!game?.home_team_id || !game.away_team_id || !game.scheduled_at) return
     if (!isFreshResult(game.scheduled_at, Date.now())) return
-
-    const { data: already } = await db
-      .from('notifications')
-      .select('id')
-      .eq('organization_id', orgId)
-      .eq('type', 'game_result')
-      .eq('data->>game_id', gameId)
-      .limit(1)
-    if (already && already.length > 0) return
-
-    const [homeSide, awaySide, { data: members }] = await Promise.all([
-      loadResultForTeam(db, orgId, gameId, game.home_team_id),
-      loadResultForTeam(db, orgId, gameId, game.away_team_id),
-      db.from('team_members')
-        .select('team_id, user_id')
-        .in('team_id', [game.home_team_id, game.away_team_id])
-        .eq('status', 'active'),
-    ])
-    if (!homeSide || !awaySide) return
-
-    const rows = []
-    const seen = new Set<string>()
-    for (const m of members ?? []) {
-      if (!m.user_id || seen.has(m.user_id)) continue
-      seen.add(m.user_id)
-      const side = m.team_id === game.home_team_id ? homeSide : awaySide
-      const { title, body } = resultAlert({
-        outcome: side.outcome, myScore: side.myScore, theirScore: side.theirScore,
-        opponent: side.opponent.name, streak: side.streak, sets: side.sets,
-      })
-      rows.push({
-        organization_id: orgId,
-        user_id: m.user_id,
-        type: 'game_result',
-        title,
-        body,
-        data: { game_id: gameId, href: `/games/${gameId}#result`, link_label: 'See your result card' },
-      })
-    }
-    if (rows.length > 0) await createNotifications(rows)
+    const tz = await getOrgTimezone(orgId)
+    await Promise.all([game.home_team_id, game.away_team_id].map((t) => alertTeamNight(db, orgId, tz, t, game.scheduled_at!)))
   } catch (err) {
     console.error('[sendGameResultAlerts]', err)
   }
+}
+
+/** The playoff-match twin of sendGameResultAlerts (recordBracketScore / declareMatchWinner). Never throws. */
+export async function sendBracketResultAlerts(db: Db, orgId: string, matchId: string): Promise<void> {
+  try {
+    const { data: m } = await db
+      .from('bracket_matches')
+      .select('id, scheduled_at, scored_at, team1_id, team2_id, game_id, is_bye')
+      .eq('id', matchId).eq('organization_id', orgId).maybeSingle()
+    // A match played as a games row alerts through that game.
+    if (!m || m.is_bye || m.game_id || !m.team1_id || !m.team2_id) return
+    const at = m.scheduled_at ?? m.scored_at ?? new Date().toISOString()
+    if (!isFreshResult(at, Date.now())) return
+    const tz = await getOrgTimezone(orgId)
+    await Promise.all([m.team1_id, m.team2_id].map((t) => alertTeamNight(db, orgId, tz, t, at)))
+  } catch (err) {
+    console.error('[sendBracketResultAlerts]', err)
+  }
+}
+
+function nextDay(date: string): string {
+  const d = new Date(`${date}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+async function alertTeamNight(db: Db, orgId: string, tz: string, teamId: string, anchorIso: string): Promise<void> {
+  const night = orgNight(anchorIso, tz)
+  const start = parseLocalToUtc(night, '00:00', tz)
+  const end = parseLocalToUtc(nextDay(night), '00:00', tz)
+
+  const [{ data: already }, { data: games }, { data: matches }] = await Promise.all([
+    db.from('notifications').select('id')
+      .eq('organization_id', orgId).eq('type', 'game_result')
+      .eq('data->>team_id', teamId).eq('data->>night', night)
+      .limit(1),
+    db.from('games')
+      .select(`
+        id, scheduled_at, home_team_id, away_team_id,
+        home:teams!games_home_team_id_fkey(name),
+        away:teams!games_away_team_id_fkey(name),
+        game_results(home_score, away_score, status, is_forfeit)
+      `)
+      .eq('organization_id', orgId)
+      .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+      .gte('scheduled_at', start).lt('scheduled_at', end)
+      .not('status', 'in', '(cancelled,postponed)'),
+    db.from('bracket_matches')
+      .select(`
+        id, scheduled_at, status, score1, score2, team1_id, team2_id, winner_team_id,
+        team1:teams!bracket_matches_team1_id_fkey(name),
+        team2:teams!bracket_matches_team2_id_fkey(name),
+        bracket:brackets!bracket_matches_bracket_id_fkey(league:leagues(slug))
+      `)
+      .eq('organization_id', orgId)
+      .eq('is_bye', false)
+      .is('game_id', null)
+      .or(`team1_id.eq.${teamId},team2_id.eq.${teamId}`)
+      .gte('scheduled_at', start).lt('scheduled_at', end),
+  ])
+  if (already && already.length > 0) return
+
+  type Item = NightResult & { at: string; gameId: string | null; slug: string | null; forfeit: boolean }
+  const items: (Item | null)[] = []
+  const status: { done: boolean }[] = []
+  for (const g of games ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = one((g as any).game_results) as { home_score: number | null; away_score: number | null; status: string; is_forfeit: boolean | null } | null
+    const done = r?.status === 'confirmed'
+    status.push({ done })
+    if (!done || r!.home_score == null || r!.away_score == null) continue
+    const home = g.home_team_id === teamId
+    const my = home ? r!.home_score : r!.away_score
+    const their = home ? r!.away_score : r!.home_score
+    items.push({
+      outcome: outcomeFor(my, their), my, their,
+      opponent: (one((home ? g.away : g.home) as unknown) as TeamRef)?.name ?? 'opponent',
+      at: g.scheduled_at ?? '', gameId: g.id, slug: null, forfeit: !!r!.is_forfeit,
+    })
+  }
+  for (const m of matches ?? []) {
+    const done = m.status === 'completed'
+    status.push({ done })
+    if (!done || !m.winner_team_id) continue
+    const first = m.team1_id === teamId
+    const bracket = one(m.bracket as unknown) as { league: unknown } | null
+    items.push({
+      outcome: m.winner_team_id === teamId ? 'W' : 'L',
+      my: first ? m.score1 : m.score2,
+      their: first ? m.score2 : m.score1,
+      opponent: (one((first ? m.team2 : m.team1) as unknown) as TeamRef)?.name ?? 'opponent',
+      at: m.scheduled_at ?? '', gameId: null,
+      slug: (one(bracket?.league) as { slug: string } | null)?.slug ?? null,
+      forfeit: false,
+    })
+  }
+  if (nightStillPlaying(status)) return
+
+  const results = (items.filter(Boolean) as Item[]).filter((r) => !r.forfeit).sort((a, b) => a.at.localeCompare(b.at))
+  if (results.length === 0) return
+  const last = results[results.length - 1]
+  const lastGame = [...results].reverse().find((r) => r.gameId)
+
+  let title: string, body: string
+  if (results.length === 1 && last.gameId) {
+    const side = await loadResultForTeam(db, orgId, last.gameId, teamId)
+    if (!side) return
+    ;({ title, body } = resultAlert({
+      outcome: side.outcome, myScore: side.myScore, theirScore: side.theirScore,
+      opponent: side.opponent.name, streak: side.streak, sets: side.sets,
+    }))
+  } else {
+    // A streak only when tonight ended on a game win (regular-season games carry it).
+    const streak = last.gameId && last.outcome === 'W'
+      ? (await loadResultForTeam(db, orgId, last.gameId, teamId))?.streak ?? 0
+      : 0
+    ;({ title, body } = nightAlert(results, streak))
+  }
+
+  const { data: members } = await db.from('team_members')
+    .select('user_id').eq('team_id', teamId).eq('status', 'active')
+  const userIds = [...new Set((members ?? []).map((m) => m.user_id).filter((u): u is string => !!u))]
+  if (userIds.length === 0) return
+
+  const link = lastGame
+    ? { game_id: lastGame.gameId, href: `/games/${lastGame.gameId}#result`, link_label: 'See your result card' }
+    : { href: last.slug ? `/events/${last.slug}?tab=bracket` : '/dashboard', link_label: 'See the bracket' }
+  await createNotifications(userIds.map((userId) => ({
+    organization_id: orgId,
+    user_id: userId,
+    type: 'game_result',
+    title,
+    body,
+    data: { team_id: teamId, night, ...link },
+  })))
 }
